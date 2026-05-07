@@ -37,7 +37,7 @@ The site is a community-built dashboard, not the DAO itself. Governance lives on
 - **Phase 1b** — DAO staker mint at 50 LUNA. Two groups: 2+ stakers got assigned rarities via NFT Switch; 1-staker got random via BBL Candy Machine. ~$32-35. (Feb 2024)
 - **Phase 2a** — Terra NFT communities (Galactic Punks, Skeleton Punks, PixeLions, GMC). 75 LUNA. ~$52-120 due to LUNA volatility. 1 per address. (Feb-Mar 2024)
 - **Phase 2b** — The big one. 3 rounds, escalating prices: 100 → 115 → 130 LUNA. **Sold out 1,300 NFTs, raised 148,390 LUNA**, avg ~$75. (June 2024)
-- **DAO Security Allocations** — Multisig allocation #1 (462 broken, ~Feb 2024); Multisig allocation #2 (538 broken, June 2024). Total = 1,000 broken security NFTs.
+- **DAO Security Allocations** — Multisig allocation #1 (462 broken, ~Feb 2024); Multisig allocation #2 (538 broken via Props 64-69, June 2024 following Phase 2b). Total = 1,000 broken security NFTs. Broken NFTs retain governance VP but no longer accrue Alliance rewards — used for veto/security against malicious proposals.
 
 ---
 
@@ -148,9 +148,9 @@ The lore is intentionally designed as **a flexible narrative scaffold** that can
 ### Eris Protocol (deep, structural)
 - **ampLUNA conversion** for NFT rewards (+40% projected over 4 years)
 - **5 million $ERIS** vested to DAO treasury
-- Eris is also a **council member in aDAO** — this is structural, not just integration
-- Eris team also builds Credia, Votion
+- Eris (the person/team) is a **council member in aDAO** — this is structural, not just integration
 - Eris is a core signer for **Phoenix Directive** (stewards of Terra)
+- Eris builds a wide ecosystem of products (see Section 11)
 
 ### Capa Protocol (in active development, "very close")
 - Capa is a **stablecoin issuer on Terra** (issues "Solid")
@@ -269,8 +269,15 @@ The 10% take rate from the ALLY contract also flows to DAO Treasury continuously
 Terra here refers to the **post-collapse Terra** (Phoenix chain), not the original Terra Classic.
 
 **Key entities in aDAO's orbit:**
-- **Eris Protocol** — the team behind Eris (LSTs/arb vaults), Credia (money market), Votion (vote optimizer for TLA + Hydro). Eris is also a **council member in aDAO**.
-- **Phoenix Directive** — the stewards of the Terra chain. Eris is a **core signer**.
+
+- **Eris Protocol** — Builds and operates a wide product ecosystem on Terra:
+  - **Eris Protocol** itself — hosts TLA, issues LSTs (ampLUNA, arbLUNA, ampCAPA, ampROAR, etc.), arb vaults, and other infrastructure
+  - **Creda Finance** — money market on Terra (Eris is a major contributor)
+  - **Votion** — vote aggregator/optimizer for TLA. Users **lock TLA locks in Votion**, and Votion auto-votes that VP onto LPs with the highest bribes, then collects the bribes and uses them to **boost the APY of the original lockups**. Effectively a yield optimizer layered on top of TLA.
+  - Eris is also a **council member in aDAO** — directly involved in DAO decisions
+  - Eris is a **core signer for Phoenix Directive**
+
+- **Phoenix Directive** — the stewards of the Terra chain. Eris is a core signer.
 - **Phoenix Foundation** — community-driven governance for Terra's future.
 - **Capa Protocol** — stablecoin (Solid) issuer; partnership in development.
 - **BackBone Labs (BBL)** — NFT marketplace.
