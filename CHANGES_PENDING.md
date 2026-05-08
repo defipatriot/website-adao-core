@@ -6,13 +6,70 @@
 
 ---
 
-## 🟢 Just shipped (Rev 3.21)
+## 🟢 Just shipped (Rev 3.22)
 
-See `logs/index-log.md` for full details. High-level: SEO/PWA setup, mobile redesign, navigation overhaul, honest data display, changelog system itself.
+See `logs/index-log.md` for full details. High-level for Rev 3.22:
+- 4 file renames: `planet-map` → `adao-lore`, `capa_lp_converter` → `ampcapa-tool`, `fuel_tracker` → `fuel-tool`, `dao_governance` → `dao`
+- Home tab added to top nav (now 5 tabs everywhere)
+- Active page highlighting in both top nav and bottom nav
+- `sitemap.xml` rewritten with current page list
+- 4 core pages got the unified header / nav / footer / changelog system: NFT Explorer, aDAO Lore, TLA Stats, DAO
+- 4 new log files created: `explorer-log.md`, `lore-log.md`, `tla-log.md`, `dao-log.md`
+
+## 🟢 Previously shipped (Rev 3.21)
+
+See `logs/index-log.md`. High-level: SEO/PWA setup, mobile redesign, navigation overhaul, honest data display, changelog system itself.
+
+---
+
+## 🚨 URGENT — Missing infrastructure files
+
+Several critical infrastructure files appear to be missing from `aDAO-links-site` (the page repo). User has clean copies they uploaded to chat. **These must be restored to the page repo before anything else** — without them, site SEO/PWA/Google verification all break.
+
+Files to restore to root of `aDAO-links-site`:
+- [ ] `sitemap.xml` — search engine sitemap (✅ updated version provided in this chat with new filenames)
+- [ ] `robots.txt` — crawler rules
+- [ ] `site.webmanifest` — PWA manifest (PWA installs reference this)
+- [ ] `tla_docs_content.json` — content data for `tla-docs.html`
+- [ ] `google35aa520d5f75deed.html` — Google Search Console verification
+- [ ] `vercel.json` — if it existed for redirects + cron jobs (verify with user)
+
+**Critical:** these files MUST live in `aDAO-links-site`, NEVER in `website-adao-core`. Vercel only deploys from `aDAO-links-site`.
 
 ---
 
 ## 🔴 Active / next round
+
+### High priority — Cross-page consistency rollout, Phase 2
+
+Rev 3.22 shipped Phase 1 (4 core tab pages). Remaining pages need the same treatment when ready. For each page, copy the SHARED HEADER / SHARED FOOTER / mobile bottom nav / changelog modal pattern from the 4 core pages and adapt:
+
+**Tier 2 — Top info-card tile destinations (do next):**
+- [ ] `ally.html` (rev 3.2 — fetches `index-log.md`)
+- [ ] `tutorials.html` (rev 1.3 — fetches `index-log.md`)
+- [ ] `tools.html` (rev 1.2 — fetches `index-log.md`)
+- [ ] `rarity-explained.html` (rev 1.1 — fetches `index-log.md`)
+- [ ] `release-history.html` (rev 1.2 — fetches `index-log.md`)
+- [ ] `links.html` (rev 1.2 — fetches `index-log.md`)
+- [ ] `alliances.html` (rev 1.2 — fetches `index-log.md`)
+
+**Tier 3 — Dropdown / sub-page destinations:**
+- [ ] `dao_tla_deposits.html` (rev 2.1 — fetches `dao-log.md`)
+- [ ] `dao_treasury.html` (rev 2.1 — fetches `dao-log.md`)
+- [ ] `tla-docs.html` (rev 1.1 — fetches `tla-log.md`)
+- [ ] `fuel-tool.html` (rev 1.2 — fetches `index-log.md`)
+- [ ] `ampcapa-tool.html` (rev 1.2 — fetches `index-log.md`)
+
+**Tier 4 — Admin / dev pages (defer or skip):**
+- `tla_tool.html`, `tla-tool_ext.html`, `dao_governance_tool.html` — internal admin tools, probably don't need user-facing changelog. Decision pending.
+
+**Reusable injection script:** `/home/claude/inject_shared_chrome.py` from Rev 3.22 work can be adapted (just update the `PAGES` array). It correctly:
+- Inserts shared header BEFORE existing header (preserving page-specific controls)
+- Appends shared footer AFTER existing footer (preserving page-specific footer content)
+- Adds mobile nav + script at end of body
+- Adds Tailwind / Font Awesome to head if missing
+
+---
 
 ### High priority — SEO discoverability ⚠️
 
@@ -28,7 +85,7 @@ Site is not surfacing in Google for "the alliance dao" — `alliance.xyz` (unrel
 
 ### High priority — page work
 
-- [ ] **Add bottom tab bar to all other pages** so navigation persists across page loads. Currently only on `index.html`. Pages that need it: `nft-explorer-index.html`, `planet-map.html`, `tla-stats.html`, `dao_governance.html`, plus the rest.
+- [ ] ~~**Add bottom tab bar to all other pages**~~ — superseded by Cross-page consistency rollout above (which includes this plus much more)
 - [ ] **Delete duplicate Vercel project** `a-dao-links-site` (keep `a-dao-links-site-t6nu`).
 - [ ] **rawgit.hack bug fix:** in `tla_tool.html` line 142, change ext-tab from `https://raw.githack.com/defipatriot/aDAO-links-site/main/tla-tool_ext.html` to local `tla-tool_ext.html`. Eliminates the "One more step" interstitial that pops up when users click the ext tab.
 
@@ -46,6 +103,31 @@ Site is not surfacing in Google for "the alliance dao" — `alliance.xyz` (unrel
 ---
 
 ## 🚧 Future projects (separate threads when started)
+
+### Activity dashboard / aggregated changelog page 🆕
+
+A dedicated page (e.g., `changelog.html` or `activity.html`) that aggregates per-page changelog data and GitHub activity. Helps the user see what was last touched and what's gone stale.
+
+Features (rough scope):
+- Reads each page's `logs/<page>-log.md` from the `website-adao-core` repo
+- Shows a summary table: page name, current rev, last updated date, days since last update
+- Highlights pages that haven't been updated in 60+ days as "stale" — useful for noticing forgotten pages
+- Optionally: pulls GitHub commit/activity data (via GitHub API) to show recent commits, author activity feed, "last 10 changes across all pages"
+- Could also surface: pages that exist in the repo but aren't in the changelog system, sitemap drift, etc.
+
+Why useful:
+- Single place to check "when was X last worked on?"
+- Identifies stale content automatically
+- Public-facing transparency — users/community can see active development
+- For the user personally: helps remember what was being worked on after a break
+
+Implementation sketch:
+- New `activity.html` page in main repo
+- Fetches all `logs/*.md` files from `website-adao-core` raw URLs (could use GitHub API to list files in `logs/`)
+- Optionally calls `https://api.github.com/repos/defipatriot/aDAO-links-site/commits` for recent activity
+- Could be linked from footer or main nav (decide later)
+
+Dependencies: makes most sense after Cross-page consistency rollout is done (so logs exist for all pages).
 
 ### Service worker (PWA polish)
 - Offline shell — show app UI even without network
@@ -82,10 +164,12 @@ Site is not surfacing in Google for "the alliance dao" — `alliance.xyz` (unrel
 
 ## 📝 Open questions / decisions
 
+## 📝 Open questions / decisions
+
+- **🆕 308 redirects for renamed files** — old URLs (`planet-map.html`, `capa_lp_converter.html`, `fuel_tracker.html`, `dao_governance.html`) need 308 redirects to their new equivalents in `vercel.json` so any external links (Google indexing, partner site backlinks, bookmarks) don't 404. Verify `vercel.json` exists and add redirect rules. **Action:** Add to next round.
 - **Capa partnership** — when it goes live, own page or section in `alliances.html`?
 - **NFT contract address** — currently footer-only, should it be more prominent somewhere?
 - **iPad behavior** — phone-style with bottom nav up to 1024px, or desktop-style starting at 768px?
-- **Per-page changelogs** — global site changelog or per-page? Currently per-page system exists but only `index-log.md` populated.
 - **SEO branding** — do we lean into "The Alliance DAO" (full phrase, ambiguous with `alliance.xyz`) or "aDAO" (shorter, more unique) as the primary searchable term?
 - **LST ratio fallbacks** — keep (slow-drifting, low harm) or remove (consistency with Design Principle #1)?
 - **`alliance-dao-docs.html` content** — user has it saved separately for future reference (had on-chain address fetching logic). When/if needed, ask user for the file.

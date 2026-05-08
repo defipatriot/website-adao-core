@@ -58,9 +58,9 @@ When in doubt, add it. Over-documentation is fine; lost context is not.
 ## Project basics
 
 - **Owner:** defipatriot — council member of The Alliance DAO (aDAO)
-- **Main repo:** `github.com/defipatriot/aDAO-links-site` (the website)
+- **Main repo (deployed code only):** `github.com/defipatriot/aDAO-links-site` — HTML, CSS, JS, sitemap, manifest. **Never put docs/notes here** — Vercel only deploys what's in this repo, so keep it focused on what's actually rendered to users.
 - **Image hosting repo:** `github.com/defipatriot/aDAO-Image-Files` (favicons, logos, OG images, collection PFPs — referenced via raw.githubusercontent.com URLs)
-- **Docs repo:** `github.com/defipatriot/website-adao-core` (this file + `CHANGES_PENDING.md` + `logs/`)
+- **Docs repo:** `github.com/defipatriot/website-adao-core` — `PROJECT_KNOWLEDGE.md`, `CHANGES_PENDING.md`, `logs/` directory for changelogs. **All project documentation lives here, NOT in the main site repo.** Edits don't trigger Vercel redeploys.
 - **Live URL (canonical):** `thealliancedao.com`
 - **Live URL (alias, 308 redirects):** `theadao.com`
 - **Vercel fallback URL:** `a-dao-links-site.vercel.app` (still works, useful for testing)
@@ -165,26 +165,34 @@ This affects SEO strategy (we likely can't outrank them for the bare query) and 
 
 ## Current pages (in active use)
 
+Each page has a target rev number for the changelog system rollout. See "Cross-page consistency" rollout in `CHANGES_PENDING.md` for status. **Note:** the rev numbers below were assigned by the user as starting points based on rough recollection of how much work each page has had — they are estimates, not exact commit counts.
+
+| Display name | File | Starting rev | Notes |
+|---|---|---|---|
+| (Home) | `index.html` | 3.22 | The main dashboard, ~12.6k lines. Has the changelog system. |
+| NFT Explorer | `nft-explorer-index.html` | 4.12 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. |
+| aDAO Lore | `adao-lore.html` | 2.8 | Top nav tab. ✅ Renamed from `planet-map.html` in Rev 3.22. ✅ Cross-page chrome added. |
+| TLA Stats | `tla-stats.html` | 1.14 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. |
+| DAO | `dao.html` | 1.4 | Top nav tab. ✅ Renamed from `dao_governance.html` in Rev 3.22. ✅ Cross-page chrome added. |
+| ALLY Rewards | `ally.html` | 3.2 | Top info-card tile. ⏳ Cross-page chrome pending. |
+| Tutorials | `tutorials.html` | 1.3 | Top info-card tile. ⏳ Cross-page chrome pending. |
+| Tools | `tools.html` | 1.2 | Top info-card tile (hub for fuel-tool, ampcapa-tool, tla_tool). ⏳ Cross-page chrome pending. |
+| Rarity Info | `rarity-explained.html` | 1.1 | Top info-card tile. ⏳ Cross-page chrome pending. |
+| NFT Releases | `release-history.html` | 1.2 | Top info-card tile. ⏳ Cross-page chrome pending. |
+| Official Links | `links.html` | 1.2 | Top info-card tile. ⏳ Cross-page chrome pending. |
+| Alliances | `alliances.html` | 1.2 | Top info-card tile. ⏳ Cross-page chrome pending. |
+| DAO TLA Deposits | `dao_tla_deposits.html` | 2.1 | Linked from DAO Links dropdown tile. ⏳ Cross-page chrome pending. |
+| DAO Treasury | `dao_treasury.html` | 2.1 | Linked from DAO Links dropdown tile. ⏳ Cross-page chrome pending. |
+| Fuel Tool | `fuel-tool.html` | 1.2 | Linked from Tools page. ✅ Renamed from `fuel_tracker.html` in Rev 3.22. ⏳ Cross-page chrome pending. |
+| ampCapa Tool | `ampcapa-tool.html` | 1.2 | Linked from Tools page. ✅ Renamed from `capa_lp_converter.html` in Rev 3.22. ⏳ Cross-page chrome pending. |
+| TLA Docs | `tla-docs.html` | 1.1 | Linked from TLA Stats. ⏳ Cross-page chrome pending. |
+
+### Admin / dev pages (not in user-facing changelog rollout)
 | File | Purpose |
 |---|---|
-| `index.html` | Main dashboard (the big one — ~12.4k lines) |
-| `nft-explorer-index.html` | NFT browse / search |
-| `planet-map.html` | Galaxy Map / aDAO Lore |
-| `tla-stats.html` | TLA voting / liquidity stats |
-| `tla-docs.html` | TLA documentation |
-| `tla_tool.html` + `tla-tool_ext.html` | TLA tooling (admin / data collection) |
-| `dao_governance.html` + `dao_governance_tool.html` | DAO governance |
-| `dao_treasury.html` | Treasury |
-| `dao_tla_deposits.html` | TLA deposits view |
-| `ally.html` | ALLY rewards explainer |
-| `tutorials.html` | Tutorials hub |
-| `tools.html` | Tools index (links to tla_tool, capa_lp_converter, fuel_tracker) |
-| `rarity-explained.html` | Rarity info |
-| `release-history.html` | NFT release history |
-| `links.html` | Official links |
-| `alliances.html` | Partner DAOs / alliances |
-| `capa_lp_converter.html` | Capa LP conversion tool |
-| `fuel_tracker.html` | Fuel tracker |
+| `tla_tool.html` | TLA admin tool (data collection) |
+| `tla-tool_ext.html` | TLA extensions tool |
+| `dao_governance_tool.html` | DAO governance tool |
 
 ### Pages removed
 `graphs.html`, `news.html`, `rampt.html`, `on-ramp.html`, `off-ramp.html`, `alliance-dao-docs.html`, `test-page.html` — all deleted from repo.
@@ -301,11 +309,38 @@ If we ever need to change one of the structural fields, plan to communicate to u
 - Click outside, Escape key, X button all close.
 
 ### Markdown changelog system
-- `index.html` footer has Rev number + "Changelog" link.
-- Modal fetches `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/logs/index-log.md` on open.
+- Each page footer has Rev number + "Changelog" link.
+- Modal fetches the relevant markdown log file from `website-adao-core` repo on open.
 - Inline markdown parser handles `# / ## / ### / ####` headings, `-` lists, `**bold**`, `*italic*`, `` `code` `` inline.
-- Updates: bump rev in HTML AND prepend a new `## Rev x.y — date` block to `index-log.md`.
-- Future pages can each have their own `<page>-log.md` if we want per-page changelogs.
+- Updates: bump rev in HTML AND prepend a new `## Rev x.y — date` block to the relevant log file.
+
+**Simplified log file scope** — only the **5 top-level navigation destinations** get their own dedicated log files. All other pages display `index-log.md` since most site changes happen on the homepage anyway:
+
+| Page | Log file fetched | Notes |
+|---|---|---|
+| Home (`index.html`) | `logs/index-log.md` | All-purpose site changelog |
+| NFT Explorer | `logs/explorer-log.md` | Tracks NFT Explorer-specific changes |
+| aDAO Lore | `logs/lore-log.md` | Tracks Lore page changes |
+| TLA Stats | `logs/tla-log.md` | Tracks TLA Stats changes |
+| DAO | `logs/dao-log.md` | Tracks DAO landing page changes |
+| All other pages (ALLY, Tutorials, Tools, Rarity, NFT Releases, Official Links, Alliances, DAO Treasury, DAO TLA Deposits, Fuel Tracker, Capa Converter, TLA Docs, etc.) | `logs/index-log.md` | Show the site-wide changelog |
+
+This keeps the log surface manageable — 5 log files instead of 17+ — while still letting users see what's been worked on recently across the whole site.
+
+**Naming convention reminder:** log files live at `logs/<short-name>-log.md` in the `website-adao-core` repo. Use the short navigation label, not the full page filename (e.g. `explorer-log.md`, not `nft-explorer-index-log.md`).
+
+### Cross-page consistency requirements
+**Every user-facing page should look and feel like `index.html`.** This is a hard requirement — pages should be visually indistinguishable from each other except for body content. Specifically:
+
+- **Header** — same logo + tagline + Terra logo as index
+- **Top nav tabs (desktop)** — Home + NFT Explorer + aDAO Lore + TLA Stats + DAO (5 tabs total). Currently index has 4 (no Home tab); rolling this out adds the Home tab everywhere.
+- **Mobile bottom nav** — Home + NFTs + Lore + TLA + DAO (already 5 tabs)
+- **Active page highlighting** — both top nav and bottom nav should highlight the current page in cyan
+- **Footer** — same condensed link row + Rev number + Changelog link
+- **Color palette** — same cyan/teal theme (`#22d3ee`, `#67e8f9`, `#2dd4bf`)
+- **Modal patterns** — DAO Links dropdown, Contract dropdown, App install info, Changelog — all available across pages
+
+**Implementation note:** This is currently per-page duplicated code. A static site generator (Astro/Eleventy) would make this dramatically easier — see "Future projects" in CHANGES_PENDING. Until then, each page needs the shared HTML/CSS/JS copied in. When updating shared elements, every page must be updated.
 
 ---
 

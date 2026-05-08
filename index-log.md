@@ -5,6 +5,32 @@ Newest revisions on top. Times are UTC.
 
 ---
 
+## Rev 3.22 — 2026-05-08
+
+Cross-page consistency rollout (phase 1) — top-level navigation pages.
+
+### What changed
+- **4 files renamed for cleaner URLs:**
+  - `planet-map.html` → `adao-lore.html`
+  - `capa_lp_converter.html` → `ampcapa-tool.html`
+  - `fuel_tracker.html` → `fuel-tool.html`
+  - `dao_governance.html` → `dao.html`
+- **Top nav now has 5 tabs** including a new Home tab (was 4 — Home now shows on every page including index)
+- **Active page highlighting** — current page's tab gets cyan styling in both desktop top nav and mobile bottom nav
+- All internal references in `index.html` and `tools.html` updated for the renamed files
+- `sitemap.xml` rewritten to reflect current page list with new names
+
+### Cross-page rollout (separate file pushes, listed here for visibility)
+Four core tab pages now have unified header + 5-tab top nav + mobile bottom nav + footer + per-page changelog system, with their original page-specific controls preserved:
+- `nft-explorer-index.html` — starting rev 4.12 (Collection/Wallet/Map view toggles preserved)
+- `adao-lore.html` — starting rev 2.8 (galaxy map content preserved)
+- `tla-stats.html` — starting rev 1.14 (epoch selector + all charts preserved)
+- `dao.html` — starting rev 1.4 (Members/Proposals tabs + audit tool link preserved)
+
+Each of those 4 pages fetches its own changelog: `explorer-log.md`, `lore-log.md`, `tla-log.md`, `dao-log.md`. All other pages (when added in a future rollout phase) will fetch `index-log.md` since most site-wide changes happen on the homepage anyway.
+
+---
+
 ## Rev 3.21 — 2026-05-07
 
 This revision consolidates a wide-ranging modernization of the dashboard. Major themes: SEO/PWA readiness, mobile redesign, more honest data display, navigation cleanup.
