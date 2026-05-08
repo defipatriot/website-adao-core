@@ -6,6 +6,17 @@
 
 ---
 
+## 🟢 Just shipped (Rev 3.24)
+
+Big batch — Phase 2 cross-page chrome rollout + site-wide favicons + Vercel analytics + deving.zone API URL update. See `index-log.md` Rev 3.24 entry for details.
+
+- 12 user-facing pages got the unified header/nav/footer/changelog system: tools, ally, tutorials, alliances, links, rarity-explained, release-history, tla-docs, dao_treasury, dao_tla_deposits, ampcapa-tool, fuel-tool
+- All user-facing pages now have favicons (9 added) and Vercel Web Analytics (5 added)
+- Admin pages (`tla_tool`, `tla-tool_ext`, `dao_governance_tool`) got favicons + analytics but no chrome (intentional — admin context)
+- `tools.html` had a duplicate footer cleaned up
+- Sitemap pushed (was missing from repo)
+- **deving.zone API URL** migrated from `/en/nfts/alliance_daos.json` → `/nfts/alliance_daos.json` (7 occurrences across 5 files). API now refreshes hourly instead of every 6 hours.
+
 ## 🟢 Just shipped (Rev 3.23 + per-page hotfixes)
 
 See `index-log.md` and per-page logs for full details. High-level:
@@ -13,8 +24,7 @@ See `index-log.md` and per-page logs for full details. High-level:
 - **NFT Explorer (rev 4.13):** removed dual logos from second header row, removed Map view entirely (Collection / Wallet only now)
 - **aDAO Lore (rev 2.9):** removed duplicate header row (logos + "Galaxy Map & Lore" title)
 - **TLA Stats (rev 1.15):** cleaned second header row (removed aDAO logo, "← Dashboard" backlink, "by The Alliance DAO" prefix; kept title and Eris TLA link). Cleaned footer (removed "Updated:" date, "Built by DeFi Patriot" credit, copyright notice; kept disclaimers and ecosystem links)
-- **DAO (rev 1.6):** matched the TLA Stats cleanup — removed small aDAO logo, "← Dashboard" backlink, and "by The Alliance DAO" subtitle from the page-specific header. "Governance" title, Members / Proposals tabs, Live indicator, and DAODAO button retained
-- **DAO (rev 1.5):** changelog URL fix only
+- **DAO (rev 1.5 → 1.6):** changelog URL fix; then matched TLA Stats cleanup — removed small aDAO logo, "← Dashboard" backlink, "by The Alliance DAO" subtitle from page-specific header
 
 ## 🟢 Previously shipped (Rev 3.22)
 
@@ -22,7 +32,6 @@ See `index-log.md`. High-level for Rev 3.22:
 - 4 file renames: `planet-map` → `adao-lore`, `capa_lp_converter` → `ampcapa-tool`, `fuel_tracker` → `fuel-tool`, `dao_governance` → `dao`
 - Home tab added to top nav (now 5 tabs everywhere)
 - Active page highlighting in both top nav and bottom nav
-- `sitemap.xml` rewritten with current page list
 - 4 core pages got the unified header / nav / footer / changelog system: NFT Explorer, aDAO Lore, TLA Stats, DAO
 - 4 new log files created: `explorer-log.md`, `lore-log.md`, `tla-log.md`, `dao-log.md`
 
@@ -34,43 +43,13 @@ See `index-log.md`. High-level: SEO/PWA setup, mobile redesign, navigation overh
 
 ## 🟡 Outstanding tech debt (not urgent, but worth knowing)
 
-- **NFT Explorer JS still has Map view code** — `nft-explorer-app.js` still has `mapViewBtn`, `spaceCanvas`, `initializeStarfield`, `handleMapResize`, `switchView('map')` branch, and ~hundred lines of starfield rendering / pinch-zoom / pan logic. All gated by null-safe checks so nothing breaks, but it's dead weight (~? KB). Strip in a future cleanup pass when convenient. Same for any associated CSS.
+- **NFT Explorer JS still has Map view code** — `nft-explorer-app.js` still has `mapViewBtn`, `spaceCanvas`, `initializeStarfield`, `handleMapResize`, `switchView('map')` branch, and ~hundred lines of starfield rendering / pinch-zoom / pan logic. All gated by null-safe checks so nothing breaks, but it's dead weight (~? KB). Strip in a future cleanup pass when convenient.
 - **`vercel.json` audit** — never confirmed whether file exists in `aDAO-links-site` repo. Need to verify and add 308 redirects for the 4 renamed files: `planet-map.html` → `adao-lore.html`, `capa_lp_converter.html` → `ampcapa-tool.html`, `fuel_tracker.html` → `fuel-tool.html`, `dao_governance.html` → `dao.html`. Without these, external links / Google index entries / bookmarks to old URLs will 404.
+- **Admin page chrome decision** — `tla_tool.html`, `tla-tool_ext.html`, `dao_governance_tool.html` are intentionally without the public 5-tab nav since they're internal tools. If they ever need a way to navigate back to the public site, decide on a minimal admin-specific nav (probably just a "← Dashboard" link). Defer until a real need arises.
 
 ---
 
 ## 🔴 Active / next round
-
-### High priority — Cross-page consistency rollout, Phase 2
-
-Rev 3.22 shipped Phase 1 (4 core tab pages). Remaining pages need the same treatment when ready. For each page, copy the SHARED HEADER / SHARED FOOTER / mobile bottom nav / changelog modal pattern from the 4 core pages and adapt:
-
-**Tier 2 — Top info-card tile destinations (do next):**
-- [ ] `ally.html` (rev 3.2 — fetches `index-log.md`)
-- [ ] `tutorials.html` (rev 1.3 — fetches `index-log.md`)
-- [ ] `tools.html` (rev 1.2 — fetches `index-log.md`)
-- [ ] `rarity-explained.html` (rev 1.1 — fetches `index-log.md`)
-- [ ] `release-history.html` (rev 1.2 — fetches `index-log.md`)
-- [ ] `links.html` (rev 1.2 — fetches `index-log.md`)
-- [ ] `alliances.html` (rev 1.2 — fetches `index-log.md`)
-
-**Tier 3 — Dropdown / sub-page destinations:**
-- [ ] `dao_tla_deposits.html` (rev 2.1 — fetches `dao-log.md`)
-- [ ] `dao_treasury.html` (rev 2.1 — fetches `dao-log.md`)
-- [ ] `tla-docs.html` (rev 1.1 — fetches `tla-log.md`)
-- [ ] `fuel-tool.html` (rev 1.2 — fetches `index-log.md`)
-- [ ] `ampcapa-tool.html` (rev 1.2 — fetches `index-log.md`)
-
-**Tier 4 — Admin / dev pages (defer or skip):**
-- `tla_tool.html`, `tla-tool_ext.html`, `dao_governance_tool.html` — internal admin tools, probably don't need user-facing changelog. Decision pending.
-
-**Reusable injection script:** `/home/claude/inject_shared_chrome.py` from Rev 3.22 work can be adapted (just update the `PAGES` array). It correctly:
-- Inserts shared header BEFORE existing header (preserving page-specific controls)
-- Appends shared footer AFTER existing footer (preserving page-specific footer content)
-- Adds mobile nav + script at end of body
-- Adds Tailwind / Font Awesome to head if missing
-
----
 
 ### High priority — SEO discoverability ⚠️
 

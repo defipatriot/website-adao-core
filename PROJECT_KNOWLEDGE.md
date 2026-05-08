@@ -35,13 +35,23 @@ The user has explicitly stated they will forget things and lose track. **Claude 
 | A bug found but not fixed in current session | "Active / next round" with priority | Visible queue |
 | External task identified (e.g. "submit to Search Console") | Top of "Active / next round" if blocking | Visible queue |
 
-### When to update index-log.md
+### Rev numbers — single source of truth
 
-| Trigger | Action | Why |
-|---|---|---|
-| User-visible change to `index.html` is shipped | Bump rev (e.g. 3.21 → 3.22), prepend new entry | Public changelog accuracy |
-| Doc-only changes (this file, etc.) | Do NOT bump rev | Rev tracks site UI state only |
-| Other pages get changes | Future: their own `<page>-log.md` (not yet implemented) | Per-page granularity if needed |
+Rev numbers live in 3 places and they MUST stay in sync:
+
+1. **The "Current pages" table in this file** — canonical at-a-glance reference. Future Claude reads this on startup. **This is the source of truth.**
+2. **Page footer** (`Rev X.Y · Changelog` in the HTML) — what users see
+3. **`<page>-log.md` in `website-adao-core`** — full revision history
+
+Whenever Claude bumps a rev on any page, all three update in the same push:
+
+| Trigger | Action |
+|---|---|
+| User-visible change to any page is shipped | Bump rev in HTML footer, prepend new entry to that page's log file, AND update this table |
+| Doc-only changes (this file, CHANGES_PENDING.md) | Do NOT bump any rev |
+| New page added to the site | Add row to the table with starting rev (usually 1.0) and create its log file |
+
+If a page doesn't have a rev/changelog footer yet (the cross-page rollout is still in progress), it shows `—` in the rev column. Bump it the first time we touch that page after adding the chrome.
 
 ### How to know if something is "trackable"
 
@@ -167,25 +177,28 @@ This affects SEO strategy (we likely can't outrank them for the bare query) and 
 
 Each page has a target rev number for the changelog system rollout. See "Cross-page consistency" rollout in `CHANGES_PENDING.md` for status. **Note:** the rev numbers below were assigned by the user as starting points based on rough recollection of how much work each page has had — they are estimates, not exact commit counts.
 
-| Display name | File | Starting rev | Notes |
+| Display name | File | Current rev | Notes |
 |---|---|---|---|
-| (Home) | `index.html` | 3.23 | The main dashboard, ~12.6k lines. Has the changelog system. |
+| (Home) | `index.html` | 3.24 | The main dashboard, ~12.6k lines. Has the changelog system. |
 | NFT Explorer | `nft-explorer-index.html` | 4.13 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. Map view removed in Rev 4.13. |
 | aDAO Lore | `adao-lore.html` | 2.9 | Top nav tab. ✅ Renamed from `planet-map.html` in Rev 3.22. ✅ Cross-page chrome added. |
 | TLA Stats | `tla-stats.html` | 1.15 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. |
 | DAO | `dao.html` | 1.6 | Top nav tab. ✅ Renamed from `dao_governance.html` in Rev 3.22. ✅ Cross-page chrome added. |
-| ALLY Rewards | `ally.html` | 3.2 | Top info-card tile. ⏳ Cross-page chrome pending. |
-| Tutorials | `tutorials.html` | 1.3 | Top info-card tile. ⏳ Cross-page chrome pending. |
-| Tools | `tools.html` | 1.2 | Top info-card tile (hub for fuel-tool, ampcapa-tool, tla_tool). ⏳ Cross-page chrome pending. |
-| Rarity Info | `rarity-explained.html` | 1.1 | Top info-card tile. ⏳ Cross-page chrome pending. |
-| NFT Releases | `release-history.html` | 1.2 | Top info-card tile. ⏳ Cross-page chrome pending. |
-| Official Links | `links.html` | 1.2 | Top info-card tile. ⏳ Cross-page chrome pending. |
-| Alliances | `alliances.html` | 1.2 | Top info-card tile. ⏳ Cross-page chrome pending. |
-| DAO TLA Deposits | `dao_tla_deposits.html` | 2.1 | Linked from DAO Links dropdown tile. ⏳ Cross-page chrome pending. |
-| DAO Treasury | `dao_treasury.html` | 2.1 | Linked from DAO Links dropdown tile. ⏳ Cross-page chrome pending. |
-| Fuel Tool | `fuel-tool.html` | 1.2 | Linked from Tools page. ✅ Renamed from `fuel_tracker.html` in Rev 3.22. ⏳ Cross-page chrome pending. |
-| ampCapa Tool | `ampcapa-tool.html` | 1.2 | Linked from Tools page. ✅ Renamed from `capa_lp_converter.html` in Rev 3.22. ⏳ Cross-page chrome pending. |
-| TLA Docs | `tla-docs.html` | 1.1 | Linked from TLA Stats. ⏳ Cross-page chrome pending. |
+| ALLY Rewards | `ally.html` | 3.3 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. |
+| Tutorials | `tutorials.html` | 1.4 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. |
+| Tools | `tools.html` | 1.3 | Top info-card tile (hub for fuel-tool, ampcapa-tool, tla_tool). ✅ Cross-page chrome added in Rev 3.24. |
+| Rarity Info | `rarity-explained.html` | 1.2 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. |
+| NFT Releases | `release-history.html` | 1.3 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. |
+| Official Links | `links.html` | 1.3 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. |
+| Alliances | `alliances.html` | 1.3 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. |
+| DAO TLA Deposits | `dao_tla_deposits.html` | 2.2 | Linked from DAO Links dropdown tile. ✅ Cross-page chrome added in Rev 3.24. |
+| DAO Treasury | `dao_treasury.html` | 2.2 | Linked from DAO Links dropdown tile. ✅ Cross-page chrome added in Rev 3.24. |
+| Fuel Tool | `fuel-tool.html` | 1.3 | Linked from Tools page. ✅ Renamed from `fuel_tracker.html` in Rev 3.22. ✅ Cross-page chrome added in Rev 3.24. |
+| ampCapa Tool | `ampcapa-tool.html` | 1.3 | Linked from Tools page. ✅ Renamed from `capa_lp_converter.html` in Rev 3.22. ✅ Cross-page chrome added in Rev 3.24. |
+| TLA Docs | `tla-docs.html` | 1.2 | Linked from TLA Stats. ✅ Cross-page chrome added in Rev 3.24. |
+| _Admin: TLA Tool_ | `tla_tool.html` | — | Internal admin (manual TLA snapshots). Favicon + analytics only — chrome intentionally skipped (admin context). |
+| _Admin: TLA Tool Ext_ | `tla-tool_ext.html` | — | Internal admin extension. Favicon + analytics only — chrome intentionally skipped. |
+| _Admin: DAO Gov Tool_ | `dao_governance_tool.html` | — | Internal governance audit tool. Favicon + analytics only — chrome intentionally skipped. |
 
 ### Admin / dev pages (not in user-facing changelog rollout)
 | File | Purpose |

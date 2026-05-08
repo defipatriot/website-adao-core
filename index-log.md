@@ -3,6 +3,53 @@
 This is the change history for `index.html` (the dashboard / homepage).
 Newest revisions on top. Times are UTC.
 
+This file also covers cross-cutting site changes that affect multiple pages — most non-core pages link here for their changelog rather than maintaining their own.
+
+---
+
+## Rev 3.24 — 2026-05-08
+
+Phase 2 cross-page chrome rollout + site-wide favicons + Vercel analytics + deving.zone API URL update.
+
+### deving.zone API URL update
+The deving.zone API path migrated from `/en/nfts/alliance_daos.json` to `/nfts/alliance_daos.json`. Updated all 7 occurrences across 5 files: `index.html` (2x), `ally.html`, `links.html` (browser link), `tla_tool.html` (2x), `nft-explorer-app.js`. The API now refreshes hourly instead of every 6 hours, so NFT status data on the site will be more current going forward.
+
+### Per-page chrome rollout (12 pages)
+Brought the unified chrome system (5-tab top nav, mobile bottom nav, footer with Rev / Changelog button, page-specific changelog modal) to the remaining user-facing pages. All fetch this file (`index-log.md`) on changelog open since site-wide changes typically affect multiple pages and a single shared log is easier to maintain than 12 separate ones.
+
+| Page | Starting rev |
+|---|---|
+| `tools.html` | 1.3 |
+| `ally.html` | 3.3 |
+| `tutorials.html` | 1.4 |
+| `alliances.html` | 1.3 |
+| `links.html` | 1.3 |
+| `rarity-explained.html` | 1.2 |
+| `release-history.html` | 1.3 |
+| `tla-docs.html` | 1.2 |
+| `dao_treasury.html` | 2.2 |
+| `dao_tla_deposits.html` | 2.2 |
+| `ampcapa-tool.html` | 1.3 |
+| `fuel-tool.html` | 1.3 |
+
+Page-specific headers and content preserved on all 12 — the shared header was inserted ABOVE existing headers, never replacing them. `tools.html` had a duplicate "social + Tutorials/Official Links/NFT Contract/Contract Audit" footer that was redundant with the shared footer, so it was removed.
+
+### Site-wide favicons
+Added the standard 4-link favicon block to all 9 user-facing pages that were missing it:
+- `adao-lore.html`, `alliances.html`, `ally.html`, `dao_tla_deposits.html`, `dao_treasury.html`, `rarity-explained.html`, `tla-docs.html`, `tutorials.html`
+- Plus `dao_governance_tool.html` (admin page, favicon only)
+
+Now every user-facing page shows the aDAO logo as the browser tab icon.
+
+### Site-wide Vercel Web Analytics
+Added the Vercel `_vercel/insights/script.js` snippet to 5 pages that were missing it:
+- `dao.html`, `dao_governance_tool.html`, `dao_tla_deposits.html`, `dao_treasury.html`, `tla-docs.html`
+
+All 19 user-facing pages (everything except the Google verification stub) now report analytics.
+
+### Admin pages — partial treatment
+`tla_tool.html`, `tla-tool_ext.html`, `dao_governance_tool.html` already had favicons + Vercel analytics from earlier work, but did NOT get the chrome rollout. They're internal admin tools where the public 5-tab navigation would be misleading context. This is a deferred decision logged in CHANGES_PENDING.
+
 ---
 
 ## Rev 3.23 — 2026-05-08
