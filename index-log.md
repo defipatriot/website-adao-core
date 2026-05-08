@@ -7,6 +7,32 @@ This file also covers cross-cutting site changes that affect multiple pages — 
 
 ---
 
+## Rev 3.25 — 2026-05-08
+
+Duplicate header cleanup pass — extending the Rev 3.23 fix to the 10 pages chrome'd in 3.24.
+
+### Pages with simple "logo + page title + logo" duplicate row removed entirely
+The page-specific second header was redundant with the shared header (which already provides logos). Removed:
+- `tutorials.html` (1.4 → 1.5) — "Community Tutorials" title
+- `rarity-explained.html` (1.2 → 1.3) — "NFT Rarity Explained" title
+- `release-history.html` (1.3 → 1.4) — "NFT Release History" title
+- `links.html` (1.3 → 1.4) — "Official & Helpful Links" title
+- `alliances.html` (1.3 → 1.4) — "Our Alliances" title
+- `ally.html` (3.3 → 3.4) — "ALLY Rewards Explained" title
+
+### tools.html (1.3 → 1.4)
+The page-specific second header had the OLD top nav (4-tab: NFT Explorer dropdown / TLA Stats / DAO) — redundant with the shared 5-tab nav above. Removed entirely. The CoinGecko price ticker that lived just below the old nav is preserved.
+
+### Sticky functional headers cleaned (kept functional bits, dropped Dashboard/title)
+Same treatment as TLA Stats / DAO got in earlier revs:
+- `dao_treasury.html` (2.2 → 2.3) — removed Dashboard backlink and "DAO Treasury" title; kept Live data indicator
+- `dao_tla_deposits.html` (2.2 → 2.3) — removed Dashboard backlink and "TLA Deposits" title; kept Treasury cross-link, period buttons, and epoch badge
+
+### tla-docs (1.2 → 1.3)
+Removed the small `<header class="header">` block containing "TLA Documentation" title + tagline. Page content makes purpose clear.
+
+---
+
 ## Rev 3.24 — 2026-05-08
 
 Phase 2 cross-page chrome rollout + site-wide favicons + Vercel analytics + deving.zone API URL update.

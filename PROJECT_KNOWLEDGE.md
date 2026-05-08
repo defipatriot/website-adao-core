@@ -179,23 +179,23 @@ Each page has a target rev number for the changelog system rollout. See "Cross-p
 
 | Display name | File | Current rev | Notes |
 |---|---|---|---|
-| (Home) | `index.html` | 3.24 | The main dashboard, ~12.6k lines. Has the changelog system. |
+| (Home) | `index.html` | 3.25 | The main dashboard, ~12.6k lines. Has the changelog system. |
 | NFT Explorer | `nft-explorer-index.html` | 4.13 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. Map view removed in Rev 4.13. |
 | aDAO Lore | `adao-lore.html` | 2.9 | Top nav tab. ✅ Renamed from `planet-map.html` in Rev 3.22. ✅ Cross-page chrome added. |
 | TLA Stats | `tla-stats.html` | 1.15 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. |
 | DAO | `dao.html` | 1.6 | Top nav tab. ✅ Renamed from `dao_governance.html` in Rev 3.22. ✅ Cross-page chrome added. |
-| ALLY Rewards | `ally.html` | 3.3 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. |
-| Tutorials | `tutorials.html` | 1.4 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. |
-| Tools | `tools.html` | 1.3 | Top info-card tile (hub for fuel-tool, ampcapa-tool, tla_tool). ✅ Cross-page chrome added in Rev 3.24. |
-| Rarity Info | `rarity-explained.html` | 1.2 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. |
-| NFT Releases | `release-history.html` | 1.3 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. |
-| Official Links | `links.html` | 1.3 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. |
-| Alliances | `alliances.html` | 1.3 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. |
-| DAO TLA Deposits | `dao_tla_deposits.html` | 2.2 | Linked from DAO Links dropdown tile. ✅ Cross-page chrome added in Rev 3.24. |
-| DAO Treasury | `dao_treasury.html` | 2.2 | Linked from DAO Links dropdown tile. ✅ Cross-page chrome added in Rev 3.24. |
+| ALLY Rewards | `ally.html` | 3.4 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. Duplicate header cleaned in Rev 3.25. |
+| Tutorials | `tutorials.html` | 1.5 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. Duplicate header cleaned in Rev 3.25. |
+| Tools | `tools.html` | 1.4 | Top info-card tile (hub for fuel-tool, ampcapa-tool, tla_tool). ✅ Cross-page chrome added in Rev 3.24. Old in-page nav removed in Rev 3.25. |
+| Rarity Info | `rarity-explained.html` | 1.3 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. Duplicate header cleaned in Rev 3.25. |
+| NFT Releases | `release-history.html` | 1.4 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. Duplicate header cleaned in Rev 3.25. |
+| Official Links | `links.html` | 1.4 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. Duplicate header cleaned in Rev 3.25. |
+| Alliances | `alliances.html` | 1.4 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. Duplicate header cleaned in Rev 3.25. |
+| DAO TLA Deposits | `dao_tla_deposits.html` | 2.3 | Linked from DAO Links dropdown tile. ✅ Cross-page chrome added in Rev 3.24. Sticky header cleaned in Rev 3.25 (kept period buttons + epoch + Treasury cross-link). |
+| DAO Treasury | `dao_treasury.html` | 2.3 | Linked from DAO Links dropdown tile. ✅ Cross-page chrome added in Rev 3.24. Sticky header cleaned in Rev 3.25 (kept Live indicator). |
 | Fuel Tool | `fuel-tool.html` | 1.3 | Linked from Tools page. ✅ Renamed from `fuel_tracker.html` in Rev 3.22. ✅ Cross-page chrome added in Rev 3.24. |
 | ampCapa Tool | `ampcapa-tool.html` | 1.3 | Linked from Tools page. ✅ Renamed from `capa_lp_converter.html` in Rev 3.22. ✅ Cross-page chrome added in Rev 3.24. |
-| TLA Docs | `tla-docs.html` | 1.2 | Linked from TLA Stats. ✅ Cross-page chrome added in Rev 3.24. |
+| TLA Docs | `tla-docs.html` | 1.3 | Linked from TLA Stats. ✅ Cross-page chrome added in Rev 3.24. Title block cleaned in Rev 3.25. |
 | _Admin: TLA Tool_ | `tla_tool.html` | — | Internal admin (manual TLA snapshots). Favicon + analytics only — chrome intentionally skipped (admin context). |
 | _Admin: TLA Tool Ext_ | `tla-tool_ext.html` | — | Internal admin extension. Favicon + analytics only — chrome intentionally skipped. |
 | _Admin: DAO Gov Tool_ | `dao_governance_tool.html` | — | Internal governance audit tool. Favicon + analytics only — chrome intentionally skipped. |

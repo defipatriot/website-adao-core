@@ -6,6 +6,16 @@
 
 ---
 
+## 🟢 Just shipped (Rev 3.25)
+
+Duplicate header cleanup pass — same treatment we gave the 4 core pages, now applied to the 10 pages that got chrome'd in Rev 3.24:
+- 6 simple "logo + page title + logo" duplicate rows removed entirely (tutorials, rarity-explained, release-history, links, alliances, ally)
+- `tools.html` had its OLD top nav (4-tab dropdown layout) removed — redundant with the shared 5-tab nav
+- `dao_treasury` and `dao_tla_deposits` sticky headers cleaned: dropped Dashboard backlinks and titles, kept functional bits (Live indicator on Treasury, period buttons + epoch badge + Treasury cross-link on Deposits)
+- `tla-docs` had its small H1+tagline header removed
+
+All 10 pages got rev bumps. Index bumped to 3.25.
+
 ## 🟢 Just shipped (Rev 3.24)
 
 Big batch — Phase 2 cross-page chrome rollout + site-wide favicons + Vercel analytics + deving.zone API URL update. See `index-log.md` Rev 3.24 entry for details.
