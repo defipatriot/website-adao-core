@@ -179,7 +179,7 @@ Each page has a target rev number for the changelog system rollout. See "Cross-p
 
 | Display name | File | Current rev | Notes |
 |---|---|---|---|
-| (Home) | `index.html` | 3.25 | The main dashboard, ~12.6k lines. Has the changelog system. |
+| (Home) | `index.html` | 3.26 | The main dashboard, ~12.6k lines. Has the changelog system. |
 | NFT Explorer | `nft-explorer-index.html` | 4.13 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. Map view removed in Rev 4.13. |
 | aDAO Lore | `adao-lore.html` | 2.9 | Top nav tab. ✅ Renamed from `planet-map.html` in Rev 3.22. ✅ Cross-page chrome added. |
 | TLA Stats | `tla-stats.html` | 1.15 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. |

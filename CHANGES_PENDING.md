@@ -6,6 +6,14 @@
 
 ---
 
+## 🟢 Just shipped (Rev 3.26)
+
+Bug fix — `mintedCount.toLocaleString()` was crashing `fetchLiveOnChainData()` because `mintedCount` was permanently null (the Rev 3.21 honest-data cleanup removed snapshot fallbacks but left this dead read path). The crash cascaded — 7+ tiles below it stopped populating (Mint Status, Broken Status, DAO Treasury, DAO TLA Deposits, DAO TLA VP, NFT Backing tiles, Unminted NFT Backing).
+
+Fix: derive `mintedCount` / `unmintedCount` from the live `nfts` array (NFTs held by the DAO main wallet are unminted), plus added a `fmt()` null-safety helper for all toLocaleString calls in the supply/unminted block.
+
+Also restored `site.webmanifest` to the repo root (was 404'ing). **Action item still open:** add `favicon.ico` to the repo root — see "Outstanding tech debt" below.
+
 ## 🟢 Just shipped (Rev 3.25)
 
 Duplicate header cleanup pass — same treatment we gave the 4 core pages, now applied to the 10 pages that got chrome'd in Rev 3.24:
@@ -53,6 +61,7 @@ See `index-log.md`. High-level: SEO/PWA setup, mobile redesign, navigation overh
 
 ## 🟡 Outstanding tech debt (not urgent, but worth knowing)
 
+- **`favicon.ico` at repo root** — browsers auto-request `/favicon.ico` and the GitHub-hosted icons in `<link>` tags don't satisfy this default request. Console shows `favicon.ico:1 Failed to load resource: net::ERR_NAME_NOT_RESOLVED`. Fix: copy `favicon.ico` from `defipatriot/aDAO-Image-Files` into `aDAO-links-site` root. (Claude can't push binaries directly; user does this manually.)
 - **NFT Explorer JS still has Map view code** — `nft-explorer-app.js` still has `mapViewBtn`, `spaceCanvas`, `initializeStarfield`, `handleMapResize`, `switchView('map')` branch, and ~hundred lines of starfield rendering / pinch-zoom / pan logic. All gated by null-safe checks so nothing breaks, but it's dead weight (~? KB). Strip in a future cleanup pass when convenient.
 - **`vercel.json` audit** — never confirmed whether file exists in `aDAO-links-site` repo. Need to verify and add 308 redirects for the 4 renamed files: `planet-map.html` → `adao-lore.html`, `capa_lp_converter.html` → `ampcapa-tool.html`, `fuel_tracker.html` → `fuel-tool.html`, `dao_governance.html` → `dao.html`. Without these, external links / Google index entries / bookmarks to old URLs will 404.
 - **Admin page chrome decision** — `tla_tool.html`, `tla-tool_ext.html`, `dao_governance_tool.html` are intentionally without the public 5-tab nav since they're internal tools. If they ever need a way to navigate back to the public site, decide on a minimal admin-specific nav (probably just a "← Dashboard" link). Defer until a real need arises.
