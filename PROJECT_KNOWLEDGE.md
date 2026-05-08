@@ -1,357 +1,439 @@
-# The Alliance DAO — Project Knowledge
+# aDAO Website Project Knowledge
 
-> **Purpose of this document:** Single source of truth for context about The Alliance DAO project. Upload to Project Knowledge in Claude so every future chat starts with full context.
->
-> **Maintained by:** defipatriot
-> **Last updated:** 2026
-
----
-
-## 1. What this project is
-
-**The Alliance DAO (aDAO)** is a community DAO on the Terra blockchain, organized around a 10,000-piece NFT collection where each NFT is a productive asset earning a share of LUNA staking rewards.
-
-- **Main domain:** thealliancedao.com (canonical)
-- **Secondary domain:** theadao.com (forwards to main)
-- **Repo:** github.com/defipatriot/aDAO-links-site
-- **Hosting:** Vercel
-- **Vercel deploy URL:** a-dao-links-site.vercel.app
-
-The site is a community-built dashboard, not the DAO itself. Governance lives on DAODAO.
+> **Canonical context document.** Loaded at the start of every chat session so Claude can pick up where we left off without the user re-explaining anything.
+> 
+> **For Claude:** This file is yours to maintain. See "Tracking responsibilities" below — you are expected to update this file proactively as the project evolves, not only when explicitly asked.
 
 ---
 
-## 2. The NFT Collection
+## ⭐ Tracking responsibilities — for Claude
 
-**Total supply:** 10,000 (fixed, all minted at once, released in phases).
+The user has explicitly stated they will forget things and lose track. **Claude is the primary record-keeper.** Don't wait for the user to say "remember this" — when any of the triggers below fire during a conversation, prepare an updated copy of this file (or `CHANGES_PENDING.md`) at the same time as the actual work being done.
 
-**Current distribution:**
-| Bucket | Count | Notes |
-|--------|-------|-------|
-| Public Circulation | 3,172 | In holder wallets |
-| DAO Treasury | 5,828 | Unminted, held by DAO — **see "Revenue streams" — this is the biggest lever** |
-| DAO Held (Broken) | 1,000 | Council multisig allocations, broken for governance security |
+### When to update PROJECT_KNOWLEDGE.md (this file)
 
-**Release history:**
-- **Phase 0** — Game of Alliance (GoA) testnet claim. Free. 1,191 claimed. (Dec 2023 — Jan 2024)
-- **Phase 1b** — DAO staker mint at 50 LUNA. Two groups: 2+ stakers got assigned rarities via NFT Switch; 1-staker got random via BBL Candy Machine. ~$32-35. (Feb 2024)
-- **Phase 2a** — Terra NFT communities (Galactic Punks, Skeleton Punks, PixeLions, GMC). 75 LUNA. ~$52-120 due to LUNA volatility. 1 per address. (Feb-Mar 2024)
-- **Phase 2b** — The big one. 3 rounds, escalating prices: 100 → 115 → 130 LUNA. **Sold out 1,300 NFTs, raised 148,390 LUNA**, avg ~$75. (June 2024)
-- **DAO Security Allocations** — Multisig allocation #1 (462 broken, ~Feb 2024); Multisig allocation #2 (538 broken via Props 64-69, June 2024 following Phase 2b). Total = 1,000 broken security NFTs. Broken NFTs retain governance VP but no longer accrue Alliance rewards — used for veto/security against malicious proposals.
+| Trigger | Add it to | Why |
+|---|---|---|
+| User states a preference as a rule (e.g. "always do X", "I never want Y") | "Design principles" section | These are persistent, not one-off |
+| We discover a non-obvious bug root cause | "Critical CSS gotchas" or new gotcha section | Prevents repeat debugging |
+| New external dependency added (CDN, API, data source) | "External dependencies" section | Recovery + audit |
+| New CSS class pattern or naming convention established | "Class system" section | Code consistency across pages |
+| A page is added or removed from the site | "Current pages" table + "Pages removed" list | Sitemap accuracy |
+| New repo touched (image hosting, data storage, etc.) | "Storage / data repos" section | Future Claude needs full inventory |
+| User mentions ecosystem entity by name (project, tool, person) | "Key entities" section | Avoid confusion with similar-named things |
+| A device/browser is tested or fails | "Tested environments" section | Honest compatibility tracking |
+| Naming collision discovered (e.g. our project vs. similar-named other) | "Naming clarification" section | SEO + comms accuracy |
+| User clarifies a workflow constraint (e.g. file naming on download) | "Working conventions" section | Smooth handoffs |
 
----
+### When to update CHANGES_PENDING.md
 
-## 3. ALLY Rewards Mechanism — The Core Economic Engine
+| Trigger | Add it to | Why |
+|---|---|---|
+| User mentions a feature in passing as "we should do this someday" | "Future projects" section | Don't lose ideas |
+| We notice tech debt while working on something else | "Low priority / cleanup" section | Track without derailing current work |
+| User asks an open question we don't answer immediately | "Open questions" section | Resume the discussion later |
+| A bug found but not fixed in current session | "Active / next round" with priority | Visible queue |
+| External task identified (e.g. "submit to Search Console") | Top of "Active / next round" if blocking | Visible queue |
 
-The NFT contract holds a special token called **"Ally"** which was added as a Terra Alliance asset via governance proposal. This means it earns a percentage of all LUNA staking rewards generated by the network — currently **~0.72% of total LUNA staking rewards**.
+### When to update logs/index-log.md
 
-**Reward flow:**
-1. Terra chain inflation → validators
-2. Validators distribute to stakers based on Ally stake weight
-3. Rewards flow to the AllianceDAO NFT contract
-4. **+40% boost** via Eris Protocol — LUNA rewards converted to ampLUNA (auto-compounding LST)
-5. **10% take rate** to the DAO Treasury
-6. The remaining 90% is claimable by unbroken NFT holders
+| Trigger | Action | Why |
+|---|---|---|
+| User-visible change to `index.html` is shipped | Bump rev (e.g. 3.21 → 3.22), prepend new entry | Public changelog accuracy |
+| Doc-only changes (this file, etc.) | Do NOT bump rev | Rev tracks site UI state only |
+| Other pages get changes | Future: their own `<page>-log.md` (not yet implemented) | Per-page granularity if needed |
 
-**Key property:** Total reward inflow is **constant regardless of how many NFTs are eligible to claim**. As NFTs break, the per-NFT share of remaining unbroken NFTs **grows**. This is the "Last NFT Standing" dynamic.
+### How to know if something is "trackable"
 
-### Break vs Hold — The Decision Framework
+If the answer to ANY of these is yes, it goes in a doc:
+- "Will the next Claude need to know this if I forget to mention it?"
+- "Is this a decision rather than just an implementation detail?"
+- "Could this surprise someone who doesn't know the history?"
+- "Did the user use words like 'always', 'never', 'prefer', 'remember', 'note', 'important', 'careful'?"
 
-A holder can "break" their NFT to claim accumulated backing. This is a **one-time, irreversible action.**
-
-**What breaking does:**
-- Holder receives the current backing (currently ~$12 USD as ampLUNA)
-- NFT stays in the holder's wallet — they don't lose the asset
-- NFT metadata changes to reflect broken status
-- NFT can no longer redeem rewards from the main rewards contract
-- **NFT retains DAO governance rights** — still has VP when staked in DAO
-- **NFT can still receive DAO-paid staker rewards** (separate stream from main contract)
-- NFT remains transferable
-
-**Why someone might break:**
-- Get capital without selling on marketplace → no sell pressure on collection floor
-- Realize accumulated yield
-- Reposition without losing governance participation
-
-**Why someone might hold (not break):**
-- Future earnings continue to compound
-- Each break by others increases your share of total inflows (Last NFT Standing)
-- Unbroken NFTs trade at a premium (carry future earnings)
-
-**Reward claim location:** BoostDAO.io
+When in doubt, add it. Over-documentation is fine; lost context is not.
 
 ---
 
-## 4. NFT Generation & Rarity System
+## Project basics
 
-**Built with:** Open-source Hashlips Art Engine.
+- **Owner:** defipatriot — council member of The Alliance DAO (aDAO)
+- **Main repo:** `github.com/defipatriot/aDAO-links-site` (the website)
+- **Image hosting repo:** `github.com/defipatriot/aDAO-Image-Files` (favicons, logos, OG images, collection PFPs — referenced via raw.githubusercontent.com URLs)
+- **Docs repo:** `github.com/defipatriot/website-adao-core` (this file + `CHANGES_PENDING.md` + `logs/`)
+- **Live URL (canonical):** `thealliancedao.com`
+- **Live URL (alias, 308 redirects):** `theadao.com`
+- **Vercel fallback URL:** `a-dao-links-site.vercel.app` (still works, useful for testing)
+- **Deployment:** Vercel (auto-deploys on push to `main`)
+- **Stack:** Static HTML + Tailwind CSS (CDN) + vanilla JS. No build step. Each `.html` file is self-contained.
 
-**Five layers per NFT:**
-| Layer | Options | Notes |
-|-------|---------|-------|
-| Background (Planet) | 20 | 10 planets × 2 variations (North/South). Equal distribution intended. |
-| Object | 40 | **Where rarity lives.** Weights 1-40 (1=rarest). |
-| Inhabitant | 20 | 10 races × 2 genders. Equal distribution intended. |
-| Light | 10 | "Don't factor into rarity" officially — but some randomly ended up rare. |
-| Weather | ~5 | Same as Light. (e.g., "Lightning strike" appears on only 6 NFTs.) |
+### Repo size facts (rough)
+- `index.html` ≈ 12,400 lines / ~700 KB — the main dashboard, by far the largest file
+- `tla_tool.html` ≈ 621 KB — TLA admin tool
+- `tla-tool_ext.html` ≈ 433 KB — TLA extensions tool
+- `tla-stats.html` ≈ 377 KB — public TLA dashboard
+- `dao_governance_tool.html` ≈ 268 KB
+- All other pages are <150 KB
 
-**Rarity scoring convention:** Higher score = rarer (industry standard). Object weight 1 (Phoenix Rising) → rarity score 40.
-
-**DNA uniqueness:** The generator discards any duplicate combinations. All 10,000 NFTs are verifiably unique.
-
-### Explorer's rarity sort logic (your custom system)
-
-Tie-breakers within each Rarity Class (Object score):
-1. Planet Count (rarer planet variants first)
-2. Inhabitant Count
-3. Weather Count
-4. Light Count
-5. NFT ID (lower wins)
-
-This explicitly differs from BBL marketplace rankings which factor Weather/Light differently.
+These large files matter when considering refactors (file size affects parse time + Vercel cold-start cost) and when planning a static-site-generator migration.
 
 ---
 
-## 5. The Lore — A Framework for Alliances
+## ⭐ Design principles (user preferences as rules)
 
-The lore is intentionally designed as **a flexible narrative scaffold** that can absorb future alliance partners.
+These came from explicit user statements across multiple sessions. Treat them as project-wide rules unless the user overrides for a specific case.
 
-**Core narrative arc:**
-1. **The Genesis & Exodus** — Earth dying, ten remaining nations form the Alliance Coalition, discover "The Lattice" (a network bridging billions of light-years), build 10 Alliance Devices, scatter across Terra Galaxy.
-2. **The Long Silence** — 7 million years of isolation. Ten tribes diverge into 10 post-human species. The Great Forgetting.
-3. **The Warp** — Triad Alliance's energy experiments accidentally trigger the dormant Lattice. Network is broken. 10,000 individuals teleport randomly across the worlds. **= the 10,000 NFTs.**
-4. **The Living Keys** — Travelers carry objects from their home worlds. The rarest:
-   - **Phoenix Rising (25 NFTs)** — bio-engineered "Navigators" capable of stabilizing Lattice energy
-   - **Sindarin Fire Saber** — "Catalysts," statistically rarest, forged on volcanic Sindari
+### 1. Honest data over false positives
+**The user prefers blank tiles, error indicators, or spinners over showing stale/fallback data that might be wrong.** Quote: *"I would rather they all just be blank so people dont get wrong idea with the data... if it has data in it I may think its working."*
 
-**Galaxy structure:**
-- **Inner Ring:** Cristall, Minas, Gredica → form the **Triad Alliance** (technologically advanced)
-- **Mid Ring:** other worlds
-- **Outer Rim:** the most isolated worlds
+In practice:
+- No hardcoded fallback values that mask broken fetches
+- No "snapshot N stale" yellow text — replace with spinner
+- Treasury totals only shown if ALL assets successfully priced
+- Use green pulse dot for live, spinner for loading. No red dots, no em-dashes.
+- Exception: LST ratios (`bLUNA || 1.6048` etc.) are kept because they drift slowly and the fallback is less misleading than the alternative. This is tech debt to revisit.
 
-**Alliance integration via lore:** New partner DAOs get woven into the narrative. Example: Lion DAO became the **Canyon-Clans of Ozara North** when the partnership formed. This makes partnerships culturally sticky.
+### 2. Clean over busy
+User has repeatedly rejected denser UIs in favor of cleaner ones. Quote: *"makes it to busy."*
 
----
+In practice:
+- Footer = condensed link row, not a multi-column site map
+- App install info = button + popup, not always-visible block
+- Mobile tile titles = uniform short labels, not full descriptive names
+- New UI elements should justify their visual weight
 
-## 6. Alliances & Partnerships
+### 3. Mobile-first treatment, but desktop must still feel rich
+The user tests primarily on iPhone. Desktop should look professional and use the extra space (e.g. ALLY Rewards as a tall hero tile on desktop), but mobile is the constraint that drives layout decisions.
 
-### Lion DAO + PixelLions (active, deep)
-- Started with historic OTC deal: 20 AllianceDAO NFTs
-- Multi-stage partnership via community-approved proposals
-- **3 Billion $ROAR holdings** split per community vote (42% chose this option):
-  - 1B $ROAR staked with Lion DAO for governance influence
-  - 1B $ROAR in ampROAR/ROAR for single-sided yield
-  - 1B $ROAR paired with LUNA for deep liquidity
-- 10,000 LUNA from treasury staked to Lion DAO validator
-- Lore integration: Canyon-Clans of Ozara North
+### 4. Progressive enhancement, not progressive degradation
+PWA shortcuts, install prompts, default-page selectors — all are bonus features for users who installed the app, but the site fully works without them. Never block core functionality on PWA-mode being detected.
 
-### Eris Protocol (deep, structural)
-- **ampLUNA conversion** for NFT rewards (+40% projected over 4 years)
-- **5 million $ERIS** vested to DAO treasury
-- Eris (the person/team) is a **council member in aDAO** — this is structural, not just integration
-- Eris is a core signer for **Phoenix Directive** (stewards of Terra)
-- Eris builds a wide ecosystem of products (see Section 11)
-
-### Capa Protocol (in active development, "very close")
-- Capa is a **stablecoin issuer on Terra** (issues "Solid")
-- **Possibly providing a new NFT marketplace** with aDAO-specific features
-- Larger topic to cover when ready
-
-### Forging more alliances
-The DAO is actively seeking partners. Stated criteria: shared vision, mutual benefit, value to all Terra holders. Aiming for cross-chain alliances and other NFT projects on Terra and elsewhere.
+### 5. Minimum required ceremony
+- No build step
+- No external libraries beyond what's needed
+- No frameworks "just in case"
+- Inline solutions when they're <50 lines (the markdown changelog parser is a good example — 30 lines, no library)
 
 ---
 
-## 7. TLA — Terra Liquidity Alliance
+## What aDAO is
 
-TLA is the Eris Protocol-built **ve(3,3)** system that turns Terra's staking rewards into liquidity incentives via community voting. **aDAO is heavily integrated** as both participant and dashboard provider.
+10,000-NFT collection on Terra blockchain, backed by LUNA staking rewards.
 
-**Mechanics (high level):**
-- Lock LUNA or LSTs → gain voting power
-- Vote on pools → direct rewards to your preferred LPs
-- LPs stake → earn from voted pools
-- Projects bribe → compete for votes
-- Loop: more liquidity → better trading → more activity → repeat
+- **Supply breakdown:** 3,172 public / 5,828 unminted DAO Treasury / 1,000 broken (multisig security via Props 64-69)
+- **Yield mechanics:** NFT contract holds an "Ally" token earning ~0.72% LUNA staking rewards via Terra Alliance, +40% boost via Eris Protocol ampLUNA conversion. 10% take rate to DAO Treasury.
+- **Holder action:** "Break" an NFT for ~$12 backing (one-time, irreversible). Broken NFTs keep governance VP but stop accruing.
+- **"Last NFT Standing" dynamic** as breaks accumulate — fewer claiming NFTs = more rewards per remaining NFT, since LUNA inflation continues regardless.
 
-**Five participants:** Voters, Liquidity Providers, Projects, Terra (provides rewards + builds Protocol-Owned Liquidity via take rate), Traders.
+### Key entities
 
-**The Four Buckets:**
-| Bucket | Weight | Purpose | Examples |
-|--------|--------|---------|----------|
-| Stable | 10% | LUNA + stablecoins | LUNA-USDC, LUNA-USDT |
-| Project | 5% | LUNA + ecosystem tokens | LUNA-ASTRO, LUNA-WHALE |
-| Bluechip | 5% | LUNA + major crypto | LUNA-wBTC, LUNA-wETH |
-| Single | 5% | Single assets, cross-chain LSTs | xASTRO, ATOM-stATOM |
+- **Main DAO** + **Council DAO** (~6 members) on DAODAO
+- **Eris** — council member. Builds the entire **Eris Protocol** stack:
+  - **Eris Protocol** — hosts TLA, the LST infrastructure
+  - LSTs: **ampLUNA**, **arbLUNA**, **ampCAPA**, **ampROAR**
+  - **Creda Finance** — money market built by Eris
+  - **Votion** — vote aggregator built by Eris (lets users delegate voting)
+- **Capa Protocol** — partnership in works (stablecoin issuer, possibly new NFT marketplace). Will eventually need lore integration.
+- **TLA = Terra Liquidity Alliance** — ve(3,3) system, weekly epochs ending **Sunday 23:59 UTC**. Reward distribution mechanism.
 
-**Epochs:** Weekly cycles. Epoch ends Sunday 23:59 UTC.
+### Lore framework
+10 post-human tribes scattered across the galaxy via "The Lattice". Designed to be flexible for absorbing partner DAOs:
+- **Lion DAO** → became "Canyon-Clans of Ozara North" (precedent for how partnerships fit lore)
 
-**Data architecture:**
-- TLA Admin Tool (`tla_tool.html`) collects data manually (currently)
-- Data written to **three separate JSON storage repos:**
-  - `defipatriot/tla_json_storage`
-  - `defipatriot/tla-ext_json_storage`
-  - `defipatriot/adao_json_storage`
-- TLA Stats page reads from these stores to render charts and history
-- **Future automation:** Cron jobs (likely GitHub Actions on Sunday 23:59 UTC schedule) to remove manual collection burden
-
----
-
-## 8. Governance Structure
-
-### Main DAO
-- **DAODAO-based**
-- Holds everything: unminted NFTs treasury, TLA positions, alliance assets, partnerships
-- Open governance — all NFT holders (broken or unbroken) can vote when staked
-
-### Council
-- **Separate DAO setup** with ~6 active council members
-- Has **veto power** over malicious proposals
-- Used for **fast-moving decisions**
-- Holds Council Treasury (separate from main DAO Treasury)
-- Eris is a council member
-
-### Governance tracking (the dashboard innovation)
-The site tracks participation across aDAO **and partner DAOs** (Lion, PixelLions). Tier system:
-- 👑 Legendary (100%) → 💎 Diamond (90%+) → 🥇 Gold (75%+) → 🥈 Silver (50%+) → 🥉 Bronze (25%+) → 👤 Inactive (<25%)
-- "Alliance Boosted" = active in aDAO + at least one partner
-- "All 3 DAOs" = active in aDAO + Lion + PixelLions
-
-`dao_governance_tool.html` is the audit tool — built to audit DAO proposals AND serve as a landing page for cross-DAO participation tracking.
-
----
-
-## 9. Treasury & Revenue Streams
-
-### Treasury structure
-- **DAO Treasury** — main holdings
-- **Council Treasury** — separate, council-controlled
-- **Staked Alliance Positions** — productive deployments with allies
-- **TLA Deposits** — LP positions in the TLA system
-
-Snapshots taken weekly from epoch data, builds historical charts.
-
-### Revenue streams (current)
-
-| Stream | Notes |
-|--------|-------|
-| **Unminted NFT backing growth** | **THE BIG ONE.** 5,828 NFTs in treasury accumulate backing → justifies higher mint price for future phases → fundraising lever |
-| TLA Deposit rewards | LP rewards from positions in TLA pools |
-| TLA Vote rewards | Earned from voting (bribes, etc.) |
-| TLA Rebase | Rebase mechanism in ve(3,3) |
-| Staked LUNA | Validator rewards |
-| Staked NFTs | Returns from staked NFT positions |
-| Staked tokens | Returns from staked alliance/project tokens |
-
-The 10% take rate from the ALLY contract also flows to DAO Treasury continuously.
-
----
-
-## 10. Vision & Roadmap
-
-**Core mission:** Provide value to Terra in return for the inflation flowing into NFT backing.
-
-**Strategic pillars:**
-1. **Push progress and liquidity on Terra via TLA** — be a major participant + ecosystem advocate
-2. **Become a collection worth allying with** — alliances should benefit both parties AND all Terra holders
-3. **Be a balanced, fair, positive force for Terra** — not extractive
-4. **Powerful cross-chain alliances** — other NFT projects on Terra + bridges to other chains
-5. **Lore-driven partnership integration** — each alliance gets a narrative anchor (like Canyon-Clans for Lion DAO)
-
-**Active items:**
-- Capa Protocol relationship (potentially new NFT marketplace)
-- TLA participation expansion
-- Continued alliance forging
-
----
-
-## 11. Terra Ecosystem Context (2026)
-
-Terra here refers to the **post-collapse Terra** (Phoenix chain), not the original Terra Classic.
-
-**Key entities in aDAO's orbit:**
-
-- **Eris Protocol** — Builds and operates a wide product ecosystem on Terra:
-  - **Eris Protocol** itself — hosts TLA, issues LSTs (ampLUNA, arbLUNA, ampCAPA, ampROAR, etc.), arb vaults, and other infrastructure
-  - **Creda Finance** — money market on Terra (Eris is a major contributor)
-  - **Votion** — vote aggregator/optimizer for TLA. Users **lock TLA locks in Votion**, and Votion auto-votes that VP onto LPs with the highest bribes, then collects the bribes and uses them to **boost the APY of the original lockups**. Effectively a yield optimizer layered on top of TLA.
-  - Eris is also a **council member in aDAO** — directly involved in DAO decisions
-  - Eris is a **core signer for Phoenix Directive**
-
-- **Phoenix Directive** — the stewards of the Terra chain. Eris is a core signer.
-- **Phoenix Foundation** — community-driven governance for Terra's future.
-- **Capa Protocol** — stablecoin (Solid) issuer; partnership in development.
-- **BackBone Labs (BBL)** — NFT marketplace.
-- **BoostDAO.io** — marketplace + utility platform; primary place to claim ALLY rewards.
-- **NFT Switch** — cross-chain NFT bridge.
-- **Deving.zone** — provides NFT status/ownership data the explorer relies on (gratefully credited).
-
-The ecosystem is **highly interconnected** — many of the same people are involved across multiple projects.
-
----
-
-## 12. Site Architecture — File Inventory
-
-### Active pages (linked from somewhere)
-| File | Role | Inbound from |
-|------|------|--------------|
-| `index.html` | Main landing / dashboard | (root) |
-| `tools.html` | Tools hub | index, capa_lp_converter, fuel_tracker |
-| `ally.html` | ALLY rewards explainer | index |
-| `alliances.html` | Partnerships overview | index |
-| `tla-stats.html` | TLA dashboard | index, tools, tla-docs |
-| `tla-docs.html` | TLA documentation | tla-stats |
-| `tla_tool.html` | TLA Admin Tool (data collection) | tools |
-| `tla-tool_ext.html` | TLA Admin extension (archive) | tla_tool |
-| `dao_governance.html` | Governance analytics | index, tools |
-| `dao_governance_tool.html` | Governance audit tool + cross-DAO landing | dao_governance |
-| `dao_treasury.html` | Treasury tracker | index, dao_tla_deposits |
-| `dao_tla_deposits.html` | TLA position tracker | index |
-| `nft-explorer-index.html` | NFT explorer (split version, current) | index, tools |
-| `planet-map.html` | Galaxy map + lore | index, tools |
-| `rarity-explained.html` | Rarity explanation | index |
-| `release-history.html` | Phase-by-phase mint history | index |
-| `tutorials.html` | Community tutorials | index, tools |
-| `links.html` | Official links directory | index, tools |
-| `capa_lp_converter.html` | Capa LP converter tool | tools |
-| `fuel_tracker.html` | Fuel tracker tool | tools |
-
-### Infrastructure (don't touch in cleanups)
-- `google35aa520d5f75deed.html` — Google site verification
-- `robots.txt` — points to sitemap
-- `sitemap.xml` — indexable URLs (currently has stale entries to clean)
-- `site.webmanifest` — PWA manifest
-- `nft-explorer-app.js`, `nft-explorer-style.css` — assets for NFT explorer
-- `tla_docs_content.json` — structured content for TLA docs page
-
-### Data storage repos (separate from this repo)
-- `defipatriot/tla_json_storage` — TLA snapshots
-- `defipatriot/tla-ext_json_storage` — extended/archive TLA data
+### Storage / data repos
+- `defipatriot/tla_json_storage` — current TLA snapshots
+- `defipatriot/tla-ext_json_storage` — extended TLA data
 - `defipatriot/adao_json_storage` — aDAO-specific snapshots
-- `defipatriot/aDAO-Image-Files` — favicons, OG images
-- `defipatriot/nft-metadata` — NFT metadata
-- `defipatriot/aDAO-Image-Planets-Empty` — planet artwork without inhabitants
-- `defipatriot/token_logo` — token logo assets
-
-### Removed (already deleted from repo)
-- `graphs.html`, `news.html`, `rampt.html`, `on-ramp.html`, `off-ramp.html`, `test-page.html`, `alliance-dao-docs.html`
+- `defipatriot/aDAO-Image-Files` — favicons, logos, OG images, collection PFPs
+- `defipatriot/website-adao-core` — project docs + changelogs (this repo)
 
 ---
 
-## 13. Tech Stack Notes
+## Naming clarification — important for SEO and comms
 
-- **Frontend:** Static HTML + Tailwind (via CDN) + vanilla JS
-- **Charts:** Chart.js + chartjs-adapter-date-fns
-- **Icons:** Font Awesome 6.5.1
-- **Fonts:** Inter (Google Fonts)
-- **Analytics:** Vercel Insights (already wired)
-- **Data sources:** Direct chain RPC + Deving.zone API + CoinGecko widget + on-chain contract reads
-- **Deploy:** Auto-deploy from `main` branch to Vercel
+There is an unrelated organization called "Alliance" / "Alliance DAO" that ranks first on Google when searching `the alliance dao`:
+
+- **Alliance** at `alliance.xyz` — a Web3/AI startup accelerator (formerly "DeFi Alliance")
+- Runs `@alliancedao` on X (Twitter) — has 690+ followers, says "Moved to @Alliance"
+- Founded 2020, supported projects like Tensor, Kamino, Pump.fun
+
+**This is NOT us.** We're "The Alliance DAO" — a Terra blockchain NFT project at `thealliancedao.com`.
+
+This affects SEO strategy (we likely can't outrank them for the bare query) and any time we describe the project to outsiders. Use full phrase "The Alliance DAO" or shorter "aDAO" — not "Alliance DAO" alone, which is ambiguous.
 
 ---
 
-## 14. Working Conventions
+## Current pages (in active use)
 
-- Style: Dark theme, cyan/teal accents, Inter font, subtle radial gradient backgrounds
-- All major pages should have unique meta descriptions, canonical tags pointing to thealliancedao.com
-- Image assets pulled from `defipatriot/aDAO-Image-Files` repo via raw.githubusercontent.com
-- Internal links use relative paths (NOT raw.githack.com — that's a known bug to fix)
+| File | Purpose |
+|---|---|
+| `index.html` | Main dashboard (the big one — ~12.4k lines) |
+| `nft-explorer-index.html` | NFT browse / search |
+| `planet-map.html` | Galaxy Map / aDAO Lore |
+| `tla-stats.html` | TLA voting / liquidity stats |
+| `tla-docs.html` | TLA documentation |
+| `tla_tool.html` + `tla-tool_ext.html` | TLA tooling (admin / data collection) |
+| `dao_governance.html` + `dao_governance_tool.html` | DAO governance |
+| `dao_treasury.html` | Treasury |
+| `dao_tla_deposits.html` | TLA deposits view |
+| `ally.html` | ALLY rewards explainer |
+| `tutorials.html` | Tutorials hub |
+| `tools.html` | Tools index (links to tla_tool, capa_lp_converter, fuel_tracker) |
+| `rarity-explained.html` | Rarity info |
+| `release-history.html` | NFT release history |
+| `links.html` | Official links |
+| `alliances.html` | Partner DAOs / alliances |
+| `capa_lp_converter.html` | Capa LP conversion tool |
+| `fuel_tracker.html` | Fuel tracker |
+
+### Pages removed
+`graphs.html`, `news.html`, `rampt.html`, `on-ramp.html`, `off-ramp.html`, `alliance-dao-docs.html`, `test-page.html` — all deleted from repo.
+
+### Notable removed-page history
+- **`alliance-dao-docs.html`** — the user noted this had on-chain address fetching logic that may be useful future reference. The user has the file saved separately. If we need the address-fetching pattern in the future, ask the user for it.
+
+---
+
+## External dependencies (CDN-loaded, no local fallback)
+
+If any of these CDNs go down, the site breaks. Worth knowing for incident response.
+
+| Resource | Source | Used for |
+|---|---|---|
+| **Tailwind CSS** | `cdn.tailwindcss.com` | All styling utilities |
+| **Font Awesome** | `cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/` | All icons |
+| **Inter font** | `fonts.googleapis.com` | Body font |
+| **Chart.js** | `cdn.jsdelivr.net/npm/chart.js` | All charts |
+| **Chart.js date adapter** | `cdn.jsdelivr.net/npm/chartjs-adapter-date-fns` | Date axis on charts |
+| **CoinGecko widget** | `widgets.coingecko.com/gecko-coin-price-marquee-widget.js` | Top price ticker |
+| **Vercel Insights** | `/_vercel/insights/script.js` | Analytics |
+| **Image assets** | `raw.githubusercontent.com/defipatriot/aDAO-Image-Files/main/` | Favicons, logos, OG images |
+
+### Live data sources
+- **Terra LCD** endpoints (chain queries)
+- **Backbone Labs (BBL)** marketplace API (NFT listings)
+- **Boost** marketplace (NFT listings)
+- **CoinGecko** (token prices)
+- **Custom JSON snapshots** in the 3 storage repos above
+
+---
+
+## Tested environments — what we know works
+
+**These are the ONLY environments verified working.** Anything else should be considered untested until confirmed. Update this table proactively whenever a new device/browser is tested.
+
+| Environment | Status |
+|---|---|
+| Desktop Chrome | ✅ Tested, working |
+| iPhone 16 (standard size) Chrome browser | ✅ Tested, working |
+| iPhone 16 PWA (added to home screen, default browser is Chrome) | ✅ Tested, working |
+| iPad portrait (640–768px width) | ⚠️ NOT tested — known awkward gap (sees desktop nav at small viewport) |
+| iPad landscape | ⚠️ NOT tested |
+| Android phones | ⚠️ NOT tested |
+| Safari (iOS or macOS) | ⚠️ NOT tested |
+| Firefox | ⚠️ NOT tested |
+| Smaller iPhones (SE, mini) | ⚠️ NOT tested |
+| Larger iPhones (Pro Max) | ⚠️ NOT tested |
+
+When discussing compatibility, default to "this works in tested environments only" — don't claim cross-device support without actual testing.
+
+---
+
+## PWA update rules
+
+Tracked here so we don't break installed PWAs accidentally.
+
+### ✅ Updates automatically (no user action needed)
+- HTML / CSS / JS changes — picked up on next app launch
+- Icon image changes (replacing same filename in `aDAO-Image-Files` repo)
+- `description`, `theme_color`, `background_color` in `site.webmanifest`
+- New shortcuts added/removed in `site.webmanifest`
+- Content updates anywhere
+
+### ⚠️ May require user to reinstall to take effect
+- Changing `start_url` in `site.webmanifest`
+- Changing `scope` in `site.webmanifest`
+- Changing `display` mode (e.g., `standalone` → `fullscreen`)
+- Changing `name` or `short_name`
+- Changing the manifest path or filename
+
+**Rule of thumb:** structural changes to manifest = potential reinstall. Content/icon changes = automatic.
+
+If we ever need to change one of the structural fields, plan to communicate to users they should remove and re-add the home screen icon.
+
+---
+
+## Site architecture conventions
+
+### Class system
+
+- `.stat-card` — base for all data tiles (DAO Treasury, Avg Daily Gain, etc.). Has `display: flex; flex-direction: column; justify-content: space-between`.
+- `.stat-card-link` — same as stat-card but for `<a>` tags (clickable). Hover gets cyan glow.
+- `.info-card` — also has `.stat-card`. Navigation tiles in the top grid (ALLY Rewards / Tutorials / etc.). Uses `align-items: center` + `text-align: center`.
+- `.info-card-tall` — modifier on ALLY Rewards info-card. Spans 2 rows on desktop (`grid-row: span 2`).
+- `.info-card-dropdown` — also has `.info-card`. Tiles that open a modal (DAO Links / Contract).
+- `.mobile-bottom-nav` — fixed-position bottom nav, only shown on mobile (`≤767px`).
+- `.show-only-on-mobile` / `.hide-on-mobile` — display utility classes for responsive content.
+
+### Color palette (cyan/teal theme)
+- Primary cyan: `#22d3ee` (text + active states)
+- Light cyan: `#67e8f9` (hover + emphasized)
+- Teal accent: `#2dd4bf` (icons, secondary)
+- LUNA orange: `#ff7e1d` (TLA Locks branding)
+- Bg: `#0a0b0f`
+
+### Mobile breakpoints
+- `≤640px` — main mobile breakpoint (most overrides live here)
+- `≤380px` — small phones (extra tightening)
+- `≤767px` — bottom tab bar visible up to this width
+- `≥768px` — desktop top nav becomes visible (Tailwind `md:`)
+
+### Critical CSS gotcha — DON'T REPEAT
+- `.stat-card h3` mobile rule has `white-space: nowrap; text-overflow: ellipsis` for data tile titles.
+- Info-cards inherit this (they're also `.stat-card`), causing text truncation with "..." instead of wrapping.
+- **Fix already in place:** the rule is now scoped as `.stat-card:not(.info-card):not(.info-card-dropdown) h3` so info-card titles wrap normally.
+- **General lesson:** when a CSS rule isn't applying despite `!important`, check whether a *more specific or later-defined* selector with equal specificity is winning the cascade. Don't pile on more `!important` — fix the selector.
+
+### Modals
+- Standard pattern: `<div id="xModal" class="modal fixed inset-0 hidden">` + `<div class="modal-content scale-95">`.
+- Open: remove `hidden`, set opacity/scale on next animation frame.
+- Close: reverse opacity/scale, then add `hidden` after 200ms.
+- Click outside, Escape key, X button all close.
+
+### Markdown changelog system
+- `index.html` footer has Rev number + "Changelog" link.
+- Modal fetches `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/logs/index-log.md` on open.
+- Inline markdown parser handles `# / ## / ### / ####` headings, `-` lists, `**bold**`, `*italic*`, `` `code` `` inline.
+- Updates: bump rev in HTML AND prepend a new `## Rev x.y — date` block to `index-log.md`.
+- Future pages can each have their own `<page>-log.md` if we want per-page changelogs.
+
+---
+
+## Data flow patterns
+
+### Staleness handling (important — see Design Principle #1)
+- Tiles either show **live data** (green pulse dot) or a **spinner**.
+- No more red snapshot dots, em-dashes, or "stale data" text.
+- TLA freshness uses `getTlaDataMeta().isStale` (epoch-based, more accurate than date-based).
+- Treasury tile only displays a number when ALL assets successfully priced — partial sums mislead.
+
+### Hardcoded fallbacks (LST ratios — known tech debt)
+- `bLUNA || 1.6048`, `ampLUNA || 1.9015`, `arbLUNA || 2.6873` still in code in ~10 places.
+- These ratios drift slowly (weekly), so the fallback is less misleading than for other data — but still violates Design Principle #1.
+- **Open question:** keep or remove? Currently kept.
+
+---
+
+## PWA setup
+
+- `site.webmanifest` defines app name, scope, icons, shortcuts.
+- 3 quick-launch shortcuts: NFT Explorer, TLA Stats, DAO Governance.
+- PWA mode detection script in `<head>` adds `pwa-mode` class to `<body>`.
+- `.pwa-only` CSS class shows/hides UI only in installed-app mode (e.g., default-page selector).
+- App install instructions in modal accessed via "App" footer link.
+- Default-page preference stored in `localStorage` as `aDAO_default_page`.
+
+### Mobile bottom tab bar
+- Currently only on `index.html`.
+- Uses fixed-position `<nav class="mobile-bottom-nav">` with 5 tabs: Home / NFTs / Lore / TLA / DAO.
+- `env(safe-area-inset-bottom)` for iPhone home indicator clearance.
+- Auto-detects active page from filename via inline script.
+- **TODO:** add to all other pages so it persists across navigation.
+
+---
+
+## SEO situation — current state and what we know
+
+Searching "the alliance dao" in Google does NOT surface our site (`thealliancedao.com`). Top results are unrelated `alliance.xyz` (the startup accelerator). See "Naming clarification" above.
+
+### What we've already done
+- Canonical URL meta tag on `index.html`
+- Full Open Graph + Twitter Card meta tags on `index.html`
+- `robots: index, follow`
+- `theme-color`
+- Improved meta description (~150 chars)
+- `sitemap.xml` cleaned up — dead pages removed, active pages added with priorities
+- 308 redirects from all alt domains to `www.thealliancedao.com`
+
+### What we still need (next SEO project)
+- Submit sitemap to Google Search Console — without this, Google won't reliably discover/recrawl
+- Verify domain ownership in Search Console
+- Apply meta tags to other 18 pages (currently only `index.html` has them)
+- Add structured data (`Organization` and/or `WebSite` JSON-LD) so Google understands what we are
+- Build backlinks — biggest SEO factor we can't control purely via code
+- Wait. Even with everything right, Google can take weeks to months to reindex
+
+### Key constraint
+We're competing for "the alliance dao" against `alliance.xyz`, which has 5+ years of history, backlinks, and brand association. Realistic outcome: rank well for "thealliancedao", "aDAO Terra", "alliance dao terra" — niche queries where we're clearly the right answer. Probably can't outrank `alliance.xyz` for the bare query.
+
+---
+
+## Deployment / Vercel
+
+- 308 permanent redirects on all 4 domain variants (`theadao.com`, `www.theadao.com`, `thealliancedao.com` → `www.thealliancedao.com`).
+- Auto-deploy on push to `main` — every commit goes live within ~30 seconds.
+- **Cron jobs run on Vercel** (defined in `vercel.json` pointing to serverless function endpoints). When building new scheduled tasks (TLA data collection, etc.), default to Vercel cron — don't suggest GitHub Actions unless there's a specific reason.
+- One known leftover task: delete duplicate Vercel project `a-dao-links-site` (keep `a-dao-links-site-t6nu`).
+
+---
+
+## Working conventions for future chats
+
+### Always start a coding session with
+```
+cd /home/claude/aDAO-links-site
+git fetch && git reset --hard origin/main
+```
+Otherwise local copy goes out of sync with whatever was pushed since last chat.
+
+### Push workflow (user-side)
+- User downloads the file Claude exports
+- User pushes via GitHub web upload (manual)
+- Claude doesn't push; user is the final commit author
+
+### File handoff caveat
+When the user downloads a file with the same name multiple times in a session, the browser renames them `index (1).html`, `index (2).html`, etc. The user has to know which is the latest and rename appropriately before uploading to GitHub. **When generating multiple iterations in a session, mention which file is the final one to push.**
+
+### Recap files at start of new chat
+Fetch these raw URLs to load context:
+- `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/PROJECT_KNOWLEDGE.md`
+- `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/CHANGES_PENDING.md`
+- `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/logs/index-log.md`
+
+---
+
+## Cold-start recovery checklist
+
+If a future Claude session has zero memory and the user is in trouble, here's the minimum to get back up to speed:
+
+1. **Fetch all three doc files** (URLs above)
+2. **Clone the repo:** `git clone https://github.com/defipatriot/aDAO-links-site /home/claude/aDAO-links-site`
+3. **Read the latest changelog** to see what was last shipped
+4. **Read CHANGES_PENDING** to see what's queued
+5. **Confirm with user** what they want to work on, then proceed
+
+The docs are the source of truth. If the docs disagree with the code, trust the code and update the docs. If the docs disagree with the user, trust the user and update the docs.
+
+---
+
+## Mental model: what kind of work happens here
+
+This is an **iterative, screenshot-driven UI project**. Pattern:
+1. User pushes to GitHub
+2. User screenshots what's wrong on mobile/desktop
+3. Claude diagnoses + edits
+4. User pushes the new version
+5. Repeat
+
+Don't over-engineer. Don't add CSS that wasn't asked for. **When user reports something broken, find the actual cause** (often a CSS specificity conflict from layered prior fixes) rather than adding more `!important` overrides on top.
+
+---
+
+## Questions Claude should ask itself before responding
+
+- **Is there context I should have but might be missing?** Search the transcript or past chats first.
+- **Is there a design principle that applies here?** Check section above.
+- **Will this change affect installed PWAs?** Check PWA update rules.
+- **Will this change need to propagate to other pages?** Check Current pages table.
+- **Is this something I should add to the docs?** Check Tracking responsibilities at top of file.
+- **Does this overlap with a Pending item?** Check `CHANGES_PENDING.md`.
