@@ -5,6 +5,18 @@ Newest revisions on top. Times are UTC.
 
 ---
 
+## Rev 3.23 — 2026-05-08
+
+Quick fix after Rev 3.22 went live.
+
+### What changed
+- Fixed changelog modal — was fetching from `/main/logs/index-log.md` (404), now fetches from `/main/index-log.md` to match where the file actually lives in `website-adao-core`. Same fix applied to all 4 core tab pages (NFT Explorer, aDAO Lore, TLA Stats, DAO)
+
+### Convention now codified
+Log files in `defipatriot/website-adao-core` live at the **root** of the repo, not in a `/logs/` subdirectory. PROJECT_KNOWLEDGE.md updated to reflect this.
+
+---
+
 ## Rev 3.22 — 2026-05-08
 
 Cross-page consistency rollout (phase 1) — top-level navigation pages.
@@ -27,7 +39,7 @@ Four core tab pages now have unified header + 5-tab top nav + mobile bottom nav 
 - `tla-stats.html` — starting rev 1.14 (epoch selector + all charts preserved)
 - `dao.html` — starting rev 1.4 (Members/Proposals tabs + audit tool link preserved)
 
-Each of those 4 pages fetches its own changelog: `explorer-log.md`, `lore-log.md`, `tla-log.md`, `dao-log.md`. All other pages (when added in a future rollout phase) will fetch `index-log.md` since most site-wide changes happen on the homepage anyway.
+Each of those 4 pages fetches its own changelog. All other pages (when added in a future rollout phase) will fetch `index-log.md` since most site-wide changes happen on the homepage anyway.
 
 ---
 
@@ -52,8 +64,8 @@ This revision consolidates a wide-ranging modernization of the dashboard. Major 
 - Mobile labels shortened: Explorer · Lore · TLA · DAO
 - DAO Home link fixed (removed `?url=...erisprotocol.com` query param)
 - Top info-cards grid expanded to **9 tiles** with two new dropdown-style tiles:
-  - **DAO Links** (Main DAO + Council DAO sections, 10 destinations)
-  - **Contract** (NFT Contract + Contract Audit)
+  * **DAO Links** (Main DAO + Council DAO sections, 10 destinations)
+  * **Contract** (NFT Contract + Contract Audit)
 - ALLY Rewards displays as a tall tile spanning 2 rows on desktop, normal tile on mobile
 
 ### Honest data display
@@ -90,7 +102,6 @@ This revision consolidates a wide-ranging modernization of the dashboard. Major 
 ## Rev 3.20 and earlier
 
 History prior to Rev 3.21 was not formally tracked. Major prior revisions:
-
 - **Rev 3.x** — multiple iterations of the unified dashboard view (current architecture)
 - **Rev 2.x** — separate-pages era, before main dashboard consolidation
 - **Rev 1.x** — initial release with basic NFT links / info hub layout

@@ -5,6 +5,17 @@ Newest revisions on top. Times are UTC.
 
 ---
 
+## Rev 4.13 — 2026-05-08
+
+Cleanup pass after first user review of the unified chrome rollout.
+
+### What changed
+- Removed duplicate logo row — the second aDAO logo + Terra logo from the original header are gone (the shared header above already provides them)
+- **Map view removed entirely** — the Collection / Wallet / Map toggle is now Collection / Wallet only. Map view was deemed too complex for the value it provided. The `<canvas id="space-canvas">` and `<div id="map-view">` containers were removed; the JS handlers in `nft-explorer-app.js` still reference these but are null-safe so no errors
+- Fixed changelog modal — was fetching from `/main/logs/explorer-log.md` (404), now fetches from `/main/explorer-log.md` to match where the file actually lives in `website-adao-core`
+
+---
+
 ## Rev 4.12 — 2026-05-08
 
 Initial entry — page brought into the unified site chrome system.

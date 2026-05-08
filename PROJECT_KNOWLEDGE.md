@@ -35,7 +35,7 @@ The user has explicitly stated they will forget things and lose track. **Claude 
 | A bug found but not fixed in current session | "Active / next round" with priority | Visible queue |
 | External task identified (e.g. "submit to Search Console") | Top of "Active / next round" if blocking | Visible queue |
 
-### When to update logs/index-log.md
+### When to update index-log.md
 
 | Trigger | Action | Why |
 |---|---|---|
@@ -60,7 +60,7 @@ When in doubt, add it. Over-documentation is fine; lost context is not.
 - **Owner:** defipatriot — council member of The Alliance DAO (aDAO)
 - **Main repo (deployed code only):** `github.com/defipatriot/aDAO-links-site` — HTML, CSS, JS, sitemap, manifest. **Never put docs/notes here** — Vercel only deploys what's in this repo, so keep it focused on what's actually rendered to users.
 - **Image hosting repo:** `github.com/defipatriot/aDAO-Image-Files` (favicons, logos, OG images, collection PFPs — referenced via raw.githubusercontent.com URLs)
-- **Docs repo:** `github.com/defipatriot/website-adao-core` — `PROJECT_KNOWLEDGE.md`, `CHANGES_PENDING.md`, `logs/` directory for changelogs. **All project documentation lives here, NOT in the main site repo.** Edits don't trigger Vercel redeploys.
+- **Docs repo:** `github.com/defipatriot/website-adao-core` — `PROJECT_KNOWLEDGE.md`, `CHANGES_PENDING.md`, all changelog `*-log.md` files, plus `sitemap.xml`, `robots.txt`, `site.webmanifest`, etc. Everything lives at the **root** of the repo — no subdirectories. **All project documentation lives here, NOT in the main site repo.** Edits don't trigger Vercel redeploys.
 - **Live URL (canonical):** `thealliancedao.com`
 - **Live URL (alias, 308 redirects):** `theadao.com`
 - **Vercel fallback URL:** `a-dao-links-site.vercel.app` (still works, useful for testing)
@@ -169,11 +169,11 @@ Each page has a target rev number for the changelog system rollout. See "Cross-p
 
 | Display name | File | Starting rev | Notes |
 |---|---|---|---|
-| (Home) | `index.html` | 3.22 | The main dashboard, ~12.6k lines. Has the changelog system. |
-| NFT Explorer | `nft-explorer-index.html` | 4.12 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. |
-| aDAO Lore | `adao-lore.html` | 2.8 | Top nav tab. ✅ Renamed from `planet-map.html` in Rev 3.22. ✅ Cross-page chrome added. |
-| TLA Stats | `tla-stats.html` | 1.14 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. |
-| DAO | `dao.html` | 1.4 | Top nav tab. ✅ Renamed from `dao_governance.html` in Rev 3.22. ✅ Cross-page chrome added. |
+| (Home) | `index.html` | 3.23 | The main dashboard, ~12.6k lines. Has the changelog system. |
+| NFT Explorer | `nft-explorer-index.html` | 4.13 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. Map view removed in Rev 4.13. |
+| aDAO Lore | `adao-lore.html` | 2.9 | Top nav tab. ✅ Renamed from `planet-map.html` in Rev 3.22. ✅ Cross-page chrome added. |
+| TLA Stats | `tla-stats.html` | 1.15 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. |
+| DAO | `dao.html` | 1.6 | Top nav tab. ✅ Renamed from `dao_governance.html` in Rev 3.22. ✅ Cross-page chrome added. |
 | ALLY Rewards | `ally.html` | 3.2 | Top info-card tile. ⏳ Cross-page chrome pending. |
 | Tutorials | `tutorials.html` | 1.3 | Top info-card tile. ⏳ Cross-page chrome pending. |
 | Tools | `tools.html` | 1.2 | Top info-card tile (hub for fuel-tool, ampcapa-tool, tla_tool). ⏳ Cross-page chrome pending. |
@@ -318,16 +318,16 @@ If we ever need to change one of the structural fields, plan to communicate to u
 
 | Page | Log file fetched | Notes |
 |---|---|---|
-| Home (`index.html`) | `logs/index-log.md` | All-purpose site changelog |
-| NFT Explorer | `logs/explorer-log.md` | Tracks NFT Explorer-specific changes |
-| aDAO Lore | `logs/lore-log.md` | Tracks Lore page changes |
-| TLA Stats | `logs/tla-log.md` | Tracks TLA Stats changes |
-| DAO | `logs/dao-log.md` | Tracks DAO landing page changes |
-| All other pages (ALLY, Tutorials, Tools, Rarity, NFT Releases, Official Links, Alliances, DAO Treasury, DAO TLA Deposits, Fuel Tracker, Capa Converter, TLA Docs, etc.) | `logs/index-log.md` | Show the site-wide changelog |
+| Home (`index.html`) | `index-log.md` | All-purpose site changelog |
+| NFT Explorer | `explorer-log.md` | Tracks NFT Explorer-specific changes |
+| aDAO Lore | `lore-log.md` | Tracks Lore page changes |
+| TLA Stats | `tla-log.md` | Tracks TLA Stats changes |
+| DAO | `dao-log.md` | Tracks DAO landing page changes |
+| All other pages (ALLY, Tutorials, Tools, Rarity, NFT Releases, Official Links, Alliances, DAO Treasury, DAO TLA Deposits, Fuel Tracker, Capa Converter, TLA Docs, etc.) | `index-log.md` | Show the site-wide changelog |
 
 This keeps the log surface manageable — 5 log files instead of 17+ — while still letting users see what's been worked on recently across the whole site.
 
-**Naming convention reminder:** log files live at `logs/<short-name>-log.md` in the `website-adao-core` repo. Use the short navigation label, not the full page filename (e.g. `explorer-log.md`, not `nft-explorer-index-log.md`).
+**Naming convention reminder:** log files live at the root of the `website-adao-core` repo as `<short-name>-log.md` — NOT in any subdirectory. Use the short navigation label, not the full page filename (e.g. `explorer-log.md`, not `nft-explorer-index-log.md`).
 
 ### Cross-page consistency requirements
 **Every user-facing page should look and feel like `index.html`.** This is a hard requirement — pages should be visually indistinguishable from each other except for body content. Specifically:
@@ -433,7 +433,7 @@ When the user downloads a file with the same name multiple times in a session, t
 Fetch these raw URLs to load context:
 - `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/PROJECT_KNOWLEDGE.md`
 - `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/CHANGES_PENDING.md`
-- `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/logs/index-log.md`
+- `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/index-log.md`
 
 ---
 

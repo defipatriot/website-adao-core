@@ -5,6 +5,16 @@ Newest revisions on top. Times are UTC.
 
 ---
 
+## Rev 2.9 — 2026-05-08
+
+Cleanup pass after first user review of the unified chrome rollout.
+
+### What changed
+- Removed the duplicate page header — second row containing the aDAO logo, "Galaxy Map & Lore" title, and Terra logo. The shared header above already provides logos and navigation
+- Fixed changelog modal — was fetching from `/main/logs/lore-log.md` (404), now fetches from `/main/lore-log.md` to match where the file actually lives in `website-adao-core`
+
+---
+
 ## Rev 2.8 — 2026-05-08
 
 Initial entry — page brought into the unified site chrome system.

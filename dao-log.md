@@ -5,6 +5,29 @@ Newest revisions on top. Times are UTC.
 
 ---
 
+## Rev 1.6 — 2026-05-08
+
+Header cleanup, matching the same treatment applied to TLA Stats in Rev 1.15.
+
+### What changed
+- Removed the small aDAO logo from the page-specific header
+- Removed the "← Dashboard" backlink (the shared header above already has Home + Dashboard navigation)
+- Removed the "by The Alliance DAO" subtitle under the "Governance" title
+- Members / Proposals tabs, Live indicator, and DAODAO open button on the right side are unchanged
+
+---
+
+## Rev 1.5 — 2026-05-08
+
+Quick fix to the changelog modal.
+
+### What changed
+- Fixed changelog modal — was fetching from `/main/logs/dao-log.md` (404), now fetches from `/main/dao-log.md` to match where the file actually lives in `website-adao-core`
+
+No other changes to the DAO page in this rev.
+
+---
+
 ## Rev 1.4 — 2026-05-08
 
 Initial entry — page brought into the unified site chrome system.

@@ -1,14 +1,24 @@
 # Changes Pending — aDAO Website
 
-> Rolling list of identified work. Active items at top, completed items moved to the changelog (`logs/index-log.md`) once shipped.
+> Rolling list of identified work. Active items at top, completed items moved to the changelog (`index-log.md`) once shipped.
 > 
 > **For Claude:** Update this file proactively. See "Tracking responsibilities" in `PROJECT_KNOWLEDGE.md` — when the user mentions a future feature in passing, when we notice tech debt while doing other work, when we leave an open question unresolved — log it here without waiting for the user to ask.
 
 ---
 
-## 🟢 Just shipped (Rev 3.22)
+## 🟢 Just shipped (Rev 3.23 + per-page hotfixes)
 
-See `logs/index-log.md` for full details. High-level for Rev 3.22:
+See `index-log.md` and per-page logs for full details. High-level:
+- **All 5 changelog modals fixed** — fetch URL was `/main/logs/<file>.md` (404), corrected to `/main/<file>.md` since logs live at the root of `website-adao-core`. Affects index + 4 core pages
+- **NFT Explorer (rev 4.13):** removed dual logos from second header row, removed Map view entirely (Collection / Wallet only now)
+- **aDAO Lore (rev 2.9):** removed duplicate header row (logos + "Galaxy Map & Lore" title)
+- **TLA Stats (rev 1.15):** cleaned second header row (removed aDAO logo, "← Dashboard" backlink, "by The Alliance DAO" prefix; kept title and Eris TLA link). Cleaned footer (removed "Updated:" date, "Built by DeFi Patriot" credit, copyright notice; kept disclaimers and ecosystem links)
+- **DAO (rev 1.6):** matched the TLA Stats cleanup — removed small aDAO logo, "← Dashboard" backlink, and "by The Alliance DAO" subtitle from the page-specific header. "Governance" title, Members / Proposals tabs, Live indicator, and DAODAO button retained
+- **DAO (rev 1.5):** changelog URL fix only
+
+## 🟢 Previously shipped (Rev 3.22)
+
+See `index-log.md`. High-level for Rev 3.22:
 - 4 file renames: `planet-map` → `adao-lore`, `capa_lp_converter` → `ampcapa-tool`, `fuel_tracker` → `fuel-tool`, `dao_governance` → `dao`
 - Home tab added to top nav (now 5 tabs everywhere)
 - Active page highlighting in both top nav and bottom nav
@@ -18,23 +28,14 @@ See `logs/index-log.md` for full details. High-level for Rev 3.22:
 
 ## 🟢 Previously shipped (Rev 3.21)
 
-See `logs/index-log.md`. High-level: SEO/PWA setup, mobile redesign, navigation overhaul, honest data display, changelog system itself.
+See `index-log.md`. High-level: SEO/PWA setup, mobile redesign, navigation overhaul, honest data display, changelog system itself.
 
 ---
 
-## 🚨 URGENT — Missing infrastructure files
+## 🟡 Outstanding tech debt (not urgent, but worth knowing)
 
-Several critical infrastructure files appear to be missing from `aDAO-links-site` (the page repo). User has clean copies they uploaded to chat. **These must be restored to the page repo before anything else** — without them, site SEO/PWA/Google verification all break.
-
-Files to restore to root of `aDAO-links-site`:
-- [ ] `sitemap.xml` — search engine sitemap (✅ updated version provided in this chat with new filenames)
-- [ ] `robots.txt` — crawler rules
-- [ ] `site.webmanifest` — PWA manifest (PWA installs reference this)
-- [ ] `tla_docs_content.json` — content data for `tla-docs.html`
-- [ ] `google35aa520d5f75deed.html` — Google Search Console verification
-- [ ] `vercel.json` — if it existed for redirects + cron jobs (verify with user)
-
-**Critical:** these files MUST live in `aDAO-links-site`, NEVER in `website-adao-core`. Vercel only deploys from `aDAO-links-site`.
+- **NFT Explorer JS still has Map view code** — `nft-explorer-app.js` still has `mapViewBtn`, `spaceCanvas`, `initializeStarfield`, `handleMapResize`, `switchView('map')` branch, and ~hundred lines of starfield rendering / pinch-zoom / pan logic. All gated by null-safe checks so nothing breaks, but it's dead weight (~? KB). Strip in a future cleanup pass when convenient. Same for any associated CSS.
+- **`vercel.json` audit** — never confirmed whether file exists in `aDAO-links-site` repo. Need to verify and add 308 redirects for the 4 renamed files: `planet-map.html` → `adao-lore.html`, `capa_lp_converter.html` → `ampcapa-tool.html`, `fuel_tracker.html` → `fuel-tool.html`, `dao_governance.html` → `dao.html`. Without these, external links / Google index entries / bookmarks to old URLs will 404.
 
 ---
 
