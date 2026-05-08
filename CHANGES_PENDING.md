@@ -1,104 +1,103 @@
-# Changes Pending — aDAO-links-site
+# Changes Pending — aDAO Website
 
-> Rolling list of identified changes for the next batch upload. Add to this as we identify more, check off as completed.
-
----
-
-## ✅ Completed (already in updated index.html — needs commit/push)
-
-- [x] Removed `test-page.html` link from index footer (line 2227 in original)
-- [x] Removed `Logos` modal trigger link from index footer (line 2224 in original)
-- [x] Confirmed all deleted page references are clean — no broken internal links
-
-## ✅ Already done at the repo level
-
-- [x] Deleted from repo: `graphs.html`, `news.html`, `rampt.html`, `on-ramp.html`, `off-ramp.html`, `alliance-dao-docs.html`
-- [x] (User pending) Delete `test-page.html` from repo
+> Rolling list of identified work. Active items at top, completed items moved to the changelog (`logs/index-log.md`) once shipped.
+> 
+> **For Claude:** Update this file proactively. See "Tracking responsibilities" in `PROJECT_KNOWLEDGE.md` — when the user mentions a future feature in passing, when we notice tech debt while doing other work, when we leave an open question unresolved — log it here without waiting for the user to ask.
 
 ---
 
-## 🔧 Ready to do — index.html SEO additions
+## 🟢 Just shipped (Rev 3.21)
 
-Add to `<head>` of index.html (high priority — directly improves Google indexing):
-
-- [ ] Add canonical URL: `<link rel="canonical" href="https://www.thealliancedao.com/">`
-- [ ] Add `og:url`, `og:type`, `og:site_name`
-- [ ] Add `og:image:width` / `og:image:height` (helps preview rendering)
-- [ ] Add Twitter Card meta tags (4 tags)
-- [ ] Add explicit `<meta name="robots" content="index, follow">`
-- [ ] Add `<meta name="theme-color" content="#0a0b0f">`
-- [ ] Improve meta description copy (be more specific, ~150 chars)
-
-## 🗺️ Ready to do — sitemap.xml cleanup
-
-- [ ] **Remove dead entries** (causing 404s for crawlers):
-  - graphs.html
-  - news.html
-  - nft-explorer.html (old single-page version, replaced by nft-explorer-index.html)
-  - on-ramp.html
-  - off-ramp.html
-  - rampt.html
-- [ ] **Add missing active pages** (currently not indexed):
-  - tools.html (major hub!)
-  - dao_governance.html
-  - dao_governance_tool.html
-  - dao_tla_deposits.html
-  - dao_treasury.html
-  - capa_lp_converter.html
-  - fuel_tracker.html
-  - tla-docs.html
-- [ ] (Decide) Remove `alliance-dao-docs.html` entry (file was deleted)
-
-## 🐛 Ready to do — bug fixes
-
-- [ ] **rawgit.hack issue:** In `tla_tool.html` line 142, change ext-tab link from `https://raw.githack.com/defipatriot/aDAO-links-site/main/tla-tool_ext.html` to local `tla-tool_ext.html`. Eliminates the "One more step" interstitial and serves from Vercel CDN.
+See `logs/index-log.md` for full details. High-level: SEO/PWA setup, mobile redesign, navigation overhaul, honest data display, changelog system itself.
 
 ---
 
-## 🧹 Cleanup — dead code (low priority, safe to defer)
+## 🔴 Active / next round
 
-- [ ] Remove dead Logos modal HTML in index.html (line 1745+)
-- [ ] Remove `'logo-modal-trigger': 'logoModal'` mapping in JS (line 5396 area)
+### High priority — SEO discoverability ⚠️
+
+Site is not surfacing in Google for "the alliance dao" — `alliance.xyz` (unrelated startup accelerator) dominates. Tasks to address:
+
+- [ ] Submit `sitemap.xml` to **Google Search Console** (https://search.google.com/search-console). Without this, Google won't reliably index/recrawl.
+- [ ] Verify domain ownership in Search Console (DNS TXT or HTML file method).
+- [ ] Add **JSON-LD structured data** to `index.html` so Google understands what we are — minimum: `Organization` and `WebSite` schemas with name "The Alliance DAO" (note: NOT "Alliance DAO" — that's the unrelated accelerator), URL, logo, description.
+- [ ] Apply same SEO meta tag pattern to all other 18 pages (only `index.html` has full SEO tags right now).
+- [ ] Submit also to **Bing Webmaster Tools** (lower priority, but covers Bing/DuckDuckGo).
+- [ ] Get backlinks from related Terra ecosystem sites (Eris Protocol, BBL, Terra Hub, Terra Classic refugees, etc.) — biggest SEO factor we can't fix in code. Coordinate with partners.
+- [ ] Wait 2–6 weeks for Google to recrawl and re-rank after sitemap submission.
+
+### High priority — page work
+
+- [ ] **Add bottom tab bar to all other pages** so navigation persists across page loads. Currently only on `index.html`. Pages that need it: `nft-explorer-index.html`, `planet-map.html`, `tla-stats.html`, `dao_governance.html`, plus the rest.
+- [ ] **Delete duplicate Vercel project** `a-dao-links-site` (keep `a-dao-links-site-t6nu`).
+- [ ] **rawgit.hack bug fix:** in `tla_tool.html` line 142, change ext-tab from `https://raw.githack.com/defipatriot/aDAO-links-site/main/tla-tool_ext.html` to local `tla-tool_ext.html`. Eliminates the "One more step" interstitial that pops up when users click the ext tab.
+
+### Medium priority
+
+- [ ] **Test on more devices** — currently only verified on desktop Chrome + iPhone 16 Chrome (browser + PWA). Need testing for: Safari, Android, iPad portrait/landscape, smaller iPhones (SE/mini), Pro Max sizes, Firefox.
+- [ ] **Fix iPad portrait gap** (640–768px width). Either treat iPad as phone (extend bottom nav to 1024px) or improve desktop layout at small viewports. Currently untested but theoretically awkward — sees desktop nav with phone-tight tile grid.
+
+### Low priority / cleanup
+
+- [ ] **LST ratio default values** — `bLUNA || 1.6048`, `ampLUNA || 1.9015`, `arbLUNA || 2.6873` — ~10 places in code. Violates Design Principle #1 (honest data). Decide: remove or keep? Ratios drift slowly so fallbacks less misleading than data fallbacks, but still inconsistent with other tile behavior.
+- [ ] **Remove dead Logos modal HTML** (~line 1745 area in index.html) — the trigger was removed but the modal markup is still in DOM.
+- [ ] **Remove dead `'logo-modal-trigger'` JS mapping** (~line 5396 area in index.html).
 
 ---
 
-## 🌐 SEO — site-wide pattern (after index.html template proven)
+## 🚧 Future projects (separate threads when started)
 
-Once we nail the index.html SEO setup, apply the same pattern to every other active page:
-- [ ] Apply meta tag template to: ally, alliances, tla-stats, tla-docs, tla_tool, dao_governance, dao_treasury, dao_tla_deposits, nft-explorer-index, planet-map, rarity-explained, release-history, tutorials, links, tools, capa_lp_converter, fuel_tracker, dao_governance_tool
-- [ ] Each page needs unique title, unique description, own canonical URL
-- [ ] og:image can stay shared (the 512x512 logo) or per-page if specific imagery exists
-
----
-
-## ⚙️ Infrastructure — Vercel side (verify, don't change in repo)
-
-- [ ] Verify `theadao.com` → `thealliancedao.com` is a **301** (permanent), not 302
-- [ ] Verify both domains serve over HTTPS with valid certs
-- [ ] Confirm Vercel Analytics is recording (already wired in code)
-
----
-
-## 🚀 Future projects — separate threads
-
-These are too big to roll into this batch — flagged for their own focused work later:
+### Service worker (PWA polish)
+- Offline shell — show app UI even without network
+- Faster repeat loads via asset caching
+- Update detection — notify users when new version deployed
+- Push notifications (deferred — needs cron jobs first to have something to notify about)
 
 ### TLA data collection automation
-- Build GitHub Actions workflow on `0 59 23 * * 0` cron (Sunday 23:59 UTC)
-- Port browser-based collection logic to Node.js
-- Auto-commit JSON snapshots to the 3 storage repos via PAT
-- Replace manual Sunday-night data capture
+- **Vercel cron** (defined in `vercel.json`) pointing to a serverless function endpoint
+- Cron schedule: end of each TLA epoch — Sunday 23:59 UTC (`59 23 * * 0`)
+- Port browser-based TLA collection logic from `tla_tool.html` to a Node.js serverless function
+- Function commits JSON snapshots back to the 3 storage repos via PAT (stored in Vercel env vars)
+- Replaces manual Sunday-night data capture (currently has to be done by user every week)
+- Notes: `epoch_1-300_date.json` from `website-adao-core` is useful reference. Logic is currently 100% browser-side — needs porting. Watch out for Vercel function execution time limits (10–60s depending on plan).
 
 ### Capa Protocol integration prep
-- Once partnership solidifies — likely new pages/sections for Capa marketplace
-- Possible new lore integration (per the framework Lion DAO established)
+- New pages/sections for Capa marketplace when partnership solidifies
+- Lore integration (per the Lion DAO framework — DAOs become tribes in The Lattice)
+- Will need to update `alliances.html` plus possibly its own page
 
-### Other pages SEO sweep
-- Apply meta tag pattern to all active pages (after index.html template proven)
+### Static site generator migration (long-term, not urgent)
+- Astro or Eleventy would let us template head meta tags + nav once instead of per-page
+- Would simplify SEO Phase 2 and bottom-nav-everywhere tasks
+- Big refactor — only worth it if we're going to keep adding pages
+- Would also help with the file-size issue (index.html ~700KB, tla_tool.html ~621KB)
+
+### Per-page changelogs (deferred)
+- System is already designed to support this — each page can have its own `<page>-log.md`
+- e.g., `tla-stats.html` → `logs/tla-stats-log.md`
+- Implementation: copy changelog modal HTML+JS to those pages, change the URL
+- Decide if/when this is worth it — probably wait until per-page changes accumulate
 
 ---
 
-## 📝 Open questions / decisions needed
+## 📝 Open questions / decisions
 
-- [ ] Want to migrate to a static site generator (Eleventy, Astro) eventually so meta tags / nav are templated, not duplicated across files? Big refactor, not urgent.
-- [ ] Should the dead Logos modal be removed entirely, or rebuilt with actual logos? (Currently just removed the broken trigger.)
+- **Capa partnership** — when it goes live, own page or section in `alliances.html`?
+- **NFT contract address** — currently footer-only, should it be more prominent somewhere?
+- **iPad behavior** — phone-style with bottom nav up to 1024px, or desktop-style starting at 768px?
+- **Per-page changelogs** — global site changelog or per-page? Currently per-page system exists but only `index-log.md` populated.
+- **SEO branding** — do we lean into "The Alliance DAO" (full phrase, ambiguous with `alliance.xyz`) or "aDAO" (shorter, more unique) as the primary searchable term?
+- **LST ratio fallbacks** — keep (slow-drifting, low harm) or remove (consistency with Design Principle #1)?
+- **`alliance-dao-docs.html` content** — user has it saved separately for future reference (had on-chain address fetching logic). When/if needed, ask user for the file.
+
+---
+
+## Changelog rev numbering convention
+
+- Format: `MAJOR.MINOR` (e.g., `3.21`)
+- **MAJOR** bumps for big architectural shifts (entire dashboard redesign, new framework, etc.)
+- **MINOR** bumps for any push that ships meaningful user-visible change
+- Multiple commits between releases collapse into one rev number — we don't bump for every commit, only for "I just pushed this and it's the version users will see"
+- Date format in log: `YYYY-MM-DD` (UTC)
+- Log entries: newest at the top, older below
+- **Doc-only changes (this file, PROJECT_KNOWLEDGE) do NOT bump the rev** — rev tracks site UI state only
