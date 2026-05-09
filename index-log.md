@@ -7,6 +7,148 @@ This file also covers cross-cutting site changes that affect multiple pages — 
 
 ---
 
+## Rev 3.30 — 2026-05-08
+
+Stale-data UX overhaul. Three problems fixed in one pass: (1) DAO TLA Deposits and DAO TLA VP tiles spinning forever despite epoch-182 data being available, (2) red bordered banner inside the rewards card was redundant once you got a popup explaining the same thing, (3) staleness check happened way too late in the page lifecycle (after the 15s LCD calls finished).
+
+### Diagnosis — why two TLA tiles were stuck
+
+`buildTlaDeposits()` and `buildTlaVp()` had a `if (!hasValidTlaData || dataIsStale)` guard that swapped the entire render path for a spinner whenever data was stale. Original intent was good — Design Principle #1 says blank > stale. But with this rev's modal + red dot, "stale" is now visibly marked, so showing the actual numbers is fine. Hiding behind a perpetual spinner was just confusing because it looks indistinguishable from "still loading" forever.
+
+Also discovered: **`adao_json_storage` has zero `adao-snapshot_*_end.json` files** — the entire pattern Rev 3.29's `fetchTlaFromGitHub()` was querying never existed. The actual data the dashboard tiles need (treasury, tla_deposits, etc.) lives in `tla_json_storage/tla-data-epoch-X-end.json` under the `dashboard.*` keys, and the existing `fetchTlaData()` already fetches it correctly. The `buildTlaDeposits()` function already had a fallback path to consume that data — it just wasn't being reached because the staleness check bailed first.
+
+### Changes
+
+**1. Tile builders render stale data instead of bailing**
+- `buildTlaVp()`: changed `if (!tlaData || meta.isStale)` to just `if (!tlaData)` — only spin when data is genuinely missing
+- `buildTlaDeposits()`: same change to `if (!hasValidTlaData)`
+
+**2. New `applyTlaStaleness()` helper — single source of truth for staleness UI**
+Lives near `tlaDataMeta` declaration (so it has scope access). Reads the meta, sets:
+- 🟢 green `pulse-dot` on `dao-tla-title` + `dao-tla-vp-title` if fresh, 🔴 red `static-dot-red` if stale
+- Small "Stale Data" pill (`unclaimed-stale-warning`) in the rewards card header — visible
+- Status text (`unclaimed-data-status`) showing "Epoch X data" — visible
+- Big red bordered banner (`unclaimed-stale-banner`) — explicitly hidden (replaced by modal)
+- Modal popup if stale AND `sessionStorage.getItem('aDAO_stale_modal_dismissed')` is unset
+
+Idempotent — safe to call multiple times. Called from three places: end of `updateUI()` (early), inside `fetchLiveOnChainData`'s finally block, and would be added to tile builders if needed (currently not — early `updateUI()` call is enough).
+
+**3. New stale-data modal**
+HTML at `<div id="staleDataModal">` near the other modals. Shows on launch when stale; user clicks "Got it — show me the dashboard" to dismiss; sessionStorage flag prevents re-show within the tab session. Standard modal pattern (click outside, Escape, X to close).
+
+**4. Banner display removed from two places**
+- The `if (meta.isStale)` branch in the rewards-card stale handler — now only sets the pill + status + yellow tint, no banner
+- The Rev 3.29 finally-block code in `fetchLiveOnChainData` — replaced with single `applyTlaStaleness()` call. The banner HTML element itself is left in place (zero footprint when hidden) for now; can be deleted in a cleanup pass.
+
+**5. Early staleness check — popup appears within ~500ms of load**
+`updateUI()` now kicks off `fetchTlaData()` in parallel with `fetchLiveOnChainData()`. Since fetchTlaData is internally cached, all the downstream callers (buildTlaVp, buildTlaDeposits, etc.) reuse the same in-flight promise — no duplicate network calls. The `.then(() => applyTlaStaleness())` fires the modal as soon as the snapshot resolves, regardless of how slow the on-chain calls are.
+
+### What this didn't fix
+
+- **DAO Broken/Held NFTs tile is still spinning.** This one isn't actually a TLA snapshot issue — the tile element (`#dao-broken-total`) has zero live-data writes anywhere in the codebase. Only the chart icon attaches to it. It's missing implementation, not a stale-data problem. Probably wants `nfts.filter(n => n.broken && n.owner === DAO_MAIN_WALLET).length` populating it from the live `nfts` array, but that's a design call. Logged in `CHANGES_PENDING.md`.
+- **Rev 3.29's `fetchTlaFromGitHub` is now redundant.** It still runs and harmlessly returns null (since `adao_json_storage` is empty). The downstream builders already fall back to `fetchTlaData` correctly. Worth deleting in a cleanup pass — logged.
+
+---
+
+## Rev 3.29 — 2026-05-08
+
+TLA snapshot fetch: parallel epoch-fallback + staleness UI. Closes the gap that Rev 3.27 left — the dashboard's TLA tiles (DAO TLA Deposits, DAO TLA VP) were spinning forever any time the latest snapshot was missing, even when older snapshots existed.
+
+### Background
+Two separate fetches consume snapshot data on this site:
+- `fetchTlaData()` (line ~7700) reads `tla_json_storage` for the **TLA Stats page** — already had epoch fallback
+- `fetchTlaFromGitHub()` (line ~3529) reads `adao_json_storage` for the **dashboard tiles** — had no fallback
+
+When the user misses a Sunday-night snapshot capture (e.g. site outage prevented it), the second function's `currentEpoch-1` fetch 404s and the dashboard tiles never recover. Older snapshots are sitting right there in the repo, but the code never tries them.
+
+### What changed
+
+**`fetchTlaFromGitHub()` rewrite — parallel epoch walk:**
+- Tries 6 candidate epochs simultaneously: `[currentEpoch+1, currentEpoch, currentEpoch-1, currentEpoch-2, currentEpoch-3, currentEpoch-4]`
+- `Promise.allSettled` — total wall-time is one round-trip regardless of which one wins (vs. up to 6 sequential round-trips in the old TLA Stats pattern)
+- 5-second per-fetch timeout via `AbortController` so a hung GitHub CDN can't stall the dashboard
+- In-memory cache keyed by `currentEpoch` so re-renders within a session reuse the result; auto-invalidates when the epoch number rolls Sunday 23:59 UTC
+
+**Staleness convention:**
+- Found at `currentEpoch+1` / `currentEpoch` / `currentEpoch-1` → **fresh** (the healthy expected state)
+- Found at `currentEpoch-2` or older → **stale**, with `epochsBehind` count
+- Returned as `{data, epoch, currentEpoch, epochsBehind, isStale, timestamp}`
+
+**`updateTlaFromGitHub()`** now returns the same metadata so the caller can render the right state instead of just a boolean.
+
+**Caller (the `finally` block in `fetchLiveOnChainData`)** now does three things on success:
+1. **Green pulse dot** on `dao-tla-title` and `dao-tla-vp-title` when fresh
+2. **Red `static-dot-red`** + tooltip explaining the lag when stale
+3. **Reveals the existing `unclaimed-stale-banner`** with epoch numbers populated, so users see the same warning the TLA Stats page already shows when data is behind. No new modal — reuses what was already there.
+
+On total failure (all 6 epochs unreachable), no dot is added — spinner stays so the user knows the state is genuinely unresolved rather than being shown stale data dressed up as fresh.
+
+### Why parallel matters for speed
+The previous TLA Stats fallback walks epochs sequentially. If the user missed 2 epochs, that's 3 sequential fetches before finding data — easily 1–2 seconds of avoidable wait time. Parallel collapses that to one round-trip. The new dashboard fetch will load fast even in the worst-case stale scenario.
+
+### Open items not addressed in this rev
+- **Apply the same parallel pattern to `fetchTlaData()`** (TLA Stats page) — it works correctly today but is unnecessarily slow on stale fallback. Easy port; logged for a follow-up.
+- **Per-fetch timeout in `fetchLiveOnChainData`** for the slow Terra LCD calls — 14.67s load time on yesterday's session is mostly from there, not from TLA. Logged.
+
+---
+
+## Rev 3.28 — 2026-05-08
+
+Mint Status slider — was permanently spinning. Bug existed since the slider was added; only became visible once Rev 3.27 fixed the cascade and the rest of the dashboard started loading reliably.
+
+### Root cause
+The slider's three text spans (`#unminted-count`, `#minted-count`, `#minted-percent`) and the bar (`#mint-slider`) were only touched by `updateUI()` at startup. That function reads `dashboardData.statusSliders.mint.percentMinted` — but that field is hardcoded `null` (line 3373) and nothing in the codebase ever writes to it. So the read failed the null check, the slider was left untouched, and the initial spinner HTML stayed forever. By contrast, the Broken Status slider next to it has a parallel block in `fetchLiveOnChainData()` that writes to its DOM elements directly using the live `brokenCount` — that's why one worked and the other didn't.
+
+### Fix
+Added a Mint Status slider update block in `fetchLiveOnChainData()` immediately after the existing Broken Status block. Uses the same `mintedCount` / `unmintedCount` values already derived in Rev 3.26's null-safety patch (line ~6164), so no new data fetching needed. Color convention matches the Broken slider: cyan-blue = the highlighted half ("Minted" here, "Broken" there), gray = the remaining half. All formatters use the Rev 3.27 `safeLocale` / `safeFix` helpers, so a missing upstream value shows `—` instead of crashing.
+
+---
+
+## Rev 3.27 — 2026-05-08
+
+Comprehensive null-safety fix — the same `TypeError: Cannot read properties of null (reading 'toLocaleString')` from Rev 3.26 was still crashing `fetchLiveOnChainData()`, just at different sites that 3.26 didn't touch.
+
+### What was still broken after Rev 3.26
+
+Rev 3.26 fixed the `mintedCount.toLocaleString()` crash by adding `fmt(v)` and applying it to the supply / unminted-modal block (lines ~6313–6318, 6346–6347). But the function has **15+ other** `.toLocaleString()` and `.toFixed()` calls that were still unguarded:
+
+- **Broken-count slider** (lines 6325–6331): `brokenCount.toLocaleString()`, `(totalNftsForBrokenCalc - brokenCount).toLocaleString()`, `(brokenCount / totalNftsForBrokenCalc * 100).toFixed(2)`
+- **Backing tile updates** (lines 6333–6338): `liveAmpLunaBacking.toFixed(4)`, `ampLunaToLunaRate.toFixed(4)`, `backingInLunaLive.toFixed(4)`, `lunaPriceUSD.toFixed(4)`, `backingInUSD.toFixed(2)`, `unmintedBackingLuna.toLocaleString(...)`, `unmintedBackingUSD.toLocaleString(...)`
+- **Unminted modal text content** (lines 6348–6351): `backingInLunaLive.toFixed(4)`, `backingInUSD.toFixed(4)`, `unmintedBackingLuna.toLocaleString(...)`, `unmintedBackingUSD.toLocaleString(...)`
+- **Catch block** (lines 6368–6377): the *recovery* path called `keyMetrics.daodaoStaked.toLocaleString()`, `keyMetrics.daoMembers.toLocaleString()`, `keyMetrics.enterpriseStakedHolder.toLocaleString()`, `keyMetrics.backingInLuna.toFixed(2)` — but those keyMetrics fields are hardcoded `null` at line 3370. So the catch crashed on its first line and **never applied any of its 'Error' fallbacks**, leaving downstream tiles permanently stuck on the initial spinner.
+
+### Today's trigger
+
+`terra.publicnode.com` returned HTTP 500 on a treasury balance query (the contract balance for `terra1sffd…3m5vzm`). That null propagated into the unguarded format calls and triggered the cascade. It "worked yesterday" simply because the LCD was up yesterday — the underlying bug has been latent since Rev 3.21's honest-data cleanup removed the static fallbacks that masked it.
+
+### Fix
+
+- **Hoisted null-safe formatters** above the `try` block so they're visible in both `try` and `catch`:
+  - `safeLocale(v, opts)` — null-safe `.toLocaleString('en-US', opts)`, returns `'—'` for null/undefined/NaN
+  - `safeFix(v, d=2)` — null-safe `.toFixed(d)`, returns `'—'` for null/undefined/NaN
+- **Made backing calcs null-aware** so a missing upstream value propagates as `null` instead of being silently coerced to `0` (which would display as "0 LUNA" — a Design Principle #1 violation, since "0" looks like real data):
+  ```js
+  // Was: const backingInLunaLive = liveAmpLunaBacking * ampLunaToLunaRate;  // null * num = 0
+  // Now:
+  const backingInLunaLive = (liveAmpLunaBacking != null && ampLunaToLunaRate != null)
+    ? liveAmpLunaBacking * ampLunaToLunaRate : null;
+  ```
+  Same treatment for `liveAmpLunaBacking`, `backingInUSD`, `unmintedBackingLuna`, `unmintedBackingUSD`.
+- **Replaced every unguarded format call** in the affected lines (6325–6351 in try, 6368–6377 in catch) with `safeLocale` / `safeFix`.
+- **Reset broken-count slider in catch** so it doesn't stay on its initial spinner if recovery runs.
+
+### Why the catch had the same bug
+
+This was a textbook "the recovery path was never tested" scenario. The catch was written assuming `keyMetrics.X` was always populated with sensible defaults — but Rev 3.21's honest-data cleanup left those at `null`. Since the catch only fires on errors, and errors on prod were rare until today's LCD outage, nobody noticed the recovery itself was broken.
+
+### Open items not addressed in this rev
+
+- **Per-fetch try/catch isolation** would be a stronger fix — currently one failed treasury balance fetch poisons every downstream calculation. Logged for future revisit; not in scope here.
+- **Fallback LCD endpoint** — both `terra.publicnode.com` and `terra-lcd.publicnode.com` returned 500s today. A retry against a different public LCD on 5xx would significantly improve resilience. Logged for future revisit.
+- **The `fmt` helper from Rev 3.26 is now redundant with `safeLocale`** but left in place for stability — can be deduplicated in a future cleanup pass.
+
+---
+
 ## Rev 3.26 — 2026-05-08
 
 Bug fix — broken tile cascade.
