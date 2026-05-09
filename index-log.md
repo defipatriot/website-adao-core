@@ -7,6 +7,134 @@ This file also covers cross-cutting site changes that affect multiple pages — 
 
 ---
 
+## Rev 3.33 — 2026-05-08
+
+Fixes the stale-data modal still-can't-close bug from Rev 3.32. Two related issues:
+
+### Issue 1 — DOMContentLoaded handler never fired
+
+Rev 3.30 wrapped the modal close-button wiring in `document.addEventListener('DOMContentLoaded', () => {...})`. That seemed sensible, but the script containing this code is at line 3371 — well inside the body, with the modal HTML already parsed at line 3353 (above). DOMContentLoaded fires *after* the entire body is parsed, which is *after* this script runs. By the time the script attaches the listener, the event hasn't fired yet — but `addEventListener` for a not-yet-fired event… is fine, it should fire when DOMContentLoaded happens.
+
+The actual failure mode appears to be related to the script tag itself being heavy enough (or some other inline script earlier on the page being heavy) that DOMContentLoaded was firing in an unexpected ordering relative to the rest of the page lifecycle. Hard to pin down exactly without instrumenting it on prod, but the symptom was clear: `ack.addEventListener('click', hideStaleDataModal)` was never executing, so the button click had no handler. Same for Esc and backdrop click.
+
+**Fix:** Drop the DOMContentLoaded wrapper. The script runs after the modal HTML is parsed, so `getElementById('staleDataModal')` succeeds at script-eval time. Attach the listeners immediately via an IIFE. This is the more reliable pattern when a script is positioned mid-body, after the elements it operates on.
+
+### Issue 2 — Hide-modal opacity wasn't fully reset
+
+`hideStaleDataModal` removed `opacity-100` but never added `opacity-0` back. With both gone, the modal's effective opacity depended on cascade defaults (likely 1, fully visible). The `display:none` from the eventual `hidden` class added 200ms later would still hide it correctly, but during that 200ms window the modal would appear undimmed — and if `hidden` was somehow blocked from being added (e.g. setTimeout cleared early), the modal would stay visible. The user's repro of "still can't close" suggests this was happening together with Issue 1.
+
+**Fix:** Explicitly add `opacity-0` back when hiding, mirror of the Rev 3.32 show-path fix.
+
+### What this rev confirms working
+- Live DAO TLA VP query (Rev 3.31) — screenshot showed `757.0K VP / $5,739` ✅
+- DAO Broken/Held NFTs hardcoded (Rev 3.31) — screenshot showed `1,000` ✅
+- TLA Deposits main USD render (Rev 3.32) — screenshot showed `$418 / $422 / $39` populated ✅
+- Modal opens correctly first time (Rev 3.32) — screenshot showed dimmed backdrop ✅
+- Modal still doesn't close on first click — fixed in this rev
+
+---
+
+## Rev 3.32 — 2026-05-08
+
+Three bug fixes shipped against Rev 3.31. All three were confirmed by the user testing on prod.
+
+### Bug 1 — Stale-data modal "Got it" button needed an off-modal click first
+
+**Symptom:** Modal renders correctly, button is visible, hover state works on the button, but the first click on the button does nothing. User reported having to click on the page first, then the button works on second try.
+
+**Root cause:** Tailwind opacity cascade. The modal HTML had both `opacity-0` (initial state) and `hidden` (display:none). The `showStaleDataModal()` function removed `hidden` and added `opacity-100`, but `opacity-0` was never explicitly removed. Tailwind generates both as plain utilities (no `!important`), so which one wins depends on CSS source order. The modal-content (inner div) had its own `opacity-0` that DID get removed, but the backdrop's lingering `opacity-0` was making the entire stacking context transparent to pointer events on the first paint.
+
+**Fix:** Explicitly call `classList.remove('opacity-0')` before adding `opacity-100`, on both the backdrop and content elements. Standard fix for Tailwind opacity transitions on modal show/hide patterns.
+
+### Bug 2 — Modal could fire twice in some loads
+
+**Symptom:** User reported that on some loads, a second modal popup appeared after they had already dismissed the first one.
+
+**Root cause:** `applyTlaStaleness()` is called from two places by design:
+1. Early in `updateUI()` (Rev 3.30 fast-popup) — fires ~500ms after page load
+2. Inside `fetchLiveOnChainData`'s finally block — fires ~15s later
+
+Both calls invoke `showStaleDataModal()` if the data is stale. The `sessionStorage.aDAO_stale_modal_dismissed` flag was supposed to prevent re-show, but it's only set when the user clicks "Got it" — `hideStaleDataModal()`. If the second call's `applyTlaStaleness` invocation happened *before* the user dismissed the first modal (i.e. user is reading the modal and the slow LCD calls finish in the background), the second modal would queue up and show on top of / after the first.
+
+**Fix:** Added a `window._staleModalShown` runtime flag that's set on first show. Independent of sessionStorage. Once set during a page lifecycle, no further calls to `showStaleDataModal()` open another modal regardless of dismissal state. sessionStorage still serves its purpose for *across-reload* persistence.
+
+### Bug 3 — DAO TLA Deposits tile main value stayed a spinner
+
+**Symptom:** "Est. APR 29.61%" rendered correctly under the TLA Deposits tile, but the main USD value above it was perpetually a spinner — even though epoch 182 data clearly populated successfully.
+
+**Root cause:** Rev 3.30 changed the `buildTlaDeposits` function to RENDER stale data instead of bailing-to-spinner. The render path was working — the function was successfully writing `$6,261` to the tile via `totalValueTileEl.textContent = ...`. **Then** the next line called `updateTile('dao-tla-total', null, false, { ... })` to set the dot color — but `updateTile` has logic at line 8529 that **converts the tile back to a spinner** when called with `isLive=false` and a current value that's not already a spinner. So the dollar value was being written, then immediately wiped back to a spinner one line later.
+
+This was a Rev 3.30 regression. In the pre-3.30 code, the function returned early on stale data, never reaching the `updateTile(..., null, false)` call. After 3.30 made it fall through, that call started firing on every render and undoing the value write.
+
+**Fix:** Removed the redundant `updateTile('dao-tla-total', null, false, ...)` call. Its job (managing the tile's dot indicator) is now owned by `applyTlaStaleness()` introduced in Rev 3.30. The value write at line 7644 is now permanent.
+
+### Not fixed in this rev
+
+- **15-20 second load time** still happens (mostly Terra LCD response time during the May 8 publicnode flakiness). Resilience items in `CHANGES_PENDING.md`: per-fetch timeouts, per-fetch try/catch isolation, fallback LCD endpoint on 5xx.
+- **Live LP-balance query** for fully-live TLA Deposits — the user described what this would require (DAO wallet → ampLP balances both amplified and non-amplified → prices → reverse-resolve to underlying tokens, plus discovery of new LPs as they're added). Confirmed correctly: too heavy for this session's scope. Snapshot + staleness modal is the right approach for this tile. Logged in CHANGES_PENDING for future consideration if it becomes important.
+
+---
+
+## Rev 3.31 — 2026-05-08
+
+Live DAO TLA VP query + DAO Broken/Held NFTs tile fix. Removes Rev 3.29's dead code in the same pass.
+
+### The architectural insight that drove this rev
+
+The user's question: *"why can we query the DAO contract to find the TLA Locks to get the TLA voting power live not from snapshot?"* — Correct, and that approach is strictly better. Live queries:
+- Eliminate staleness entirely — no snapshot, no stale-vs-fresh logic, no red dot
+- Don't depend on the Sunday-night snapshot capture happening
+- Reflect on-chain reality the moment claims/transfers occur
+- Make the fragility the previous revs were working around (cascade fixes, parallel epoch-fallback, modal popups) irrelevant for the affected tiles
+
+The TLA Locks contract was already partially wired into `index.html` (line ~9229, `TLA_LOCKS_CONTRACT = 'terra1uqhj8agy...'`) for marketplace lookups. The same contract handles the live VP query.
+
+### Discovery — TLA Locks is a CW721
+
+Inspecting the contract address the user provided (`terra1uqhj8agy...`) revealed it's a CW721 NFT contract, not a standard liquidity-staking contract. **Each lock IS an NFT**, owned by the locker. So getting all of the DAO's locks is just standard NFT enumeration:
+
+1. `tokens{owner, start_after, limit}` → list of token IDs owned by an address
+2. `all_nft_info{token_id}` → metadata for each (locked amount, asset, multiplier)
+3. Sum: `amount × multiplier × (LST→LUNA ratio)`
+
+This is well-documented CW721, no new dependencies, no Eris-specific API.
+
+### Changes
+
+**1. New `fetchDaoTlaVp(ampLunaToLunaRate, arbLunaToLunaRate)` function**
+- Paginates `tokens` query (up to 5 × 100 IDs — DAO unlikely to have many but safe)
+- Parallel `Promise.all` of `all_nft_info` queries for each token
+- Multiple attribute-name fallbacks (`amount` / `locked_amount` / `balance`, `multiplier` / `power_factor` / `factor`, etc.) since the exact CW721 attribute scheme isn't documented anywhere — first session will log diagnostic info if attrs don't match expectations
+- Duration-string fallback for multipliers (`Max=10`, `3mo=2`, `1wk=1` per `tla-tool_ext.html` line 3998)
+- Auto-converts arbLUNA / ampLUNA amounts to LUNA-equivalent for "underlying assets" sum
+- 6-second per-fetch timeout via AbortController
+- 60-second in-memory cache (chain queries are rate-limited; locks don't change second-to-second)
+
+**2. New `DAO_BROKEN_HELD_COUNT = 1000` constant**
+The dashboard's `#dao-broken-total` tile has been spinning since launch — turns out it never had any code path writing to it. The admin tool (`tla_tool.html` line 2409) explicitly states *"Dashboard hardcodes this as 1000"* — the documented governance count from Props 64-69 (DAO holds 1,000 broken NFTs across 3 multisig wallets). Now actually hardcodes it. Future improvement noted in CHANGES_PENDING: filter the live `nfts` array against the actual 3 wallet addresses (which aren't in the codebase yet).
+
+**3. Live wiring in `fetchLiveOnChainData`'s finally block**
+Both new tiles are populated in the existing finally block (which runs after the slow LCD calls). Both get green pulse-dots since the data is live. The `applyTlaStaleness()` call still runs but now only manages staleness UI for the **TLA Deposits** tile (which legitimately needs snapshot data — it's a USD aggregate computed at epoch end across many positions, not a single-contract query).
+
+**4. Deleted Rev 3.29's dead code**
+The `fetchTlaFromGitHub` + `updateTlaFromGitHub` functions were querying `adao_json_storage` for `adao-snapshot_*_end.json` files that have never existed in that repo, then falling back to `fetchTlaData` anyway. Pure dead code, ~140 lines removed. The `_adaoSnapshotCache` variable removed too. Cleanup item from `CHANGES_PENDING.md` resolved.
+
+**5. New `window.cachedLunaPrice`** added at the existing LUNA-price assignment site, so `fetchDaoTlaVp` can compute USD totals without re-fetching.
+
+### What this does NOT do
+
+- **TLA Deposits** stays on the snapshot path. The deposits tile is a USD aggregate of multiple positions (the DAO has stake in pools, not just locks), computed at epoch end. Going live would require querying every pool the DAO has stake in plus their token prices — much more work for marginal benefit. Snapshot + staleness modal (Rev 3.30) is appropriate here.
+- **DAO Broken/Held still hardcoded.** Could be made fully live by filtering the `nfts` array for owners matching the 3 DAO wallets, but the two liquidity-wallet addresses (`...8ywv`, `...417v`) aren't in the codebase. Logged in CHANGES_PENDING.
+
+### First-load diagnostic
+On the first run after deploy, the console may log:
+```
+DEBUG: fetchDaoTlaVp — found tokens but no locks parsed; first lock attrs: [...]
+```
+This means the CW721 attribute names don't match what the code expects. Send a screenshot of the logged attributes and the multiplier/asset extraction can be tuned to the real format.
+
+---
+
 ## Rev 3.30 — 2026-05-08
 
 Stale-data UX overhaul. Three problems fixed in one pass: (1) DAO TLA Deposits and DAO TLA VP tiles spinning forever despite epoch-182 data being available, (2) red bordered banner inside the rewards card was redundant once you got a popup explaining the same thing, (3) staleness check happened way too late in the page lifecycle (after the 15s LCD calls finished).
