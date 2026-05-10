@@ -7,6 +7,122 @@ This file also covers cross-cutting site changes that affect multiple pages — 
 
 ---
 
+## Rev 3.36 — 2026-05-09
+
+Three mobile fixes against Rev 3.34/3.35 deploy. User screenshot showed:
+
+### Bug 1 — DAO Total Value tile: breakdown clipped to gibberish on mobile
+Even with the Rev 3.34 compact-number formatting, the inline formula `Tok $X + LPs $Y + Locks $Z + NFT $W = $TOTAL` couldn't fit a 2-column mobile width. Visible portion read just "$74.1K = $104.4K" — losing the first three values entirely.
+
+**Fix:** Split the tile into two layouts. Desktop (sm: and up) keeps the full inline formula. Mobile (below sm:) uses a stacked layout — big amber `$104.4K` total on top, single subtle line below reading `Tokens + LPs + Locks + Backing` (no individual numbers, just communicates what's being summed). The actual contributing values are visible in the tiles directly below the total tile, so omitting them from the mobile summary loses no information.
+
+New element `#dao-total-grand-mobile` mirrors `#dao-total-grand` and gets written by the same `updateDaoTotalValue()` function. Mobile uses compact formatting (`$104.4K`); desktop uses full (`$104,846`).
+
+### Bug 2 — Backing/Floor tile: leading `$` clipping at left edge
+`$12.72 / $137.84` was overflowing left of the tile, dropping the dollar sign on the BACKING value. The Rev 3.34 mobile font-size shrink to 1.25rem helped but wasn't enough.
+
+**Fix:** Tightened the inner row gap from `gap-3` (12px) to `0.5rem` (8px) on mobile. Selector `#backing-usd-title + .flex { gap: 0.5rem !important; }` targets only that one tile's value row. Combined with the existing font shrink, content now fits cleanly within tile borders.
+
+### Bug 3 — "ampLUNA Backed" title showing as "mpLUNA Backed"
+The leading "a" was being clipped by the existing `.stat-card h3` rule (line 216-224) which sets `white-space: nowrap; overflow: hidden; text-overflow: ellipsis` on titles. Combined with the tile's centered `flex` layout, the truncation chopped the LEFT side of the text instead of adding ellipsis on the right (which is unusual but happens when ellipsis can't fit either side and the layout center-anchors).
+
+**Fix:** Override the nowrap/ellipsis behavior for the specific tile titles that are short enough to wrap cleanly:
+```css
+#backing-ampluna-title, #backing-luna-live-title, #backing-usd-title,
+#avg-daily-gain-title, #unminted-nft-backing-title {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+}
+```
+Doesn't affect any other tiles (DAODAO Staked, Treasury, etc. keep the truncation behavior). These five just allow normal text wrap.
+
+### Why three fixes in one rev?
+All three were observed in the same screenshot and all touch the same area (mobile dashboard tiles). Tackling them in one rev minimizes the number of "push, screenshot, push again" iterations. Each fix is independent and could've been its own rev — bundled for efficiency, not because they share a root cause.
+
+---
+
+## Rev 3.35 — 2026-05-09
+
+Fixes Rev 3.34 DAO Total Value tile bug. User reported on first deploy: Treasury and NFT Backing populated correctly in the breakdown formula, but TLA LPs and TLA Locks stayed as spinners — even though those values ($6,260.87 and $5,715) were clearly visible in the contributing tiles right next to it.
+
+### Root cause
+
+Rev 3.34's `updateDaoTotalValue()` read from window globals (`liveTreasuryUsd`, `liveTlaVpUsd`, etc.) that each tile was supposed to set when it rendered. Two paths broke this assumption:
+
+1. **TLA Deposits** — read `dashboardData.tlaDeposits.totalDeposit`. This works on first load, but on cache-warm reloads or snapshot fallback paths, the value might be 0 or stay null while the tile DOM gets populated through a different code path.
+2. **TLA VP** — read `vpResult.totalUsdLuna * lunaPriceUSD`, computed locally. The tile ITSELF computed and rendered `$5,715` through a different path (`buildTlaVp` snapshot fallback OR live VP fetch with available USD), but my hook only fired when `totalUsdLuna != null && lunaPriceUSD != null` — which can be false even when `$5,715` is shown.
+
+The result: globals never set → totals stay spinner → values clearly visible elsewhere on the page.
+
+### Fix — read directly from rendered DOM
+
+`updateDaoTotalValue()` now reads each contributor by parsing the rendered text out of the contributing tile's DOM element. New `parseUsd(selector)` helper:
+
+- Returns null if the element contains a spinner (handles loading state)
+- Returns null for `'—'` and `'Error'` (handles known sentinels)
+- Matches `$NN,NNN.NN` pattern, picking the LAST match in the string (handles "1,051,763 LUNA $74,089 USD" → 74089)
+- Falls back to bare number parsing if no `$` prefix exists
+
+If the value is rendered to the page anywhere, the total picks it up. No race conditions, no globals to keep in sync, no missed code paths.
+
+### Polling instead of event-driven
+
+Since DOM-read isn't triggered by writes, added a `setInterval(500ms)` polling loop that calls `updateDaoTotalValue()` repeatedly until all four contributors are parsed (returns `true`) OR 30 seconds elapses (60 attempts max). 60 setInterval ticks reading 4 DOM elements each is negligible CPU. Started from inline IIFE on script eval, covers every load path (initial fetch, cached fetch, error recovery, slow LCD, etc.).
+
+### Test cases verified
+
+All 9 expected tile-text formats parse correctly: `$18,928`, `$6,260.87`, `$5,715`, `$74,089 USD`, `1,051,763 LUNA $74,089 USD`, `—`, `Error`, empty, `$104,846`.
+
+### Rev 3.34's hooks left in place
+
+The previous rev's contributor-side hooks (writing `window.liveTreasuryUsd` etc., calling `updateDaoTotalValue` from each contributor callback) are now redundant but harmless — globals get set, polling ignores them. Leaving in place is lower risk than removing.
+
+---
+
+## Rev 3.34 — 2026-05-09
+
+New "DAO Total Value" tile + mobile UX polish.
+
+### New tile — DAO Total Value
+
+A slim, full-width tile inserted between row 1 (Status tiles ending with DAO Broken/Held NFTs) and row 2 (DAO Treasury / TLA Deposits / TLA VP / Unminted NFT Backing). Sums the four major USD components the DAO controls into a single headline number.
+
+**Layout:** spans `col-span-2 md:col-span-4` (full row width on both mobile and desktop). Slimmer vertical padding than other tiles so it reads as a divider/summary row rather than competing with them. Visual: orange `fa-coins` icon + small uppercase "DAO Total Value" header, followed by the breakdown formula `Tokens + TLA LPs + TLA Locks + NFT Backing = $TOTAL` with the grand total in larger amber-400 mono.
+
+**Mobile compaction:** the breakdown labels collapse from "Tokens / TLA LPs / TLA Locks / NFT Backing" to "Tok / LPs / Locks / NFT" via `sm:hidden` / `hidden sm:inline` spans. Numbers also use compact notation on mobile (`$18,948` becomes `$18.9K`, `$1,051,763` becomes `$1.05M`) so the whole formula fits one line. Re-renders on resize via a window listener. Per Design Principle #1, the GRAND total stays a spinner until ALL FOUR contributors have populated — partial sums would mislead.
+
+**Wiring:** new `updateDaoTotalValue()` helper, idempotent. Reads from four sources that each tile already populates:
+- Treasury → `window.liveTreasuryUsd` (set by buildTreasuryTable; already global)
+- TLA Deposits → `dashboardData.tlaDeposits.totalDeposit` (set by buildTlaDeposits; already populated)
+- TLA VP → `window.liveTlaVpUsd` (NEW global, set in fetchDaoTlaVp's `.then`)
+- NFT Backing → `window.liveUnmintedNftBackingUsd` (NEW global, set in the unminted-backing tile render path)
+
+Each contributor calls `updateDaoTotalValue()` after writing its global, so the breakdown values appear progressively as data arrives, with the grand total appearing when the last one lands.
+
+### Mobile-only label shortening — 5 tiles
+
+Long labels that were getting truncated/wrapping awkwardly on mobile. Pure CSS swap via `sm:hidden` / `hidden sm:inline` spans — no JS, no flicker:
+
+| Desktop | Mobile |
+|---|---|
+| Unminted NFT Backing | NFT Backing |
+| Backing in ampLUNA | ampLUNA Backed |
+| Backing in LUNA | LUNA Backed |
+| Backing / Floor (USD) | Backing / Floor |
+| Avg Daily Gain Per NFT | Avg Daily Gain |
+
+### Mobile-only smaller Backing/Floor numbers
+
+The `$12.72 / $137.84` pair was crammed against the tile edges on small screens. Added a scoped mobile CSS rule (`#backing-per-nft-usd, #unbroken-floor-usd { font-size: 1.25rem !important; }`) inside the existing `@media (max-width: 640px)` block. Targets only those two value elements — no cascade impact on other tiles.
+
+### What this rev did NOT touch
+- Open dashboard items in `CHANGES_PENDING.md` (per-fetch resilience, fallback LCD, fmt/safeLocale dedup) all still pending
+- TLA data automation work (`DESIGN_tla_data_automation.md`) — separate workstream
+- Mobile polish on non-index pages (other workstream)
+
+---
+
 ## Rev 3.33 — 2026-05-08
 
 Fixes the stale-data modal still-can't-close bug from Rev 3.32. Two related issues:
