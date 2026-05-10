@@ -1,113 +1,91 @@
-# Changes Pending — aDAO-links-site
+# Changes Pending — aDAO website
 
-> Rolling list of identified changes for the next batch upload. Newest items at the top of the active section. Add as we identify, check off as completed.
+> Rolling list of identified work for upcoming sessions. See PROJECT_KNOWLEDGE.md "Tracking responsibilities" for what goes here vs. there.
+> Older completed items have been pruned — they live in changelog files (`index-log.md` etc.) instead.
 
 ---
 
-## 🔥 Active / next round
+## 🛠 Active / next round
 
-### Tune `fetchDaoTlaVp` attribute names (first-deploy verification)
-The Rev 3.31 live VP fetcher tries multiple attribute names since the CW721 schema isn't documented (`amount`/`locked_amount`/`balance`, `multiplier`/`power_factor`/`factor`, `asset`/`token`/`lock_asset`, `duration`/`lock_duration`). On first deploy the console will log the raw attribute list if extraction fails — adjust the helper to the real format if needed.
+### 🔥 NEXT SESSION — Begin full TLA snapshot cron automation
+**See `DESIGN_tla_full_cron_automation.md` for the full spec.** 
 
-### Optional: fully-live DAO Broken/Held NFTs
-Rev 3.31 hardcodes `DAO_BROKEN_HELD_COUNT = 1000` (the documented governance count from Props 64-69), matching the admin tool's stated approach. Could be replaced with `nfts.filter(n => n.broken && DAO_WALLETS.includes(n.owner)).length` if the user provides the two missing liquidity wallet addresses (suffixes `...8ywv` and `...417v`; the third Enterprise wallet `terra1nn7yrgjzj6zvle7ms9vlpg4cj3kaxjls4g6ugw` is already in the code).
+**Goal:** retire `tla_tool.html` + `tla-tool_ext.html` as manual capture tools. Replace with a Vercel cron that produces equivalent JSON snapshots daily. Existing tools kept as fallback.
 
-### Dashboard live queries — additional resilience (follow-up to Rev 3.27 / 3.29 / 3.30 / 3.31)
-Rev 3.27 stopped the cascade crash. Rev 3.29 → 3.30 → 3.31 progressively replaced snapshot-dependent tiles with live queries where possible. Remaining resilience items (relevant only for the tiles that still legitimately need on-chain data):
+The design doc inventories every field in the snapshot file, classifies each by automation status (🟢 auto already / 🟡 chain query known / 🟠 flaky API / 🔴 still manual / ⚫ unavoidably manual), and lays out 6 phases of work. Bottom line: full automation is feasible — no field requires unavoidable human input.
 
-- [ ] **Per-fetch try/catch isolation in `fetchLiveOnChainData`.** Right now all treasury balance fetches share one outer `try`. One LCD 500 still produces null for downstream calcs (which now display `—` instead of crashing — better, but not great). Each fetch should be its own isolated promise so a single asset failure only blanks the affected tile.
-- [ ] **Per-fetch timeout in `fetchLiveOnChainData`.** Today's load took 14.67s — almost all of it in the Terra LCD `Promise.all`. A 5–8 second timeout per request via AbortController would cap the worst case. Pattern already used in Rev 3.29 / 3.31.
-- [ ] **Fallback LCD endpoint on 5xx.** Both `terra.publicnode.com` and `terra-lcd.publicnode.com` returned 500s during the May 8 outage. On 5xx, retry against a different public Terra LCD. Need to research which alternates are reliable and CORS-permitted in-browser.
-- [ ] **Apply Rev 3.29 parallel pattern to `fetchTlaData()` (TLA Stats page).** Currently walks epochs sequentially — slow on stale fallback. Easy port of the same `Promise.allSettled` + `AbortController` pattern. Cache could be shared between the two functions for further speedup.
-- [ ] **Deduplicate `fmt` and `safeLocale` helpers.** Rev 3.26 added `fmt` inside the try block, Rev 3.27 added `safeLocale` outside. They overlap. Fold `fmt` callsites onto `safeLocale` and drop `fmt`.
+**Phase 1 next session:** Vote tab + LP registry on-chain fetcher. 4 `gauge_infos` queries against `terra1hfksrhchkmsj4qdq33wkksrslnfles6y2l77fmmzeep0xmq24l2smsd3lj` + a pool-id-to-name resolver. Browser tool only (cron migration is Phase 5). HAR data already captured in our context — start of next session: read the design doc and begin implementing.
 
-### Mobile layout polish — non-index pages in PWA
-Tested-environments table in `PROJECT_KNOWLEDGE.md` confirms only `index.html` is verified working on iPhone 16 PWA. Every other page is unverified for PWA mobile. This is iterative screenshot-driven work; one page per pass.
+Subsequent phases: resolver cache + multi-DEX → PD bribes from chain → xASTRO/LST APYs → cron migration → 3-week verification soak.
 
-- [ ] NFT Explorer (`nft-explorer-index.html`) — PWA mobile review
-- [ ] aDAO Lore (`adao-lore.html`) — PWA mobile review
-- [ ] TLA Stats (`tla-stats.html`) — PWA mobile review
-- [ ] DAO (`dao.html`) — PWA mobile review
-- [ ] ALLY Rewards (`ally.html`) — PWA mobile review
-- [ ] Tutorials, Tools, Rarity Info, NFT Releases, Official Links, Alliances — PWA mobile review (batch)
-- [ ] DAO Treasury, DAO TLA Deposits, Fuel Tool, ampCapa Tool, TLA Docs — PWA mobile review (batch)
+### Resilience prereqs (per index-log Rev 3.27 / 3.29 follow-ups)
+- [ ] Per-fetch try/catch isolation in `index.html`'s `fetchLiveOnChainData` so one failed treasury balance fetch doesn't poison every downstream calculation
+- [ ] Fallback LCD endpoint on 5xx — both `terra.publicnode.com` and `terra-lcd.publicnode.com` returned 500s on May 8, 2026 and the cascade null-safety added in 3.27 was the only thing preventing total dashboard failure
+- [ ] Apply the same parallel epoch-fallback pattern from `fetchTlaFromGitHub` to `fetchTlaData` (TLA Stats page) — works correctly today but unnecessarily slow on stale fallback
+- [ ] Per-fetch timeout in `fetchLiveOnChainData` for the slow Terra LCD calls — 14.67s load times mostly come from there
 
-### NFT ranking system rework — align with BBL
-The current aDAO ranking system diverged from Backbone Labs' approach. User wants to revisit and align — needs design discussion before any code changes.
+### Admin-tool follow-ups (after May 9 2026 admin-tool stabilization pass)
+The May 9 fixes shipped in `tla-tool_ext.html`:
+- Astroport per-pool error tracking + red-banner status + diagnostic dialog
+- Votion per-lockup error tracking + diagnostic dialog (root cause confirmed: Eris API HTTP 500 from origin)
+- Per-attempt 8-second timeouts on both CORS proxy chains
+- FUEL price now auto-fetches from on-chain LUNA-FUEL pool reserves (Terra LCD `{pool: {}}` query, same pattern as `fuel-tool.html`). Source becomes `'lcd-pool-derived'` instead of `'manual'`. Falls through to manual entry on chain failure.
+- Staking APR + PD bribes + staging/historical/current GitHub raw fetches now cache-busted (`?t=Date.now()` + `cache: 'no-store'`) — fixes the "still showing 6-day-old data" issue
+- PD bribes table now has pencil-edit icons + × delete + "+ Add bribe to gauge" buttons. Edit modal matches project modal pattern (X / ESC / backdrop close).
+- PD bribes paste flow changed from confirm() to 3-way Replace / Merge / Cancel prompt. Merge sums USD+LUNA for matching `(gauge, pool)` and appends new ones, so launch-incentive bribes layer on top of routine ones cleanly. Bribes that were merged or hand-added show a small `+merged` / `+added` badge in the table.
+- **Astroport D90 export bug fixed** — added `selectBestAstroRange()` helper. Was the cause of the "all zeros in export despite log showing $24K, $713K, etc." problem. Astroport's TRPC dropped `D90` as a valid `dateRange` enum value; D7+D30 still work. Helper falls through to whichever range actually has data. Five call sites updated. Astroport error truncation increased from 80→200 chars so future schema changes show their full error messages.
+- **Vote-tab parser rewritten to be DEX-agnostic and token-agnostic.** Was hardcoded to `{Astroport, Skeleton Swap, WhiteWhale}` DEXes and `[ampCAPA, xASTRO]` single-sided tokens. The `wBTC.creda.a` pool on the new "Creda" DEX was silently dropped from every registry parse — and that silent deletion was the upstream cause of the user's earlier "wBTC.creda.a never recognized in asset metadata" symptom. New parser detects entries by shape (a name line followed within 6 lines by a `VP <amount> <pct>%` line) rather than by name lookup. Adapts automatically to new DEXes and tokens going forward.
+- **Votion fetch resilience.** The previous "always fails" behavior was actually intermittent 500s — verified via HAR capture showing the same backend URL returning 200 when the app loaded. New behavior: retry with exponential backoff (3 attempts, 0s/2s/4s), per-run failed-proxy memory so subsequent lockups skip already-failed proxies, 500ms stagger between lockups to avoid rate limit, smart proxy ordering (cached working proxy first, untested next, blacklisted last-resort), inline per-lockup progress display. Tested against the user's failure pattern: `direct=500, allorigins=timeout, corsproxy=403` on attempt 1 → 2s backoff → `direct=500, allorigins=200` on attempt 2. Works.
+- **Side-fix:** null-safed `$('step-export').classList.add()` in `downloadExtJson` so the post-download status update doesn't throw when the element doesn't exist in the current layout.
 
-- [ ] **Investigate BBL's ranking methodology** — what algorithm/weighting do they use? Is it documented or do we need to reverse-engineer from displayed ranks?
-- [ ] **Document current aDAO ranking method** — what's actually live in `nft-explorer-index.html` / `nft-explorer-app.js` / `adao_json_storage` snapshots?
-- [ ] **Decide on convergence approach** — full BBL parity, hybrid, or stay independent with documented rationale?
-- [ ] **Implement chosen approach** — code changes to whatever produces the rank values in the snapshot data
-- [ ] **Migration plan** — if rank values change, communicate to holders (rank changes are visible and people care about them)
+Still open:
+- [ ] **Fix `epoch: "unknown"` in workflow exports.** May 9 2026 Astroport + Skeleton workflow files both have `meta.epoch: "unknown"` and Skeleton pulled epochs 168/169 (old hardcoded fallbacks?) instead of current. Find where the export-builder reads the epoch and ensure it uses `store.liveEpochInfo.currentEpoch`.
+- [ ] **Quiet "Pool not found" errors for deprecated duplicates.** Astroport correctly returns `Pool not found` for deprecated pool addresses — the dedup logic flags them. These currently count toward `failed` in the new error reporting and clutter the diagnostic dialog. Better: detect deprecated addresses BEFORE fetching, OR detect "Pool not found" specifically and categorize as `expected-deprecated` rather than failure.
+- [ ] **Per-fetch isolation in `tla_tool.html`** (the main tool) — same pattern as the resilience items above. The main tool consumes the ext file and silently rolls failed pools into zeros across the dex_performance / lp_registry sections.
+- [ ] **Export-time validation in main tool** — block (or hard-confirm) export if astroport_data has all-empty epochs. The May 9 ext-tool fix disables export when nothing's captured; main tool should mirror this.
+- [ ] **Astroport TRPC schema canary** — periodically test what `dateRange` enum values are accepted, since `D90` silently dropped. Future-proof against another silent change.
 
-### Webmanifest / favicon 404s in production
-Today's console log showed `/site.webmanifest` and `/favicon.ico` 404'ing on `www.thealliancedao.com` despite both files being present in the repo. Either Vercel routing issue, deploy timing, or CSP. Investigate.
-
-- [ ] Verify the deployed Vercel build actually includes both files (check Vercel deployment file listing)
-- [ ] Check if there's a `vercel.json` rewrite or header config that's intercepting these paths
-- [ ] Check if response is genuinely 404 vs. 200 with wrong MIME type
+### NFT Explorer / dashboard tile work
+- [ ] DAO Broken/Held NFTs: live-filter the `nfts` array against the 3 multisig wallet addresses. Hardcoded `1000` per Props 64-69 is correct but not future-proof. Need the two liquidity-wallet addresses (`...8ywv`, `...417v`) added to the codebase first.
+- [ ] LST hardcoded ratios (`bLUNA || 1.6048` etc., ~10 places) — soft Design Principle #1 violation but ratios drift slowly. Decide: keep or replace with spinner.
+- [ ] Asset metadata for `wBTC.creda.a` — token never appeared in any epoch JSON (not in pool registry, not in token prices, not in asset_metadata). Most likely root cause is upstream (TLA hasn't whitelisted a pool for it yet, or the Astroport pool-discovery bug above is hiding it). Re-check after Astroport fix lands.
 
 ---
 
 ## 🚀 Future projects — separate threads
 
-These are too big to roll into a normal patch — flagged for their own focused work later:
+### TLA data collection automation — see `DESIGN_tla_data_automation.md`
+6–10 focused sessions, plus testing/verification weeks. **Don't start until admin-tool stabilization above is complete.** Phases:
+- **Phase 0** — Investigations (Eris Amp Compounder farm registry, bucket VP query format, Astroport TRPC stability, Phoenix Directive API existence, Votion full API surface, Astroport pool registry endpoint)
+- **Phase 1** — Daily cron with chain-deterministic data → new `tla-daily-YYYY-MM-DD.json` written to a new `tla_daily_storage` repo, runs *alongside* `tla_tool.html` (does NOT replace it)
+- **Phase 2** — Score replication (port compute logic from `tla_tool.html` into the cron), validate parity for ≥3 weeks of overlap
+- **Phase 3** — Replace manual paste steps where APIs exist; thin paste fallback retained otherwise
+- **Phase 4** — Cutover; manual tool deprecated but kept as fallback
 
-### Fully-live TLA Deposits tile (replace snapshot dependency)
-**See `DESIGN_live_tla_deposits.md` for the full design.** Two-stage plan: Stage 1 makes the dashboard tile live (DAO's own positions only); Stage 2 extends to a full live TLA Stats page with auto-detected pool whitelist. Stage 1 depends on the resilience prereqs above (per-fetch timeout, fallback LCD, per-fetch isolation) being in place first.
-
-Key model correction recorded in the design doc: each TLA pool has TWO positions (non-amplified white deposit + amplified orange deposit). The 5 ampLP denoms the user pasted are only half the picture — non-amp LPs need to be enumerated too. Success metric is ampLP token count growth per epoch, not USD.
-
-### TLA data automation — replacing `tla_tool.html`
-
-**See `DESIGN_tla_data_automation.md`.** The earlier design draft in this file (and earlier in this conversation) severely underscoped the problem. After actually reading `tla-stats.html` (7849 lines) and `tla_tool.html` (13,320 lines), the real scope:
-
-- `tla-stats.html` is a sophisticated analytical dashboard with 4 computed scores per pool (Performance, Support, Opportunity, Access), historical 4-epoch averages, dual APR (amp + non-amp), bribe attribution (PD vs Other), Votion+aDAO+Other vote breakdowns.
-- `tla_tool.html` is the manual capture tool the user runs every Sunday — it's NOT a single fetch, it's a multi-step interactive pipeline including manual paste-from-UI steps (Phoenix Directive bribes, Votion lockup data) plus computed scores and curator judgment (access score, included_in_grade flag).
-- **Goal: replace `tla_tool.html` with a Vercel cron producing the same v3 JSON.** This is a 6-10 session project, not a single session.
-
-**The user's original spec to deving.zone was reasonable** given what `tla-stats.html` actually consumes. Earlier dismissal of that spec as "over-spec" was wrong.
-
-**Don't pay deving.zone IF we commit to building it in-house.** But the in-house path is real work spanning months. If user wants this fast, paying deving.zone may still be the right call — that decision needs revisiting with this honest sizing.
-
-**Phase 0 investigations the next session must do BEFORE any code:**
-
-1. Eris Amp Compounder farm registry pattern
-2. Bucket-level VP query format from the four `TLA_CONTRACTS`
-3. Astroport TRPC stability + what other `charts.*` endpoints exist
-4. Phoenix Directive — does it have a programmatic API?
-5. Votion full API surface beyond what `tla-tool_ext.html` already uses
-6. Astroport pool-discovery (full list, not hardcoded)
-7. Read the remaining ~10k lines of `tla_tool.html` not yet traced
-
-Each is 10-30 min depending on the answer. Do them ALL before estimating effort or writing code.
-
-### Static site generator migration (Astro / Eleventy)
-The "every page must look like index.html" cross-page consistency requirement currently means duplicating the same shared HTML/CSS/JS across 18+ files by hand. A static site generator would template the shared chrome and dramatically reduce the maintenance burden. Big refactor though — entire repo restructure. Not urgent, but worth keeping in mind whenever cross-page work feels painful.
-
-### TLA data collection automation
-- Build cron-driven workflow on `0 59 23 * * 0` (Sunday 23:59 UTC, end of TLA epoch)
-- Default to **Vercel cron** (per project convention), not GitHub Actions
-- Auto-commit JSON snapshots to the 3 storage repos via PAT
-- Replace manual Sunday-night data capture
+### Slim manual capture by prefilling chain-derivable fields
+Pair this with the cron work or do standalone. The Rev 3.31 `fetchDaoTlaVp` work proved the live-query pattern. Identifying which manual-paste fields are actually fetchable from chain is mostly mechanical — start with whatever the user pastes most often.
 
 ### Capa Protocol integration prep
-- Once partnership solidifies — likely new pages/sections for Capa marketplace
-- Possible new lore integration (per the framework Lion DAO established)
+Once partnership solidifies — likely new pages/sections + lore integration (per the framework Lion DAO established → Canyon-Clans of Ozara North).
+
+### Static site generator migration
+Big refactor, not urgent. Would dramatically simplify the cross-page chrome rollout (currently per-page duplicated code) and meta-tag application. Astro or Eleventy. Logged for awareness; only consider when it actively blocks something.
 
 ---
 
-## 🧹 Low priority / cleanup
+## 🧹 Cleanup — low priority, safe to defer
 
-- [ ] Remove dead Logos modal HTML in `index.html` (line ~1745+) — trigger was removed but the modal markup is still there
-- [ ] Remove `'logo-modal-trigger': 'logoModal'` mapping in JS (line ~5396 area)
-- [ ] Delete leftover stale files from main repo if still present: `news.html`, `graphs.html`, `rampt.html`, `on-ramp.html`, `off-ramp.html`, `alliance-dao-docs.html`, `test-page.html` (PROJECT_KNOWLEDGE marks these as removed but the latest GitHub file listing still shows them — verify and clean up)
-- [ ] Delete duplicate Vercel project `a-dao-links-site` (keep `a-dao-links-site-t6nu`)
+- [ ] Remove dead Logos modal HTML in `index.html` (line 1745+) and the `'logo-modal-trigger': 'logoModal'` mapping in JS (~line 5396)
+- [ ] Delete `unclaimed-stale-banner` HTML element from `index.html` (Rev 3.30 hides it; replaced by modal)
+- [ ] Deduplicate `fmt` helper from Rev 3.26 vs `safeLocale` from Rev 3.27 — both do the same thing
+- [ ] Remove `fetchTlaFromGitHub` + `_adaoSnapshotCache` if anything is still left after Rev 3.31's deletion (verify)
+- [ ] Old `dao_governance.html` is renamed to `dao.html` (Rev 3.22) — check Vercel for stale 404s on old URL
 
 ---
 
 ## 📝 Open questions / decisions needed
 
-- [ ] **LST ratio fallbacks** (`bLUNA || 1.6048`, `ampLUNA || 1.9015`, `arbLUNA || 2.6873`) — Design Principle #1 violation; kept because ratios drift slowly. Keep or remove?
-- [ ] Dead Logos modal — remove entirely, or rebuild with actual logos?
+- [ ] Should the cron run daily or hourly? (Astroport TRPC ratelimits unknown — moot until cron is on the agenda)
+- [ ] Where does the new cron write — existing `tla_json_storage`, or a new `tla_daily_storage` repo for daily files?
+- [ ] How does the cron handle the multi-week capture gap (epochs 183, 184 missing as of May 9, 2026)?
+- [ ] LST ratios: keep the hardcoded fallbacks or remove? (See Design Principle #1; current call is keep.)

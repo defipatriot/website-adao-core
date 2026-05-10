@@ -24,6 +24,7 @@ The user has explicitly stated they will forget things and lose track. **Claude 
 | A device/browser is tested or fails | "Tested environments" section | Honest compatibility tracking |
 | Naming collision discovered (e.g. our project vs. similar-named other) | "Naming clarification" section | SEO + comms accuracy |
 | User clarifies a workflow constraint (e.g. file naming on download) | "Working conventions" section | Smooth handoffs |
+| Admin-tool bug found or fixed (data-capture, snapshot tools) | "Critical data-capture gotcha" section | Prevent regression; admin tools don't have a changelog footer so this doc is the only record |
 
 ### When to update CHANGES_PENDING.md
 
@@ -145,17 +146,35 @@ PWA shortcuts, install prompts, default-page selectors — all are bonus feature
   - **Votion** — vote aggregator built by Eris (lets users delegate voting)
 - **Capa Protocol** — partnership in works (stablecoin issuer, possibly new NFT marketplace). Will eventually need lore integration.
 - **TLA = Terra Liquidity Alliance** — ve(3,3) system, weekly epochs ending **Sunday 23:59 UTC**. Reward distribution mechanism.
+- **TLA pool positions are dual-typed.** Each pool position consists of a **non-amplified deposit** (white in TLA UI) AND an **amplified deposit** (orange). The DAO holds both side-by-side at roughly 50/50 because:
+  - Non-amplified earns rewards in claimable form, but is slowly eaten by the 10% TLA take-rate
+  - Amplified (ampLP token) compounds in place via Eris Amp Compounder — outpaces the take-rate
+  - Together: claimable rewards stream from non-amp side + principal preservation from amp side
+- **TLA success metric: ampLP token count growth per epoch.** Per the DAO's strategy, the goal is each epoch to gain ampLP tokens not lose them. USD value can fluctuate freely with market conditions; what matters is the underlying ampLP count is increasing. This is the right thing to surface on dashboards rather than a USD figure.
 
 ### Lore framework
 10 post-human tribes scattered across the galaxy via "The Lattice". Designed to be flexible for absorbing partner DAOs:
 - **Lion DAO** → became "Canyon-Clans of Ozara North" (precedent for how partnerships fit lore)
 
 ### Storage / data repos
-- `defipatriot/tla_json_storage` — current TLA snapshots
-- `defipatriot/tla-ext_json_storage` — extended TLA data
+- `defipatriot/tla_json_storage` — current TLA snapshots (the v3 JSONs `tla_tool.html` exports). Also holds `epoch_1-300_date.json` schedule.
+- `defipatriot/tla-ext_json_storage` — extended TLA data (the v3-ext JSONs `tla-tool_ext.html` exports)
 - `defipatriot/adao_json_storage` — aDAO-specific snapshots
 - `defipatriot/aDAO-Image-Files` — favicons, logos, OG images, collection PFPs
 - `defipatriot/website-adao-core` — project docs + changelogs (this repo)
+- `defipatriot/astroport-pool-data_2026` — **mostly empty** (1 file as of May 2026, broken capture). Declared as `ASTRO_GITHUB_BASE` in `tla-tool_ext.html` line 6979 but **never read from**. Was apparently planned as a fallback historical store; never wired up. Relevant if we ever want a fallback path for Astroport historical data without depending on the live TRPC endpoint.
+- `defipatriot/ss-pool-data_2026` — Skeleton Swap weekly CSVs at `data/weekly-avg/2026-epoch-{N}.csv`. Used by `tla-tool_ext.html` line 9034 (`fetchSkeletonSwapData`). This IS being populated and is the reason Skeleton has historical data while Astroport doesn't.
+
+### Key on-chain contract addresses (Terra phoenix-1)
+Discovered May 10 2026 via HAR capture of the Eris liquidity-hub UI. These power the planned on-chain Vote tab fetcher (see `DESIGN_vote_tab_onchain_fetcher.md`).
+
+| Role | Address |
+|---|---|
+| TLA Gauge Controller | `terra1hfksrhchkmsj4qdq33wkksrslnfles6y2l77fmmzeep0xmq24l2smsd3lj` |
+| TLA Incentive Manager (bribes) | `terra1tuuwm8yrj54qeg0c8xu00aha9ryatyhtczq8qq2q8tntuw0auzas9037wh` |
+| vAMP Minter (total VP) | `terra1uqhj8agyeaz8fu6mdggfuwr3lp32jlrx5hqag4jxexde92rzkamq3l62zg` |
+| LUNA-FUEL Astroport pool | `terra10yfnsqn20rzlnlzkeva5255q27zp6ws9te9uuql9e0lacfcze7zsffjct5` (used by `fetchFuelPriceFromChain`) |
+| Votion (arbLUNA Max) | `terra13aae4futz6jk7hmdv0gwm2xs6p4nxv4xwz5tc0c2vt4960u4j6jqpqmye9` (only one captured so far; others unknown) |
 
 ---
 
@@ -179,7 +198,7 @@ Each page has a target rev number for the changelog system rollout. See "Cross-p
 
 | Display name | File | Current rev | Notes |
 |---|---|---|---|
-| (Home) | `index.html` | 3.26 | The main dashboard, ~12.6k lines. Has the changelog system. |
+| (Home) | `index.html` | 3.33 | The main dashboard, ~12.6k lines. Has the changelog system. |
 | NFT Explorer | `nft-explorer-index.html` | 4.13 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. Map view removed in Rev 4.13. |
 | aDAO Lore | `adao-lore.html` | 2.9 | Top nav tab. ✅ Renamed from `planet-map.html` in Rev 3.22. ✅ Cross-page chrome added. |
 | TLA Stats | `tla-stats.html` | 1.15 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. |
@@ -206,6 +225,8 @@ Each page has a target rev number for the changelog system rollout. See "Cross-p
 | `tla_tool.html` | TLA admin tool (data collection) |
 | `tla-tool_ext.html` | TLA extensions tool |
 | `dao_governance_tool.html` | DAO governance tool |
+
+**Rev-bump convention for admin tools:** these intentionally have NO `Rev / Changelog` footer chrome (the public 5-tab nav would be misleading context). When fixing bugs in admin tools, **don't bump a rev** — there's nothing to bump. Document the change in `CHANGES_PENDING.md` (under a "Recent admin-tool fixes" section if needed) and in this doc's "Critical data-capture gotcha" section if the bug class is recurrent. The `index-log.md` is for user-visible changes only.
 
 ### Pages removed
 `graphs.html`, `news.html`, `rampt.html`, `on-ramp.html`, `off-ramp.html`, `alliance-dao-docs.html`, `test-page.html` — all deleted from repo.
@@ -314,6 +335,41 @@ If we ever need to change one of the structural fields, plan to communicate to u
 - Info-cards inherit this (they're also `.stat-card`), causing text truncation with "..." instead of wrapping.
 - **Fix already in place:** the rule is now scoped as `.stat-card:not(.info-card):not(.info-card-dropdown) h3` so info-card titles wrap normally.
 - **General lesson:** when a CSS rule isn't applying despite `!important`, check whether a *more specific or later-defined* selector with equal specificity is winning the cascade. Don't pile on more `!important` — fix the selector.
+
+### Critical data-capture gotcha — Vote tab parser hardcoded DEXes/tokens (May 9 2026)
+- `parseVoteTab()` (the Vote-tab paste parser that builds `store.lpRegistry`) had hardcoded DEX names `{Astroport, Skeleton Swap, WhiteWhale}` and a hardcoded list of single-sided tokens `['ampCAPA', 'xASTRO']`. When TLA added a new DEX (Creda, hosting `wBTC.creda.a` as a single-sided pool in May 2026), every Creda entry was silently dropped from the registry — and all the downstream consequences (no ampLP balance lookup, no asset metadata entry, missing from snapshot exports) flowed from that single deletion.
+- **Fix shipped May 9 2026:** rewrote `parseVoteTab` to detect entries by SHAPE rather than by name lookup. A pool entry is anything that's:
+  1. A line that passes `looksLikePoolName()` (has letters, isn't a reserved UI label, isn't a numeric/value line)
+  2. Followed within 6 lines by a `VP <amount>  <pct>%` line
+  3. With a DEX name (any capitalized word that isn't reserved) somewhere between them
+- Verified against the user's epoch-184 paste: captures `wBTC.creda.a|Creda` correctly. Adapts automatically to new DEXes and new single-sided tokens going forward — no code change required.
+- **General principle:** when a parser fails because the input has new entries it doesn't know about, the right fix is to make the parser describe *what entries look like* (structurally) rather than enumerate *which entries are allowed* (by name). The enumerated approach guarantees future regressions.
+
+### Critical data-capture gotcha — Astroport D90 dateRange deprecated (May 9 2026)
+**Root cause finally identified.** Astroport's TRPC charts endpoint silently dropped `"D90"` as a valid `dateRange` enum value sometime before May 2026. It now returns a Zod validation error: `{"received": "D90", "code": "invalid_enum_value"}`. The endpoint itself works fine — `D7` and `D30` still return real time-series data for active pool addresses.
+
+**Why it manifested as "all-zero exports":**
+1. `runFullAstroWorkflow()` fetches all three ranges in sequence: D7 → D30 → D90, saving each into `astroMultiRangeData.{D7,D30,D90}`.
+2. D7 and D30 capture real data (~42-45 points per pool for active pools).
+3. D90 fetches all error out — but the per-pool entries still get written to `astroMultiRangeData.D90` with `epochs: {}` and `latestLiquidity: 0`.
+4. The export builder used `astroMultiRangeData.D90 || astroAutoData.epochData` — `||` doesn't fall through because D90 is a populated (zero-filled) object.
+5. Every export read D90 → all zeros, even though D7+D30 had everything.
+
+**Fix shipped May 9 2026 (tla-tool_ext.html):** Added `selectBestAstroRange()` helper that walks D90 → D30 → D7 and returns the first range with at least one entry having non-zero `latestLiquidity` or non-empty `epochs`. Five call sites updated. Astroport error truncation increased from 80 to 200 chars so the schema-validation message is readable next time something else changes upstream.
+
+**Pool-not-found errors are EXPECTED** for deprecated duplicate pool addresses (e.g. `terra16a45v4...` for LUNA-USDC). The dedup logic correctly flags these. They count as "failed" in the new error reporting, but functionally aren't a problem — the active pool address gets the data. Could improve the categorization to suppress these from the failures dialog later.
+
+### Critical data-capture gotcha — Votion API HTTP 500 is INTERMITTENT, not broken
+- Eris's Votion backend (`backend.erisprotocol.com/votion/.../optimization`) returns HTTP 500 from origin on a meaningful fraction of calls — but NOT all of them. The page itself succeeds because it retries automatically.
+- **Confirmed via HAR capture (May 10 2026):** the same `/optimization` URL that failed multiple times during our captures returned HTTP 200 with full data when the actual app loaded. Same URL, same backend, same data shape we already know how to parse. Not a new architecture, not a different host.
+- The `phoenix-rpc.erisprotocol.com` requests we saw in the page's network log alongside `/optimization` are *additional* contract reads for the live `staked` amount shown at the top — not a replacement for the optimization endpoint.
+- **Fix shipped May 10 2026:** Added retry-with-backoff (3 attempts, 0/2s/4s waits), per-run failed-proxy memory (don't re-test 4xx-failing proxies between lockups in the same run), 500ms stagger between lockups (Eris's backend handles serial calls better than rapid burst). Inline progress shows which lockup is being fetched + retry status. 5xx errors trigger retries; 4xx errors blacklist the proxy for the run (since it's the proxy at fault, not the origin).
+- **Smart proxy ordering:** the cached `workingProxy` (last successful one) is tried first, then untested proxies, then last-known-failed proxies as a last-resort fallback. So in a 6-lockup run, after the first lockup figures out which proxy works, the other 5 use that proxy directly without re-testing the broken ones.
+
+### Critical data-capture gotcha — `epoch: "unknown"` in workflow exports
+- The May 9 2026 Astroport and Skeleton workflow exports both have `meta.epoch: "unknown"` and per-pool `currentEpoch.epoch: "unknown"` despite `live-epoch-info` resolving correctly at page load. Skeleton even picked old hardcoded epochs (168, 169) for its 4-epoch averaging instead of the actual current epoch (~184).
+- **Where to look first:** the export-builder code that writes the JSON should be reading `store.liveEpochInfo?.currentEpoch` like the rest of the tool does. If it's reading a stale or non-populated field, the export gets `"unknown"`.
+- **Until fixed:** rename downloaded files manually before push (`astroport-epoch-184-2026-05-09.json` not `epoch-unknown`), and the Skeleton 4-epoch-avg numbers should be considered suspect for any epoch where `historicalEpochsLoaded` doesn't include the actual current epoch.
 
 ### Modals
 - Standard pattern: `<div id="xModal" class="modal fixed inset-0 hidden">` + `<div class="modal-content scale-95">`.
@@ -447,6 +503,7 @@ Fetch these raw URLs to load context:
 - `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/PROJECT_KNOWLEDGE.md`
 - `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/CHANGES_PENDING.md`
 - `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/index-log.md`
+- `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/DESIGN_tla_full_cron_automation.md` (active project — full TLA snapshot automation)
 
 ---
 
