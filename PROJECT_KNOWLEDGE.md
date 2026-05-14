@@ -157,13 +157,31 @@ PWA shortcuts, install prompts, default-page selectors — all are bonus feature
 - **Lion DAO** → became "Canyon-Clans of Ozara North" (precedent for how partnerships fit lore)
 
 ### Storage / data repos
-- `defipatriot/tla_json_storage` — current TLA snapshots (the v3 JSONs `tla_tool.html` exports). Also holds `epoch_1-300_date.json` schedule.
-- `defipatriot/tla-ext_json_storage` — extended TLA data (the v3-ext JSONs `tla-tool_ext.html` exports)
-- `defipatriot/adao_json_storage` — aDAO-specific snapshots
-- `defipatriot/aDAO-Image-Files` — favicons, logos, OG images, collection PFPs
-- `defipatriot/website-adao-core` — project docs + changelogs (this repo)
-- `defipatriot/astroport-pool-data_2026` — **mostly empty** (1 file as of May 2026, broken capture). Declared as `ASTRO_GITHUB_BASE` in `tla-tool_ext.html` line 6979 but **never read from**. Was apparently planned as a fallback historical store; never wired up. Relevant if we ever want a fallback path for Astroport historical data without depending on the live TRPC endpoint.
-- `defipatriot/ss-pool-data_2026` — Skeleton Swap weekly CSVs at `data/weekly-avg/2026-epoch-{N}.csv`. Used by `tla-tool_ext.html` line 9034 (`fetchSkeletonSwapData`). This IS being populated and is the reason Skeleton has historical data while Astroport doesn't.
+
+#### Legacy / manual-snapshot repos (still in use)
+- `defipatriot/tla_json_storage` — Holds `tla_config.json` (site scoring weights) and `epoch_1-300_date.json` (canonical epoch schedule — **the 1-indexed source of truth** for epoch numbers). Older per-epoch v3 JSONs from manual `tla_tool.html` captures also live here but are no longer actively updated.
+- `defipatriot/tla-ext_json_storage` — Historical TLA data from `tla-tool_ext.html`. Contains `tla_ext_historical_2025.json` and `tla_ext_historical_2026.json` (per-LP epoch averages for liquidity + volume, used by trend charts), plus `tla_pd_bribes.json` (master PD bribes file).
+- `defipatriot/adao_json_storage` — Legacy aDAO snapshots from manual captures. Members CSV fallback lives here.
+- `defipatriot/aDAO-Image-Files` — favicons, logos, OG images, collection PFPs.
+- `defipatriot/website-adao-core` — project docs + changelogs (this repo).
+
+#### Cron-produced data repos (active 2026 — written automatically by Render crons)
+**All 7 production crons are live and writing on schedule.** Cron source code lives in `defipatriot/cron-scripts` (one folder per cron). Each writes to its own `*-data_2026` data repo. Status verified 2026-05-14:
+
+| Data repo | Source cron | Schedule | Main output file |
+|---|---|---|---|
+| `defipatriot/tla-snapshot-data_2026` | `tla-snapshot` | Hourly :40 | `data/tla-snapshot.json` — the unified per-epoch snapshot consumed by `tla-stats.html` |
+| `defipatriot/network-and-prices-data_2026` | `network-and-prices` | Hourly :40 | `data/network-and-prices.json` — LUNA + token prices, LST ratios |
+| `defipatriot/adao-positions-data_2026` | `adao-positions` | Weekly Mon 01:00 | `data/current.json` — 46 members + treasury portfolios; also `data/members.json` and `data/weekly/epoch-{N}.json` archives |
+| `defipatriot/astroport-pool-data_2026` | `astroport` | Daily 23:50 | `astroport/astroport-epoch-{N}.json` + `data/daily/{YYYY-MM-DD}.csv` |
+| `defipatriot/ss-pool-data_2026` | `skeletonswap-lp_data` | Daily 23:45 | `data/weekly-avg/2026-epoch-{N}.csv` |
+| `defipatriot/bribes-data_2026` | `bribes-history` | Daily 23:35 | `data/current-state.json` + `data/by-epoch/epoch-{N}.json` + `data/pd-bribes-history.json` |
+| `defipatriot/votion-data_2026` | `votion` | Weekly Sun 23:55 | `votion/votion-epoch-{N}.json` (next-epoch optimization) |
+
+#### Notes on data repo numbering quirks
+- **Votion uses NEXT-epoch convention** — `votion-epoch-185.json` is captured during epoch 184, contains optimization data FOR upcoming epoch 185. This matches Eris's Votion UI convention.
+- **All other epoch-named cron outputs use CURRENT-epoch convention** — `astroport-epoch-184.json` was captured during epoch 184.
+- **Off-by-one bug currently in cron output** (as of 2026-05-14): `tla-snapshot.js`, `adao-positions.js`, `astroport-snapshot.js`, and producer crons compute epoch via `Math.floor((now - 2022-10-31) / 7days)` which is 0-indexed. The canonical `epoch_1-300_date.json` is 1-indexed. May 11–18, 2026 = epoch 185 canonically but crons label it 184. Dates are correct; only the integer label is off. Fix planned across all crons in a coordinated update. See `CHANGES_PENDING.md`.
 
 ### Key on-chain contract addresses (Terra phoenix-1)
 Discovered May 10 2026 via HAR capture of the Eris liquidity-hub UI. These power the planned on-chain Vote tab fetcher (see `DESIGN_vote_tab_onchain_fetcher.md`).
@@ -175,6 +193,83 @@ Discovered May 10 2026 via HAR capture of the Eris liquidity-hub UI. These power
 | vAMP Minter (total VP) | `terra1uqhj8agyeaz8fu6mdggfuwr3lp32jlrx5hqag4jxexde92rzkamq3l62zg` |
 | LUNA-FUEL Astroport pool | `terra10yfnsqn20rzlnlzkeva5255q27zp6ws9te9uuql9e0lacfcze7zsffjct5` (used by `fetchFuelPriceFromChain`) |
 | Votion (arbLUNA Max) | `terra13aae4futz6jk7hmdv0gwm2xs6p4nxv4xwz5tc0c2vt4960u4j6jqpqmye9` (only one captured so far; others unknown) |
+| aDAO Core (treasury) | `terra1sffd4efk2jpdt894r04qwmtjqrrjfc52tmj6vkzjxqhd8qqu2drs3m5vzm` |
+| ADAO Voting Contract | `terra1c57ur376szdv8rtes6sa9nst4k536dynunksu8tx5zu4z5u3am6qmvqx47` |
+| TLA Asset Compounder | `terra1zly98gvcec54m3caxlqexce7rus6rzgplz7eketsdz7nh750h2rqvu8uzx` |
+| Global Config | `terra1hwxg6s732eparz3ys7sa4t5f64ngpd2w8syrca6z7ckv3fs9uqnsvrpcqa` |
+| PD DAO multisig (briber) | `terra1k8ug6dkzntczfzn76wsh24tdjmx944yj6mk063wum7n20cwd7lxq4lppjg` |
+| zLUNA Hub | `terra1u72y7gppxrsncctvgfyqduv3md6pgq77pqhz9rxgwl3dqgye00cq7vmf8u` |
+
+---
+
+## TLA cron infrastructure — built 2026-05-12 through 2026-05-14
+
+Replaces the manual `tla_tool.html` + `tla-tool_ext.html` capture flow. 7 production crons run on Render, write to GitHub data repos automatically. The `DESIGN_tla_full_cron_automation.md` design doc described the plan; this is the as-built record.
+
+### Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ 5 PRODUCER CRONS — fetch raw data, write per-cron _2026 repos    │
+├──────────────────────────────────────────────────────────────────┤
+│ network-and-prices    hourly :40   token prices + LST ratios     │
+│ astroport             daily 23:50  pool TVL/volume per epoch     │
+│ skeletonswap-lp_data  daily 23:45  SS pool data weekly CSVs      │
+│ bribes-history        daily 23:35  current bribes + epoch archives│
+│ votion                weekly Sun   next-epoch optimization data  │
+└──────────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 1 AGGREGATOR CRON — consumes all 5 producers + chain queries     │
+├──────────────────────────────────────────────────────────────────┤
+│ tla-snapshot          hourly :40   unified snapshot for website  │
+│   - Reads from all 5 producer _2026 repos                        │
+│   - Adds rewards math (Alliance weights, APR per pool)           │
+│   - Outputs data/tla-snapshot.json (170 KB, 67 pools)            │
+└──────────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 1 INDEPENDENT CRON — DAO member portfolios                       │
+├──────────────────────────────────────────────────────────────────┤
+│ adao-positions        weekly Mon   46 member + treasury portfolios│
+└──────────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ WEBSITE consumes via raw.githubusercontent.com (no API server)   │
+├──────────────────────────────────────────────────────────────────┤
+│ tla-stats.html ← tla-snapshot.json + network-and-prices.json +   │
+│                  adao-positions/current.json + historical files  │
+│ dao-tla.html   ← adao-positions/current.json members array        │
+│                  (page not yet built — Pass 2)                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Design principles for this infrastructure
+- **Independent systems** — one cron failing doesn't break the dashboard. Each writes to its own repo so partial-data renders are possible.
+- **Same filenames on each run** — `current.json`, `tla-snapshot.json`, etc. always overwrite. Epoch archives accumulate alongside.
+- **Render free tier** — cron jobs run as Node.js services, push to GitHub via PAT.
+- **No API server in front** — website fetches data via `raw.githubusercontent.com` direct URLs.
+- **Adao-positions treasury = "aDAO" at TLA-wide level.** Individual member breakdowns live in a separate page (`dao-tla.html`, not yet built). The treasury wallet (`terra1sffd4ef...`) is the single canonical aDAO voting entity. Each user's VP allocates once per bucket (4 buckets), so pool-summed VP inflates 4× per user — use max-bucket VP (~24M) as canonical "Total TLA VP" to match Eris.
+
+### Key value reconciliation (verified 2026-05-14)
+| Metric | Value | Cross-check |
+|---|---|---|
+| Total TLA VP | 24.11M | matches Eris UI |
+| Votion VP | 6.90M | matches votion.money lockup data exactly |
+| aDAO VP (treasury) | 757K | matches Eris UI |
+| Treasury LP USD | $6,669 | matches Eris ±$103 |
+| Treasury pending rewards | $453.38 | matches Eris ±$11 |
+| Treasury pending bribes | $443.13 | matches Eris ±$23 |
+
+### Cron deployment
+- All code in `defipatriot/cron-scripts` GitHub repo
+- Each cron has its own subdirectory deployed as a separate Render cron job
+- Render builds via `npm install` in the cron's folder, runs via `npm run snapshot` (or equivalent)
+- Required env vars per cron: `GITHUB_TOKEN`, `GITHUB_REPO`, `GITHUB_BRANCH`
+- Tokens have write scope to that cron's data repo only
+
+### Known active issue (2026-05-14): epoch numbering off-by-one
+All crons compute epoch as `Math.floor((now - 2022-10-31) / 7days)` which is **0-indexed**. The canonical `epoch_1-300_date.json` is **1-indexed**. May 11–18, 2026 should be epoch 185 but crons label it 184. Dates are correct. Fix planned — see `CHANGES_PENDING.md` for the coordinated rename plan across the 5 affected scripts.
 
 ---
 
@@ -201,7 +296,7 @@ Each page has a target rev number for the changelog system rollout. See "Cross-p
 | (Home) | `index.html` | 3.33 | The main dashboard, ~12.6k lines. Has the changelog system. |
 | NFT Explorer | `nft-explorer-index.html` | 4.13 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. Map view removed in Rev 4.13. |
 | aDAO Lore | `adao-lore.html` | 2.9 | Top nav tab. ✅ Renamed from `planet-map.html` in Rev 3.22. ✅ Cross-page chrome added. |
-| TLA Stats | `tla-stats.html` | 1.15 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. |
+| TLA Stats | `tla-stats.html` | 2.0 | Top nav tab. ✅ Rebuilt 2026-05-14 to consume continuous cron data sources. ✅ Cross-page chrome added in Rev 3.22. |
 | DAO | `dao.html` | 1.6 | Top nav tab. ✅ Renamed from `dao_governance.html` in Rev 3.22. ✅ Cross-page chrome added. |
 | ALLY Rewards | `ally.html` | 3.4 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. Duplicate header cleaned in Rev 3.25. |
 | Tutorials | `tutorials.html` | 1.5 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. Duplicate header cleaned in Rev 3.25. |
@@ -218,6 +313,7 @@ Each page has a target rev number for the changelog system rollout. See "Cross-p
 | _Admin: TLA Tool_ | `tla_tool.html` | — | Internal admin (manual TLA snapshots). Favicon + analytics only — chrome intentionally skipped (admin context). |
 | _Admin: TLA Tool Ext_ | `tla-tool_ext.html` | — | Internal admin extension. Favicon + analytics only — chrome intentionally skipped. |
 | _Admin: DAO Gov Tool_ | `dao_governance_tool.html` | — | Internal governance audit tool. Favicon + analytics only — chrome intentionally skipped. |
+| _Planned: Member Stats_ | `dao-tla.html` | — | **NOT YET BUILT.** Pass 2 of the TLA infrastructure rebuild. Per-member portfolio panels (locks, votes, rewards, bribes claim status) for the 46 named DAO members. Data already collected in `adao-positions/current.json`. Link from `tla-stats.html` tab strip already in place. |
 
 ### Admin / dev pages (not in user-facing changelog rollout)
 | File | Purpose |
@@ -503,7 +599,11 @@ Fetch these raw URLs to load context:
 - `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/PROJECT_KNOWLEDGE.md`
 - `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/CHANGES_PENDING.md`
 - `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/index-log.md`
-- `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/DESIGN_tla_full_cron_automation.md` (active project — full TLA snapshot automation)
+- `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/tla-log.md` (if working on TLA stats)
+
+If working on cron-side code, also pull:
+- The relevant cron's source from `defipatriot/cron-scripts` (e.g. `tla-snapshot/tla-snapshot.js`)
+- The latest output JSON for that cron to verify schema (e.g. `tla-snapshot-data_2026/main/data/tla-snapshot.json`)
 
 ---
 
