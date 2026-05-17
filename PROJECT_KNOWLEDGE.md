@@ -307,7 +307,7 @@ Full per-cron audit performed. Most data is reliable. Two real issues found and 
 - Tokens have write scope to that cron's data repo only
 
 ### Per-cron documentation
-Each cron has its own `README.md` in its folder. Recent changes are tracked in a "Recent changes" section at the end of each cron's README. The top-level `cron-scripts/README.md` has a "Project status & roadmap" section covering cross-cutting context (strategic direction, data trust, prioritized roadmap). The dashboard (`tla-stats.html`) has its own changelog in `cron-scripts/tla-stats-CHANGELOG.md`.
+Each cron has its own `README.md` in its folder. Recent changes are tracked in a "Recent changes" section at the end of each cron's README. The top-level `cron-scripts/README.md` has a "Project status & roadmap" section covering cross-cutting context (strategic direction, data trust, prioritized roadmap). The dashboard (`tla-stats.html`) has its own changelog in `website-adao-core/tla-log.md` (following the per-page log convention: `index-log.md`, `tla-log.md`, `lore-log.md`, `explorer-log.md`, `dao-log.md`).
 
 ---
 

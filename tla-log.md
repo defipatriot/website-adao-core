@@ -5,6 +5,53 @@ Newest revisions on top. Times are UTC.
 
 ---
 
+## Rev 2.1 — 2026-05-17
+
+Member Data overlay feature + critical bribes resolver bug fix. Surgical additions to the rendering layer; cron data layer untouched (separate cron-side updates ship in the same session — see `cron-scripts/` repo for those).
+
+### What changed
+
+#### Member Data overlay (new feature)
+Header dropdown selector — pick any aDAO member, the Overview tab visuals update with their data overlaid in amber. Pools / TLA Liquidity / aDAO tabs unchanged (member overlay is Overview-only by design).
+
+When a member is selected:
+- **VP Breakdown pie**: carves a member-colored slice out of "Other" — total VP unchanged
+- **Vote Breakdown waterfall**: adds an amber member layer to each pool the member voted in. Bucket totals row gains a member chip; per-pool tooltip gains a member row
+- **Threshold Watch**: filters to pools the member voted in. Header gains a "Filtered: {member}" badge. Empty states are member-aware ("None of {name}'s pools are at risk")
+- **Member Stats Row**: 6 amber tiles below the global stat tiles — Astroport LPs, Skeleton LPs, Epoch Rewards, Epoch Bribes, Avg APR Non-Amp, Avg APR Amplified. Hidden by default; appears only when a member is selected
+- Dropdown styling: dark color-scheme to fix invisible-text issue on some browsers; sorted by VP descending
+
+#### Critical bug fix: bribes resolver
+`resolveTokenPriceFromInfo()` was looking up cw20 token prices at `entry.address`. The actual `network-and-prices` schema nests the address at `entry.prices.{source}.address` (or under `prices.{source}.all_chains.{chain}.address` for multi-chain tokens). Any bribe paid in a cw20 token (CAPA, ROAR, etc.) silently priced as $0.
+
+**Impact before fix**: Global Epoch Bribes tile showed ~$820. After fix: ~$1,300 (about 58% more accurate, more aligned with Eris). Member bribes tile correctly captures CAPA bribes (was 100% understated for members voting in LUNA-CAPA, ampCAPA).
+
+Same resolver is used in `buildBribesIndex()` so this fix also corrects the per-pool bribe attribution used by waterfalls and ranking displays.
+
+#### Pool lookup keying
+All member-overlay lookups now use `gauge_pool_id` (truly unique, e.g. `cw20:terra1wdz...`) instead of `name+dex` (which can collide e.g. two `LUNA-WBTC|Astroport|BLUECHIP` entries with different gauge IDs). Required adding `gauge_pool_id` passthrough to both pool normalizers in the rendering layer (`votePools` normalizer ~line 3213, `normalizePoolData` ~line 2882).
+
+Member-vote field is `pool_gauge_id`; snapshot field is `gauge_pool_id` — same values, different field names. Both are now handled.
+
+#### Color scheme
+- Member overlay color: amber (`#f59e0b`)
+- "Other" VP: slate gray (`#64748b`) — was previously amber in waterfall, now consistent with pie chart slate
+- Updated all 3 legends (waterfall totals, waterfall bottom, member tile row) for consistency
+
+### Verified working
+- Member dropdown populates from `adao-positions/current.json` members array
+- Picking any member updates pie, waterfall, threshold watch, and member tile row in sync
+- Switching to "All members" cleanly restores the global view
+- Global Epoch Bribes tile climbs to ~$1,300 (verified against cron data)
+- Member bribes correctly capture CAPA — tested against members voting in LUNA-CAPA pool
+- All existing tabs and features continue to work (no regression in the ~7,000 lines of preserved rendering code)
+
+### Known minor issues (acceptable for now)
+- Skeleton Swap data labeled in Member Stats row but upstream source is frozen (see audit findings in `PROJECT_KNOWLEDGE.md`)
+- Avg APR tiles still use TLA-staked-USD weighting (different from Eris); methodology fix tracked in `CHANGES_PENDING.md`
+
+---
+
 ## Rev 2.0 — 2026-05-14
 
 Major rebuild of the data layer to consume from the new TLA cron infrastructure (7 production crons writing to per-cron `*-data_2026` GitHub repos). Rendering code (~7,000 lines of charts, tables, modals, tabs) preserved intact — surgical surgery on data flow only.
@@ -35,7 +82,7 @@ Major rebuild of the data layer to consume from the new TLA cron infrastructure 
 - Trend mini-charts on stat tiles will be empty until 2+ weekly snapshots accumulate (~4 weeks)
 - Token grade scoring is a simplified stub — needs proper formula refinement
 - Avg APR shows ~40% but Eris shows ~55% (different weighting methods, order of magnitude correct)
-- Epoch number labeled as 184 instead of 185 — known off-by-one bug in cron output, dates correct. Fix planned across all crons.
+- Epoch number labeled as 184 instead of 185 — known off-by-one bug in cron output, dates correct. Fix planned across all crons. **[RESOLVED 2026-05-15 — see Rev 2.1 notes and cron README changelogs]**
 
 ---
 

@@ -26,7 +26,7 @@ What ships:
 - Bribes resolver fix — was pricing cw20 bribe tokens (CAPA, ROAR, etc.) as $0. Global Epoch Bribes tile expected to climb from ~$820 to ~$1,300 on next load (more accurate).
 - All pool lookups now keyed on `gauge_pool_id` (truly unique) instead of `name+dex` (which collides).
 
-See `cron-scripts/tla-stats-CHANGELOG.md` for the full change record.
+See `tla-log.md` for the full change record (entry: Rev 2.1 — 2026-05-17).
 
 ### 🟡 P2 — APR outliers for stable pairs (USDC-USDT, USDC-EURe)
 **Discovered 2026-05-17 audit.** These two pools show APR ~5× higher than Eris's number for the same pool. Specific to stable pools — non-stable pools are internally consistent. Likely tied to stable-pair price normalization in the `tla-snapshot` cron's APR formula. Needs investigation.
