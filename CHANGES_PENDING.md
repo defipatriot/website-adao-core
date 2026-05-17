@@ -7,33 +7,53 @@
 
 ## 🛠 Active / next round
 
-### 🔥 Epoch numbering off-by-one bug — fix across 5 cron scripts
-**Discovered 2026-05-14.** All Node.js cron scripts compute epoch as `Math.floor((now - 2022-10-31) / 7days)` which is 0-indexed. The canonical source (`epoch_1-300_date.json` in `tla_json_storage`) is 1-indexed. Week of May 11-18, 2026 is canonically epoch 185; crons label it 184. Dates are correct, only the integer label is off.
+### 🔥 P1 — Switch adao-positions Render schedule from weekly to daily
+**Identified 2026-05-17.** The cron is currently scheduled `0 1 * * 1` (Mondays only). For the Portfolio Tracker dashboard to accumulate meaningful position history, it needs to run **daily**. The cron code now produces a `data/daily/{YYYY-MM-DD}.json` archive on every run (added 2026-05-17) — that file overwrites within a day, so daily cadence gives one snapshot per calendar day.
 
-Affected scripts (in `defipatriot/cron-scripts`):
-- `tla-snapshot/tla-snapshot.js` — `currentEpochInfo()` function ~line 202
-- `adao-positions/adao-positions.js` — `currentEpochInfo()` function ~line 273
-- `astroport/astroport-snapshot.js` — `timestampMsToEpoch()` function ~line 317
-- `votion/votion-snapshot.js` — uses Eris API's `period` field directly (already canonical) — verify, may not need change
-- `skeletonswap-lp_data/` — need to find epoch calculation
-- `bribes-history/` — need to find epoch calculation
+Two changes required:
+1. Update Render cron expression: `0 1 * * 1` → `0 1 * * *`
+2. Update `next_expected_run_at` constant in `adao-positions.js` (currently 7 days; change to 25 hours)
 
-**Coordinated fix needed.** Adding `+ 1` is the math fix, but several crons also use the epoch number in archive filenames (`weekly/epoch-{N}.json`, `astroport-epoch-{N}.json`, `2026-epoch-{N}.csv`, `by-epoch/epoch-{N}.json`). Decision needed: rename existing files, OR accept a one-epoch gap in archives going forward (epoch-184 then epoch-186 with no 185).
+Without this, letting things run for weeks produces 0 weeks of Portfolio Tracker history. **Top priority — should ship before any other accumulated-data work.**
 
-Recommended: accept the gap, document in each data repo README, fix forward. Note that `votion-data_2026` numbering doesn't need changing — it uses Eris's `period` field which is already 1-indexed.
+### 🔥 P1 — Push current `tla-stats.html` to thealliancedao.com
+**Built 2026-05-17.** Member Data overlay feature complete + critical bribes resolver bug fixed. Verified end-to-end against real production data.
 
-### 🟢 dao-tla.html — new Member Stats page (Pass 2)
-Member-level breakdowns deferred from the `tla-stats.html` V6 rebuild. Data already collected in `adao-positions/current.json` members array (46 members, each with summary VP, vote allocations, locks, rewards, bribes claim status). Spec:
-- Standalone page (linked from tla-stats.html "Member Stats" tab)
-- Search-as-type member list (filter by handle / wallet address)
+What ships:
+- Header dropdown for member selection
+- Pie chart member slice, waterfall member layer, threshold watch member filter
+- 6 member-only stat tiles (Astro/Skeleton LPs, Epoch Rewards, Epoch Bribes, two APR tiles)
+- Bribes resolver fix — was pricing cw20 bribe tokens (CAPA, ROAR, etc.) as $0. Global Epoch Bribes tile expected to climb from ~$820 to ~$1,300 on next load (more accurate).
+- All pool lookups now keyed on `gauge_pool_id` (truly unique) instead of `name+dex` (which collides).
+
+See `cron-scripts/tla-stats-CHANGELOG.md` for the full change record.
+
+### 🟡 P2 — APR outliers for stable pairs (USDC-USDT, USDC-EURe)
+**Discovered 2026-05-17 audit.** These two pools show APR ~5× higher than Eris's number for the same pool. Specific to stable pools — non-stable pools are internally consistent. Likely tied to stable-pair price normalization in the `tla-snapshot` cron's APR formula. Needs investigation.
+
+### 🟡 P2 — Null-dex unnamed pool inflates Astroport count by 1
+**Discovered 2026-05-17 audit.** `tla-snapshot` cron has one entry with `name: "cw20:terra1hqq6..."` and `dex: null`. The normalizer defaults null dex to "Astroport" (`p.dex || 'Astroport'`), making this pool count toward the Astroport total. Real fix is cron-side: either classify or skip the unnamed pool. Cosmetic but indicates a classification gap.
+
+### 🟡 P2 — IBC denom resolution gap in network-and-prices
+**Discovered 2026-05-17 audit.** The LUNA-USDC bribe asset (`ibc/8D8A7F7253615E5F76CB6252A1E1BD921D5EDB7BBAAF8913FB1C77FF125D9995`) is not in the 27-token `network-and-prices` index. Eris prices this bribe at $12.93 but our resolver returns $0. Fix: add explicit IBC-denom → symbol mapping for known TLA-relevant denoms in the `network-and-prices` cron.
+
+### 🟢 dao-tla.html — Member Stats page (Pass 2)
+Member-level breakdowns deferred from the `tla-stats.html` V6 rebuild. Data already collected in `adao-positions/current.json` members array (46 members, each with summary VP, vote allocations, locks, rewards, bribes claim status).
+
+**Updated direction 2026-05-17**: this should likely be PROMOTED to header-level Portfolio Tracker (separate page accessed from the header), not a tab inside tla-stats.html. The Member Data overlay shipped in 2026-05-17 covers the inline use case; a proper Portfolio Tracker page covers the deeper "is my position growing, am I being exploited" use case that's the main TLA Stats differentiator from Eris. Wait for 2-4 weeks of accumulated daily data before building.
+
+Spec (whenever built):
+- Standalone page, linked from header (alongside Member Data dropdown)
 - Per-member portfolio panel: locked VP, individual locks, vote allocations, pending rewards, pending bribes
+- **Time-series view** using `adao-positions/data/daily/*.json` history (requires P1 schedule change first)
+- P&L computation: position value over time, fees earned, "is this position actually growing"
 - Optional: leaderboard by VP, recent activity
 
 ### Trend chart accumulation (low priority — passive)
 The stat-tile mini sparklines on `tla-stats.html` are currently empty because only `epoch-184` weekly archive exists (cron started capturing this week). Will populate naturally as weekly snapshots accumulate — probably 4+ weeks needed for visual signal. No action needed; just wait.
 
 ### Token grade scoring formula refinement
-Current `computePoolScores()` in `tla-stats.html` is a simplified stub. Real scoring should weight access/performance/support based on the criteria from `tla_config.json`. Refine once enough historical data accumulates to validate output.
+Current `computePoolScores()` in `tla-stats.html` is a simplified stub. Real scoring should weight access/performance/support based on the criteria from `tla_config.json`. Refine once enough historical data accumulates to validate output. **Note (2026-05-17)**: the bigger plan is LP Health Scoring (see P3 below) that goes deeper than token grades — score formula refinement may be subsumed by that work.
 
 ### Resilience prereqs (per index-log Rev 3.27 / 3.29 follow-ups)
 - [ ] Per-fetch try/catch isolation in `index.html`'s `fetchLiveOnChainData` so one failed treasury balance fetch doesn't poison every downstream calculation
@@ -47,15 +67,56 @@ Current `computePoolScores()` in `tla-stats.html` is a simplified stub. Real sco
 
 ---
 
+## 🚀 P3 — Medium-effort work (next 1-2 months)
+
+### Chain-direct Skeleton Swap capture cron
+**Need driven by 2026-05-17 audit.** Current `skeletonswap-lp_data` cron pulls from BackBone Labs' aggregator API (`dex.warlock.backbonelabs.io/api/pools/phoenix-1`), which has been returning cached/stale data for ~30 days. Effective coverage is ~50% real / ~50% duplicate-frozen.
+
+Fix: build a new cron that queries Skeleton Swap pool contracts directly from chain (same approach as Astroport). Frees us from the BackBone dependency entirely. Once running and producing fresh data for several weeks, retire the BackBone-based cron OR keep it as a secondary source for cross-check.
+
+This is the same investigation pattern documented in the audit: chain-direct queries to `terra-lcd.publicnode.com/cosmwasm/wasm/v1/contract/{addr}/smart/{query}` work fine for current state. Schedule and cadence TBD; probably hourly to match Astroport.
+
+### Match Eris APR methodology
+**Identified 2026-05-17 audit.** Our `tla-snapshot` cron computes pool APR as `annual_emissions_usd / staked_in_tla_usd × 100`. Eris uses `annual_emissions_usd / depth_usd × 100`. Both correct, measuring different things — our denominator is smaller (TLA-only) so our APR reads higher.
+
+User preference (2026-05-17): match Eris exactly to avoid user confusion when cross-referencing pages. Fix: change formula in `tla-snapshot.js` to use `depth_usd` denominator. **One-line change**, all downstream APRs will then match Eris within rounding. Test thoroughly before deploy — some methodology differences may remain for stable pools (see P2 above).
+
+### Chain-direct verification layer for Astroport
+**Defense against API manipulation.** Current astroport cron trusts Astroport's API completely — `pools.getAll` is the single source of truth for TVL, volume, fees, reserves. If their API ever serves stale or manipulated data (as happened to BackBone for Skeleton), we'd have no way to detect it.
+
+Add: hourly chain-direct query to each pool's `{pool:{}}` contract endpoint, cross-check returned reserves against the API. If discrepancy > N%, flag and log. ~50 lines added to the cron. Not blocking accumulation — useful as a trust layer once we're building scoring on top of this data.
+
+---
+
+## 🏗 P4 — Major builds (after 2-4 weeks of accumulated daily data)
+
+These are the differentiating products. Wait until we have enough daily history to power them meaningfully.
+
+### Portfolio Tracker page
+The big one. Per-member time-series view: position value, fees earned, P&L computation, "is your position actually growing or being harvested." Uses `adao-positions-data_2026/data/daily/*.json` history (depends on P1 schedule fix shipping first).
+
+Eris structurally can't tell users this — they're the protocol. A third-party analytics site can.
+
+### LP Health Scoring
+Composite score per pool from sustained-over-N-epochs metrics:
+- Depth stability (variance over time = real LPs vs transient capital)
+- Volume-to-depth ratio sustained (real trading vs idle TVL)
+- Fee generation consistency (real revenue vs promotional emissions)
+- Oracle source (chain-native vs centralized vs manipulable — binary flag, weighted heavily)
+- Whale concentration (Gini coefficient of LP shares)
+- Bribe-to-organic-volume ratio (gaming this is expensive over multiple epochs)
+
+The whole point is **resistance to gaming**. 24h data is gameable; sustained multi-epoch metrics aren't. Each scoring factor needs a "you can't game this without spending more than you'd extract" justification.
+
+### Pools + TLA Liquidity tabs rebuild
+Once 4+ epochs of clean daily data exists, rebuild these tabs with proper historical context. Multi-epoch depth/volume trends, "this LP had $X depth on date Y" verifiable at block height, etc.
+
+---
+
 ## 🚀 Future projects — separate threads
 
 ### ✅ TLA data collection automation — COMPLETED 2026-05-12 → 2026-05-14
-**Done.** 7 production crons live on Render (votion, skeletonswap, astroport, bribes-history, network-and-prices, tla-snapshot, adao-positions). All writing to their respective `*-data_2026` GitHub repos. `tla-stats.html` rebuilt (V6) to consume from the new continuous data sources instead of per-epoch manual snapshots. See PROJECT_KNOWLEDGE.md "TLA cron infrastructure" section for the as-built architecture. `tla_tool.html` and `tla-tool_ext.html` retained as manual fallback but no longer the primary capture path.
-
-Known remaining work (see Active section above):
-- Epoch off-by-one fix across all crons
-- `dao-tla.html` Member Stats page (Pass 2 of the website rebuild)
-- Score formula refinement once data accumulates
+**Done.** 9 production crons live on Render (votion, skeletonswap, astroport, bribes-history, network-and-prices, tla-snapshot, adao-positions, nft-inventory, marketplace-stats). All writing to their respective `*-data_2026` GitHub repos. `tla-stats.html` rebuilt (V6) to consume from the new continuous data sources instead of per-epoch manual snapshots. See PROJECT_KNOWLEDGE.md "TLA cron infrastructure" section for the as-built architecture. `tla_tool.html` and `tla-tool_ext.html` retained as manual fallback but no longer the primary capture path.
 
 ### Slim manual capture by prefilling chain-derivable fields
 Pair this with the cron work or do standalone. The Rev 3.31 `fetchDaoTlaVp` work proved the live-query pattern. Now mostly moot since the new crons cover most of what was manual.
@@ -80,8 +141,12 @@ Big refactor, not urgent. Would dramatically simplify the cross-page chrome roll
 
 ## 📝 Open questions / decisions needed
 
-- [ ] **Epoch numbering fix — rename existing archives or accept gap?** When fixing the off-by-one bug, do we rename the existing `epoch-184.json` files to `epoch-185.json`, or just go forward with corrected numbering (creating a one-epoch gap in archives)? Recommendation: accept the gap, document it, fix forward.
+- [ ] **APR methodology — match Eris or document our own?** Cron's APR uses TLA-staked denominator; Eris uses depth_usd. Both correct, measure different things. Current direction (2026-05-17): match Eris. One-line cron change, but want to test thoroughly. See P3.
+- [ ] **Skeleton Swap data going forward** — keep capturing best-effort with "unverified" label (current decision), or stop capturing entirely until chain-direct cron is built? Current call: keep, the cost of leaving it running is low.
 - [ ] LST ratios: keep the hardcoded fallbacks or remove? (See Design Principle #1; current call is keep.)
-- [x] ~~Should the cron run daily or hourly?~~ — **Resolved.** Hourly for tla-snapshot + network-prices (data freshness matters), daily for DEX/bribes captures (less time-sensitive), weekly for adao-positions + votion (epoch-aligned).
+- [ ] Astroport chain-direct verification — build it or trust the API? See P3. Adds complexity; useful as trust layer for scoring.
+- [x] ~~Should the cron run daily or hourly?~~ — **Resolved.** Hourly for tla-snapshot + network-prices (data freshness matters), daily for DEX/bribes captures (less time-sensitive). **Reopened 2026-05-17 for adao-positions**: was weekly, should be daily for Portfolio Tracker history. See P1.
 - [x] ~~Where does the new cron write?~~ — **Resolved.** One `*-data_2026` GitHub repo per cron. Independent systems principle.
 - [x] ~~How does the cron handle the multi-week capture gap?~~ — **Resolved.** Crons started fresh in May 2026 with no historical backfill. Historical data before this lives in legacy `tla-ext_json_storage` files (used for trend charts only).
+- [x] ~~Epoch numbering off-by-one fix — rename archives or accept gap?~~ — **Resolved 2026-05-15.** Accepted the gap. All crons now use `epochIndex + 1`. Verified live 2026-05-17: crons correctly report epoch 185. Epoch-184 archives exist but no epoch-185 archive files until each cron's next nightly run.
+- [x] ~~Should we backfill 4 months of historical chain data for the new tabs?~~ — **Resolved 2026-05-17.** Not feasible without paid archive node access ($50-500/mo). Public LCDs prune state after ~100 blocks (~10 min). Tendermint RPC disabled on `terra.publicnode.com`. Astroport API has no historical endpoint. Decision: forward-only chain-based capture. Accept 4-month wait. In 4 months we'll have 4 months of trustworthy data for both DEXes.

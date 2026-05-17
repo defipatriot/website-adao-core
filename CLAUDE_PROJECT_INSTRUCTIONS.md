@@ -17,10 +17,16 @@ PROJECT_KNOWLEDGE.md has a "Tracking responsibilities" section near the top — 
 Main site repo: `github.com/defipatriot/aDAO-links-site`
 Docs repo: `github.com/defipatriot/website-adao-core` (everything at root, no subdirs)
 Image hosting repo: `github.com/defipatriot/aDAO-Image-Files`
+Cron infrastructure repo: `github.com/defipatriot/cron-scripts` (12 production crons writing to `*-data_2026` data repos)
 
 To work on the site, clone the main repo:
 ```
 git clone https://github.com/defipatriot/aDAO-links-site /home/claude/aDAO-links-site
+```
+
+To work on a cron, clone the cron-scripts repo:
+```
+git clone https://github.com/defipatriot/cron-scripts /home/claude/cron-scripts
 ```
 
 The user pushes commits between chats — always sync with `git fetch && git reset --hard origin/main` before making changes. **But** verify what's actually on origin/main matches recent work (the user occasionally has unpushed local edits in `/mnt/user-data/outputs/` that you handed them last chat). When in doubt, ask before doing a hard reset.
@@ -39,7 +45,7 @@ The reusable injection pattern from `/home/claude/inject_shared_chrome.py` (last
 
 ## Deployment
 
-The site is on Vercel (auto-deploys on push to `main`). Cron jobs also run on Vercel — when building scheduled tasks, default to Vercel cron rather than GitHub Actions.
+The site is on Vercel (auto-deploys on push to `main`). **Cron jobs run on Render**, not Vercel — they live in the `cron-scripts` repo, each subfolder deployed as an independent Render Cron Job that writes to its own `*-data_2026` GitHub repo. Don't suggest GitHub Actions or Vercel cron for new scheduled tasks unless there's a specific reason — the Render-cron pattern is the established convention. See `cron-scripts/README.md` for full architecture.
 
 ## Style
 

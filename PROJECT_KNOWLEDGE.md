@@ -166,25 +166,27 @@ PWA shortcuts, install prompts, default-page selectors — all are bonus feature
 - `defipatriot/website-adao-core` — project docs + changelogs (this repo).
 
 #### Cron-produced data repos (active 2026 — written automatically by Render crons)
-**All 7 production crons are live and writing on schedule.** Cron source code lives in `defipatriot/cron-scripts` (one folder per cron). Each writes to its own `*-data_2026` data repo. Status verified 2026-05-14:
+**9 production crons live and writing on schedule.** Cron source code lives in `defipatriot/cron-scripts` (one folder per cron). Each writes to its own `*-data_2026` data repo. Status verified 2026-05-17:
 
 | Data repo | Source cron | Schedule | Main output file |
 |---|---|---|---|
-| `defipatriot/tla-snapshot-data_2026` | `tla-snapshot` | Hourly :40 | `data/tla-snapshot.json` — the unified per-epoch snapshot consumed by `tla-stats.html` |
-| `defipatriot/network-and-prices-data_2026` | `network-and-prices` | Hourly :40 | `data/network-and-prices.json` — LUNA + token prices, LST ratios |
-| `defipatriot/adao-positions-data_2026` | `adao-positions` | Weekly Mon 01:00 | `data/current.json` — 46 members + treasury portfolios; also `data/members.json` and `data/weekly/epoch-{N}.json` archives |
-| `defipatriot/astroport-pool-data_2026` | `astroport` | Daily 23:50 | `astroport/astroport-epoch-{N}.json` + `data/daily/{YYYY-MM-DD}.csv` |
-| `defipatriot/ss-pool-data_2026` | `skeletonswap-lp_data` | Daily 23:45 | `data/weekly-avg/2026-epoch-{N}.csv` |
+| `defipatriot/tla-snapshot-data_2026` | `tla-snapshot` | Hourly :40 (+ daily archive at 23:xx) | `data/tla-snapshot.json` + `data/daily/{YYYY-MM-DD}.json` archive — the unified per-epoch snapshot consumed by `tla-stats.html` |
+| `defipatriot/network-and-prices-data_2026` | `network-and-prices` | Hourly :40 | `data/network-and-prices.json` — LUNA + 27 token prices, LST ratios. Known gap: some IBC denoms (e.g. LUNA-USDC bribe `ibc/8D8A7F...`) not indexed. |
+| `defipatriot/adao-positions-data_2026` | `adao-positions` | **Should be daily 01:00** (currently weekly Mon — needs Render schedule update for Portfolio Tracker history; see CHANGES_PENDING) | `data/current.json` + `data/daily/{YYYY-MM-DD}.json` (added 2026-05-17) + `data/weekly/epoch-{N}.json` archive |
+| `defipatriot/astroport-pool-data_2026` | `astroport` | Daily 23:50 | `astroport/astroport-epoch-{N}.json` + `data/daily/{YYYY-MM-DD}.csv` (20 columns as of 2026-05-17, includes fees/reserves/LP-supply/staked-liquidity/assets_json for LP health scoring) |
+| `defipatriot/ss-pool-data_2026` | `skeletonswap-lp_data` | Daily 23:45 ⚠ | `data/{month}_backup/{YYYY-MM-DD}.csv` + weekly avg. **Upstream source unreliable** — BackBone aggregator returning cached data for ~30 days as of 2026-05-17. Don't use for scoring; see cron-scripts/skeletonswap-lp_data/README.md "Data quality warning" for full audit. |
 | `defipatriot/bribes-data_2026` | `bribes-history` | Daily 23:35 | `data/current-state.json` + `data/by-epoch/epoch-{N}.json` + `data/pd-bribes-history.json` |
 | `defipatriot/votion-data_2026` | `votion` | Weekly Sun 23:55 | `votion/votion-epoch-{N}.json` (next-epoch optimization) |
+| `defipatriot/nft-inventory-data_2026` | `nft-inventory` | Hourly :30 | `nfts.json` (full 10K inventory) + `summary.json` (minted/unminted/broken counts) |
+| `defipatriot/marketplace-data_2026` | `marketplace-stats` | Hourly :15 | BBL + Boost listings, floor prices, sales history (per-year files), activity feed |
 
 #### Notes on data repo numbering quirks
 - **Votion uses NEXT-epoch convention** — `votion-epoch-185.json` is captured during epoch 184, contains optimization data FOR upcoming epoch 185. This matches Eris's Votion UI convention.
-- **All other epoch-named cron outputs use CURRENT-epoch convention** — `astroport-epoch-184.json` was captured during epoch 184.
-- **Off-by-one bug currently in cron output** (as of 2026-05-14): `tla-snapshot.js`, `adao-positions.js`, `astroport-snapshot.js`, and producer crons compute epoch via `Math.floor((now - 2022-10-31) / 7days)` which is 0-indexed. The canonical `epoch_1-300_date.json` is 1-indexed. May 11–18, 2026 = epoch 185 canonically but crons label it 184. Dates are correct; only the integer label is off. Fix planned across all crons in a coordinated update. See `CHANGES_PENDING.md`.
+- **All other epoch-named cron outputs use CURRENT-epoch convention** — `astroport-epoch-185.json` was captured during epoch 185.
+- **Epoch off-by-one fix shipped** (resolved 2026-05-15). All crons now compute `epochIndex + 1` to match the canonical 1-indexed `epoch_1-300_date.json`. Verified live: today (2026-05-17) the crons correctly report epoch 185. Note: epoch-184 archive files exist but no epoch-185 archive files until the next nightly run — one-epoch gap accepted, not back-filled.
 
 ### Key on-chain contract addresses (Terra phoenix-1)
-Discovered May 10 2026 via HAR capture of the Eris liquidity-hub UI. These power the planned on-chain Vote tab fetcher (see `DESIGN_vote_tab_onchain_fetcher.md`).
+Originally discovered May 10 2026 via HAR capture of the Eris liquidity-hub UI for the on-chain Vote tab fetcher. Now used by the live `tla-snapshot`, `adao-positions`, and `bribes-history` crons.
 
 | Role | Address |
 |---|---|
@@ -202,19 +204,20 @@ Discovered May 10 2026 via HAR capture of the Eris liquidity-hub UI. These power
 
 ---
 
-## TLA cron infrastructure — built 2026-05-12 through 2026-05-14
+## TLA cron infrastructure — built 2026-05-12 through 2026-05-14, audited 2026-05-17
 
-Replaces the manual `tla_tool.html` + `tla-tool_ext.html` capture flow. 7 production crons run on Render, write to GitHub data repos automatically. The `DESIGN_tla_full_cron_automation.md` design doc described the plan; this is the as-built record.
+Replaces the manual `tla_tool.html` + `tla-tool_ext.html` capture flow. **9 production crons run on Render**, write to GitHub data repos automatically. The (now-deleted) `DESIGN_tla_full_cron_automation.md` design doc described the original plan; this is the as-built record.
 
 ### Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│ 5 PRODUCER CRONS — fetch raw data, write per-cron _2026 repos    │
+│ 5 TLA PRODUCER CRONS — fetch raw data, write per-cron _2026 repos│
 ├──────────────────────────────────────────────────────────────────┤
 │ network-and-prices    hourly :40   token prices + LST ratios     │
-│ astroport             daily 23:50  pool TVL/volume per epoch     │
-│ skeletonswap-lp_data  daily 23:45  SS pool data weekly CSVs      │
+│ astroport             daily 23:50  pool TVL/volume/fees/reserves │
+│                                    (20-col CSV as of 2026-05-17) │
+│ skeletonswap-lp_data  daily 23:45  SS pool data ⚠ source frozen  │
 │ bribes-history        daily 23:35  current bribes + epoch archives│
 │ votion                weekly Sun   next-epoch optimization data  │
 └──────────────────────────────────────────────────────────────────┘
@@ -223,6 +226,7 @@ Replaces the manual `tla_tool.html` + `tla-tool_ext.html` capture flow. 7 produc
 │ 1 AGGREGATOR CRON — consumes all 5 producers + chain queries     │
 ├──────────────────────────────────────────────────────────────────┤
 │ tla-snapshot          hourly :40   unified snapshot for website  │
+│                       (+ daily archive at 23:xx)                 │
 │   - Reads from all 5 producer _2026 repos                        │
 │   - Adds rewards math (Alliance weights, APR per pool)           │
 │   - Outputs data/tla-snapshot.json (170 KB, 67 pools)            │
@@ -231,7 +235,16 @@ Replaces the manual `tla_tool.html` + `tla-tool_ext.html` capture flow. 7 produc
 ┌──────────────────────────────────────────────────────────────────┐
 │ 1 INDEPENDENT CRON — DAO member portfolios                       │
 ├──────────────────────────────────────────────────────────────────┤
-│ adao-positions        weekly Mon   46 member + treasury portfolios│
+│ adao-positions   currently weekly Mon ⚠ should be daily          │
+│                  → daily archive at data/daily/{YYYY-MM-DD}.json │
+│                  → 46 member + treasury portfolios               │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 2 NFT-SIDE CRONS — separate from TLA, support the NFT pages      │
+├──────────────────────────────────────────────────────────────────┤
+│ nft-inventory     hourly :30   10K NFTs, mint/broken/DAODAO state│
+│ marketplace-stats hourly :15   BBL+Boost listings, sales, floor  │
 └──────────────────────────────────────────────────────────────────┘
                               ↓
 ┌──────────────────────────────────────────────────────────────────┐
@@ -240,7 +253,9 @@ Replaces the manual `tla_tool.html` + `tla-tool_ext.html` capture flow. 7 produc
 │ tla-stats.html ← tla-snapshot.json + network-and-prices.json +   │
 │                  adao-positions/current.json + historical files  │
 │ dao-tla.html   ← adao-positions/current.json members array        │
-│                  (page not yet built — Pass 2)                   │
+│                  (page not yet built — Pass 2 → likely promoted  │
+│                  to header-level Portfolio Tracker per 2026-05-17│
+│                  strategic discussion)                            │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -250,6 +265,13 @@ Replaces the manual `tla_tool.html` + `tla-tool_ext.html` capture flow. 7 produc
 - **Render free tier** — cron jobs run as Node.js services, push to GitHub via PAT.
 - **No API server in front** — website fetches data via `raw.githubusercontent.com` direct URLs.
 - **Adao-positions treasury = "aDAO" at TLA-wide level.** Individual member breakdowns live in a separate page (`dao-tla.html`, not yet built). The treasury wallet (`terra1sffd4ef...`) is the single canonical aDAO voting entity. Each user's VP allocates once per bucket (4 buckets), so pool-summed VP inflates 4× per user — use max-bucket VP (~24M) as canonical "Total TLA VP" to match Eris.
+
+### Pool uniqueness — critical for any code reading TLA data
+- `pool_name` alone collides across DEXes (LUNA-USDC on both Astroport and Skeleton)
+- `name + dex` can also collide within Astroport (two LUNA-WBTC pools in BLUECHIP with different `gauge_pool_id`)
+- **`gauge_pool_id` is the truly unique key** (e.g. `cw20:terra1wdz...`)
+- Snapshot exposes it as `gauge_pool_id`; member-vote data exposes it as `pool_gauge_id` — same values, different field names
+- Any code keying on pool name alone will eventually hit collisions. Always key on `gauge_pool_id`.
 
 ### Key value reconciliation (verified 2026-05-14)
 | Metric | Value | Cross-check |
@@ -261,6 +283,22 @@ Replaces the manual `tla_tool.html` + `tla-tool_ext.html` capture flow. 7 produc
 | Treasury pending rewards | $453.38 | matches Eris ±$11 |
 | Treasury pending bribes | $443.13 | matches Eris ±$23 |
 
+### Audit findings — 2026-05-17
+
+Full per-cron audit performed. Most data is reliable. Two real issues found and addressed:
+
+| Finding | Severity | Resolution |
+|---|---|---|
+| Bribes resolver bug in `tla-stats.html` — looked up cw20 prices at `entry.address`; actual schema nests at `entry.prices.{source}.address`. All CAPA, ROAR bribes priced as $0. | 🔴 Critical | **Fixed** in dashboard. Global Epoch Bribes tile: $820 → ~$1,300 (more accurate). Member bribes tile correctly captures CAPA bribes. |
+| `adao-positions` had no daily snapshot persistence (only weekly per-epoch). | 🔴 Critical | **Fixed** in cron code (`data/daily/{YYYY-MM-DD}.json` archive added). Render schedule must also change from weekly to daily for Portfolio Tracker history to accumulate. |
+| `astroport` cron missing fee/reserves/LP-supply fields. | 🟡 Important | **Fixed** in cron. CSV is now 20 columns including `fees_24h_usd`, `fee_apr`, `lp_total_supply`, `astro_staked_usd`, `assets_json`. |
+| Skeleton Swap upstream API frozen ~30 days (BackBone aggregator returning cached data). 50% effective coverage, not 75%. | 🔴 Critical | **Documented** (skeletonswap-lp_data/README.md "Data quality warning"). Keep capturing best-effort. **Don't use for scoring.** Label "unverified" wherever surfaced. |
+| APR for stable pairs (USDC-USDT, USDC-EURe) 5× too high vs Eris. | 🟡 Real bug | Undiagnosed. Specific to stable pools. Tracked in CHANGES_PENDING. |
+| Unnamed pool with `dex: null` inflates Astroport count by 1. | 🟢 Cosmetic | Tracked in CHANGES_PENDING. |
+| LUNA-arbLUNA appears twice in snapshot with different `gauge_pool_id`. | 🟢 Cosmetic | Dashboard now keys on `gauge_pool_id` correctly. |
+
+**Methodology vs bug:** the cron's pool APR uses `annual_emissions_usd / staked_in_tla_usd` while Eris uses `annual_emissions_usd / depth_usd`. Our denominator is smaller → our APR reads higher. Both correct, measuring different things. To match Eris exactly, change the formula in `tla-snapshot` cron — one-line change. Tracked in CHANGES_PENDING.
+
 ### Cron deployment
 - All code in `defipatriot/cron-scripts` GitHub repo
 - Each cron has its own subdirectory deployed as a separate Render cron job
@@ -268,8 +306,8 @@ Replaces the manual `tla_tool.html` + `tla-tool_ext.html` capture flow. 7 produc
 - Required env vars per cron: `GITHUB_TOKEN`, `GITHUB_REPO`, `GITHUB_BRANCH`
 - Tokens have write scope to that cron's data repo only
 
-### Known active issue (2026-05-14): epoch numbering off-by-one
-All crons compute epoch as `Math.floor((now - 2022-10-31) / 7days)` which is **0-indexed**. The canonical `epoch_1-300_date.json` is **1-indexed**. May 11–18, 2026 should be epoch 185 but crons label it 184. Dates are correct. Fix planned — see `CHANGES_PENDING.md` for the coordinated rename plan across the 5 affected scripts.
+### Per-cron documentation
+Each cron has its own `README.md` in its folder. Recent changes are tracked in a "Recent changes" section at the end of each cron's README. The top-level `cron-scripts/README.md` has a "Project status & roadmap" section covering cross-cutting context (strategic direction, data trust, prioritized roadmap). The dashboard (`tla-stats.html`) has its own changelog in `cron-scripts/tla-stats-CHANGELOG.md`.
 
 ---
 
