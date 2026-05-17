@@ -11,10 +11,12 @@
 **Identified 2026-05-17.** The cron is currently scheduled `0 1 * * 1` (Mondays only). For the Portfolio Tracker dashboard to accumulate meaningful position history, it needs to run **daily**. The cron code now produces a `data/daily/{YYYY-MM-DD}.json` archive on every run (added 2026-05-17) — that file overwrites within a day, so daily cadence gives one snapshot per calendar day.
 
 Two changes required:
-1. Update Render cron expression: `0 1 * * 1` → `0 1 * * *`
-2. Update `next_expected_run_at` constant in `adao-positions.js` (currently 7 days; change to 25 hours)
+1. **[ ] Update Render cron expression**: `0 1 * * 1` → `0 1 * * *` (this is a manual click in the Render dashboard)
+2. **[x] Update `next_expected_run_at` constant in `adao-positions.js`** — done 2026-05-17, now `25 * 60 * 60 * 1000` (25 hours)
 
-Without this, letting things run for weeks produces 0 weeks of Portfolio Tracker history. **Top priority — should ship before any other accumulated-data work.**
+Ship both together. If only the Render click happens, the heartbeat is wrong; if only the code change is deployed, the dashboard flags the cron stale every 25 hours.
+
+Without the Render change, letting things run for weeks produces 0 weeks of Portfolio Tracker history. **Top priority — should ship before any other accumulated-data work.**
 
 ### 🔥 P1 — Push current `tla-stats.html` to thealliancedao.com
 **Built 2026-05-17.** Member Data overlay feature complete + critical bribes resolver bug fixed. Verified end-to-end against real production data.
