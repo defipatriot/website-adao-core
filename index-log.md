@@ -7,6 +7,411 @@ This file also covers cross-cutting site changes that affect multiple pages — 
 
 ---
 
+## Rev 3.48 — 2026-05-29
+
+Vote Rewards tile showed `$0` even though tokens were claimable. Two stacked bugs.
+
+### Bug 1 — `voteUsdTotal` declared but never incremented
+The render loop had `let voteUsdTotal = 0`, built per-token rows, then displayed `voteUsdTotal` — but the increment was missing. The total was always literally zero regardless of what was claimable.
+
+### Bug 2 — Token identity discarded at capture time
+The capture stored only a truncated label like `"terra1t4p..."` for cw20 rewards or the raw IBC hash for natives. No `cw20` / `denom` field was preserved, so even if the render loop wanted to look up a price, there was nothing to look it up by.
+
+### Fix
+- Added two lookup maps at capture time. **Native denoms**: `uluna` → LUNA (terra-luna-2), `ibc/8D8A...` → ASTRO (astroport-fi), `ibc/2C96...` → USDC, `ibc/8838...` → wBTC. **CW20s**: `terra1t4p3u8...` → CAPA, `terra1ecgazyd...` → ampLUNA, `terra10aa3zd...` → SOLID, `terra1lxx40s...` → ROAR, `terra17aj4ty...` → bLUNA. All decimals=6 except wBTC=8. Each carries its `geckoId` for live price lookup.
+- Each captured token entry now stores `{ name, amount, cw20, denom, geckoId }` instead of a truncated label.
+- Render loop uses `data.geckoId` against `window.cachedPriceData` to compute per-token USD, sums into `voteUsdTotal`.
+- Each row displays both amount and USD (`LUNA 371.47 / $22.97`).
+- Tokens without a known geckoId render with an italic "no price" hint — silent zeros now visible.
+
+### Verified live
+DAO had 3 unique tokens claimable across 9 pool buckets at deploy time: LUNA 371.47 ($22.97), ASTRO 1,735.57 ($1.43), CAPA 672.64 ($1.04). Total ~$25. Tile now correctly shows the dollar figure.
+
+---
+
+## dao_treasury.html Rev 3.1 — 2026-05-29
+
+3-bucket "What Changed" breakdown — separates intentional DAO actions from market and organic movement so users can read the actual story behind treasury value changes.
+
+### Problem
+Previous "What Changed" panel showed two buckets: Market Movement (price impact) and Position Growth (amount changes). A "Deposit into TLA" prop deploying $1,800 of LUNA out of the treasury wallet appeared as `-$1,800 Position Growth` — looking identical to losing money. Net Result of `-$2,581 (-15.6%)` scared users into thinking the treasury was tanking when really the DAO had just chosen to redeploy capital.
+
+### Fix
+Split position change into two buckets using each prop's actual on-chain treasury impact:
+
+```
+Net Change = Market Movement + Organic Growth + DAO Actions
+```
+
+Where:
+- **Market Movement** — pure price impact on starting holdings (unchanged from before)
+- **Organic Growth** — yield, rewards, slippage *only* (was "Position Growth")
+- **DAO Actions** — sum of `calcPropImpactUsd(prop.netByToken)` for props executed in the comparison window
+
+`isReceiptToken` filters out zLUNA / amp-LP / LP shares from prop impact so a "Deposit into TLA" correctly shows only the LUNA outflow, not the offsetting amp-LP token inflow.
+
+### Contributing Proposals list
+New panel below the breakdown shows each prop that drove DAO Actions. Each row is clickable → opens DAODAO proposal page. Shows: prop ID, date, title, top-3 token movements, USD impact (purple for outflow / green for inflow). Hidden if no props executed in the window.
+
+### Smart net-result explanation
+When DAO Actions dominate the change magnitude, the explanation surfaces that:
+- `📊 Mostly due to DAO deploying capital (not a loss)` — when actions negative + largest
+- `📊 Mostly due to DAO inflows` — when actions positive + largest
+
+Otherwise falls back to organic + market language. The Net Result number is unchanged — only the attribution + framing improves.
+
+### Why this is flexible
+Classification uses each prop's actual execution transactions (`getActualTreasuryImpact`), not hard-coded prop types. Works for deposits/withdrawals (TLA, staking, lending), token swaps, inflows (claiming rewards, grants), outflows (spending, transfers), or any combination — just sums net token movements per prop.
+
+---
+
+## dao_treasury.html Rev 3.0 — 2026-05-28
+
+Single unified view — strip the 4-tab structure entirely, surface the stock-chart-with-prop-annotations concept that was buried behind tab switching.
+
+### Removed
+- Tab switching behavior on the 4 summary cards (`switchView` is now a no-op for safety; cards became static summary tiles)
+- Hidden classes on all 4 view sections — they're now all visible together
+- Misleading "Click on any token row" chart placeholder
+- `currentView` state machine
+
+### Added
+- **Token pill bar above the chart** — top 8 holdings by USD, one-click switch (no more scrolling down to find token rows)
+- **Amount / USD toggle** — the centerpiece of "see amounts growing while prices lag"
+- **Auto-loads ampLUNA on init** — chart isn't empty on first visit
+- `$` prefix in y-axis ticks, stats row, and tooltips when in USD mode
+- Default compare anchor = most recent snapshot → Live (was second-to-last → Live, which produced confusing `E182 → Live` rather than `E185 → Live`)
+
+### Layout flow (top to bottom)
+1. 4 summary tiles (Treasury / Staked / Council / Combined Total) — display only, not tabs
+2. **What Changed** story panel — always visible (was hidden by default until first data load)
+3. **Token Performance** chart with pill selector + Amount/USD toggle + time range + prop annotations
+4. Holdings tables (DAO / Staked / Council / Total breakdown) — all visible at once
+5. Recent DAO Proposals sidebar
+
+---
+
+## dao_tla_deposits.html Rev 1.2 — 2026-05-28
+
+Live overlay + chart-extends-to-live fixes.
+
+### Compare anchor fixed
+When live overlay succeeds, the "compare against" snapshot now re-anchors to the snapshot we just overlaid on. So the comparison reads `E185 (snapshot) → Live (now)` instead of `E182 → Live` which mixed a 3-week-old anchor with live data. The badge color reflects source: green pulse for live, amber for cron fallback, plain for snapshot-only.
+
+### Chart extends through to live
+After live overlay succeeds, a synthetic point with epoch label `'Live'` is appended to `history[]`. Chart now plots through the present rather than ending at the last snapshot epoch.
+
+---
+
+## dao_tla_deposits.html Rev 1.1 — 2026-05-28
+
+Library integration — added `lib/adao-live-data.js` script tag, then overlay live data from `aDAOLive.getDaoTlaDeposits()` on top of the snapshot baseline in `init()`.
+
+Snapshot remains the historical comparison baseline (used for charts, comparison views, value breakdown), but for headline numbers the page now reflects what's actually on-chain right now. Source badge added next to the epoch indicator:
+- Green pulse dot + "E185 → Live" — chain capture succeeded
+- Amber static dot + "E185 → Cron" — cron fallback used
+- Plain text "E182 → E185" — snapshot-only (live unavailable)
+
+---
+
+## Rev 3.47 — 2026-05-28
+
+Extracted live-data fetching into a shared library that all three pages in the dashboard suite consume. Replaces three duplicated implementations of the same RPC primitives.
+
+### New file: `lib/adao-live-data.js` (~34 KB)
+
+Exposes `window.aDAOLive` with:
+
+**Composite getters** (live RPC primary, cron fallback):
+- `getDaoTlaDeposits()` → `{ positions, totalLpUsd, pendingRewardsUsd, zlunaUsd, totalTlaUsd, source }`
+- `getDaoTreasury()` → `{ assets, totalUsd, allPriced, source }`
+- `getDaoUnclaimedRewards()` → `{ depositLuna, rebaseLuna, voteUsd }`
+
+**Catalog + primitives**:
+- `getTlaCatalog()` → pools, amp configs, token prices, LST ratios
+- `queryChain(addr, msg)`, `bankBalances(wallet)`, `cw20Balance(contract, wallet)`
+
+**Cron passthrough**: `getCron(name)` for raw cron data when needed.
+
+**Cache control**: `clearCache(pattern?)`.
+
+**Constants exposed**: `DAO_MAIN_WALLET`, `TLA_STAKING_BY_BUCKET`, `TLA_ASSET_COMPOUNDER`, `ZLUNA_CONNECTORS`, `denomMap`, etc.
+
+### Caching architecture
+Layered: in-memory `Map` (instant within page session) + `sessionStorage` keyed `adao_live:` (survives navigation between pages within a tab). TTL: 5 min for catalog and live LP capture, 1 min for unclaimed rewards. Second page load is effectively instant.
+
+### Page integrations
+- `index.html` — library tag added, existing inline fetchers preserved for now (coexist, migrate incrementally).
+- `dao_tla_deposits.html` — library tag added, live overlay applied on top of snapshot baseline (see separate Rev 1.1 entry).
+- `dao_treasury.html` — library tag added; existing live RPC code preserved for now.
+
+### Verified against chain at deploy time
+- TLA Deposits: $9,723.60 vs Eris UI $9,751.19 (timing noise: $27 diff)
+- Treasury: $13,912.14 across 9 priced tokens via CoinGecko
+- 16 positions captured (all amp + non-amp, including bluechip + single-asset)
+- Cache: 0 ms on second call
+
+### Open follow-ups
+1. Migrate index.html's inline `fetchLiveTlaDeposits` / `queryChain` / `fetchTlaSharedCatalog` to use `aDAOLive` — kill the duplication
+2. Migrate dao_treasury.html's inline live-balance code to use `aDAOLive.getDaoTreasury()` — same reason
+
+---
+
+## Rev 3.46 — 2026-05-27
+
+Refactored TLA Deposits to **live-RPC primary, cron fallback** — the architecturally correct pattern for tiles that should reflect current state. Previous revs had it backwards: cron was the source, live was the fallback.
+
+### Architecture corrected
+```
+fetchLiveTlaDeposits()
+    ├─► fetchTlaSharedCatalog()         [pool catalog, amp configs, token prices]
+    ├─► fetchLiveTlaDepositsFromChain()  [PRIMARY — 8 parallel RPC queries]
+    │       ├─ 4× all_staked_balances    (DAO non-amp per bucket)
+    │       └─ 4× user_infos             (DAO amp per bucket, via compounder)
+    ├─► fetchLiveUnclaimedRewards()      [pending rewards/bribes, already live]
+    ├─► bank query for zLUNA wallet balances
+    └─► fetchTlaDepositsFromCron()       [FALLBACK if any chain query fails]
+```
+
+The previous arch tied the tile's freshness to the cron's hourly cadence. With live-primary, the tile reflects on-chain truth within seconds. The cron is now correctly positioned as **historical capture + resilience fallback**, not the data source for current state.
+
+### Single-asset pool valuation
+Earlier path missed amplified positions in single-asset pools (ampCAPA, xASTRO, ampROAR-ROAR). Three valuation paths now match the cron's logic exactly:
+1. **Cw20 LP tokens** — lookup via `poolByLpAddr[cw20]`
+2. **Native/factory pools** — lookup via `poolByGaugeId["native:" + denom]`
+3. **Single-asset pools** (no `lp_address`) — value via `tokenPrices[poolName].final_price_usd` primary, `lp_health.asset_0.price_usd` fallback, compounder share last resort
+
+### Source indicator on tile
+Pulse-dot color now indicates data source:
+- Green pulse = LIVE chain query succeeded
+- Amber static = fell back to cron snapshot
+
+Hover tooltip shows the full composition (LP / pending rewards / pending bribes / zLUNA / total).
+
+### Architecture rule for future tile work
+**Dashboard tiles should be LIVE feeds (RPC primary), cron is for fallback + historical capture only.** Never tie tile freshness to cron's hourly cadence. Documented in `PROJECT_KNOWLEDGE.md`. Migrate any remaining cron-driven tiles to this pattern over time.
+
+---
+
+## Rev 3.45 — 2026-05-26
+
+Composite TLA Deposits total + modal overflow fix + cron-side bug fix.
+
+### Composite total
+Per user rule: "DAO TLA Deposits = LP positions + pending rewards + zLUNA wallet + bribes (anything in TLA except LOCKs)". `fetchLiveTlaDeposits()` now sums all four components. Pulse-dot tooltip on the tile title shows the breakdown:
+
+```
+Live (captured 14:23:01):
+  LP positions:    $6,340.15  (10 pools)
+  Pending rewards: $11.77
+  Pending bribes:  $0.00
+  zLUNA in wallet: $178.98
+  ─────────────────────
+  Total TLA:       $6,530.91
+```
+
+### Modal overflow fix
+Both `daodaoModal` and `enterpriseModal` were running content past the viewport bottom on smaller screens. Added `max-h-[90vh] overflow-y-auto` to the `modal-content` div on both — content now scrolls within the modal instead of overflowing.
+
+### Cron-side fix shipped same session (adao-positions v1.3.0)
+The `adao-positions` cron at v1.2.0 was dropping ~6 amplified positions for the DAO (all bluechip + half of project) due to silent rate-limiting in `queryContract`. Pattern `Array.isArray(r) ? r : []` silently coerced `null` (failed query) to empty array with no error recorded. Patched to v1.3.0:
+- `BATCH_CONCURRENCY` lowered 15 → 5 (was saturating publicnode LCD with ~255 in-flight queries per batch)
+- `queryContract` retry-with-backoff (2× primary attempts with 200-500ms jittered backoff, then fallback endpoint)
+- Distinguish `entries: null` (failed) from `entries: []` (genuinely empty) for both amp and non-amp paths
+- Errors surface to `portfolio._errors` so silent failures are no longer silent
+
+Verified locally on patched cron: 16 positions captured / $9,667 total (matches Eris UI $9,751 within timing noise). Was 10 positions / $6,340 before patch.
+
+### Why the architecture changed in Rev 3.46
+At deploy time Rev 3.45 still read cron data for LP positions. Once the user pointed out tiles should be live feeds (not tied to hourly cron cadence), Rev 3.46 flipped the architecture to live-primary / cron-fallback. The composite calculation logic is unchanged across both revs.
+
+---
+
+## Rev 3.44 — 2026-05-25
+
+DAODAO modal deep-dive. The DAODAO Staked tile already showed staked count and "% of Circulating" — the modal now explains both transparently and adds staker concentration analysis.
+
+### % of Circulating formula breakdown
+Shows the math step by step:
+- Total minted (10,000)
+- Minus DAO-controlled (1,000 broken + held)
+- = Circulating (9,000)
+- Staked ÷ Circulating = X.XX%
+
+No more black-box percentage.
+
+### Staker concentration analysis
+- Top 1 / Top 5 / Top 10 staker shares of total staked
+- Unique staker count
+- Distribution buckets (1–9 / 10–49 / 50–99 / 100–499 / 500+ NFTs staked)
+- Surfaces whether staking is healthy/distributed or concentrated
+
+### Addressable Pool
+Wallet-held + stuck-in-Enterprise NFTs = the **growth ceiling** for staking. Reframes the metric: "X% of the addressable supply, not Y% of total". Tells the right story for a growth indicator.
+
+### Supply Distribution panel (shared)
+A "locked vs liquid" breakdown shared between DAODAO and Enterprise modals via `applySupplyDistribution(modalContext)`. Single source of truth, two display contexts.
+
+---
+
+## Rev 3.43 — 2026-05-24
+
+Enterprise Staked tile correction + investor-focused supply distribution.
+
+### Enterprise Staked count: 503 → 403
+Previously showed the **total** count in the old enterprise staking wallet (`terra1e54tc...8tdv`), but 100 of those are DAO-controlled broken NFTs that can't be migrated. Filtering them out gives the actual count of unmigrated user-held NFTs:
+```js
+nft.owner === OLD_ENTERPRISE_STAKING_WALLET || nft.enterprise === true
+// AND not DAO-controlled broken
+```
+Modal still shows the full breakdown (403 unmigrated + 100 trapped) but the tile reflects what's actually addressable.
+
+### "Trapped" → "Unmigrated" reframing
+These NFTs are not lost — they can be migrated via Eris Boost. The modal explains this and links the migration path.
+
+### Bug fix
+Changed `daoBrokenModal` wallet ending from `...6ugw` (wrong, leftover from earlier truncation) to `...8tdv` (correct, actual old enterprise staking wallet).
+
+### Supply Distribution panel
+New "locked vs liquid" breakdown of total supply, shared via `applySupplyDistribution(modalContext)`. Visible in both DAODAO and Enterprise modals.
+
+---
+
+## Rev 3.42 — 2026-05-23
+
+Cron Health modal. Surfaces the freshness state of all 7 production crons in one place so staleness in any one feed is debuggable from the UI.
+
+Subsequently superseded in concept by Rev 3.37's freshness fingerprinting system + footer cron-status widget (the other session's parallel work). The two systems coexist; Rev 3.37's footer widget is the authoritative health surface going forward.
+
+### What this rev shipped
+- Per-cron health card showing last successful run timestamp, hours since (color-coded green/yellow/red), output file size, latest captured value, and failure mode if cron is silent
+
+---
+
+## Rev 3.41 — 2026-05-22
+
+TLA VP modal overhaul. Cron-history hybrid chart shows DAO's TLA VP over time (cron-captured per-epoch) overlaid with live current VP.
+
+### Lock breakdown
+Modal now shows the two component locks separately:
+- Lock #600 (27,335 arbLUNA → 796K VP)
+- Lock #711 (1,213 ampLUNA → 25.7K VP)
+- = 821,791 VP total
+
+### Live overlay
+Latest data point uses live RPC against the voting escrow contract — chart extends from historical snapshots through to right-now.
+
+---
+
+## Rev 3.40 — 2026-05-21
+
+Broken NFTs hardcoded to 1,000 (was reading from cron, which was unreliable for this specific count). Static value matches the verified governance count from chain. Tooltip explains the source. Same approach as the Props 64-69 commitment.
+
+---
+
+## Rev 3.39 — 2026-05-20
+
+Replaced the snapshot disclaimer banner with a cleaner "live data shown above" inline note. Removed the hardcoded "Last Claim Actions" section that was showing stale data — those events now flow through the live unclaimed-rewards system (Rev 3.38).
+
+---
+
+## Rev 3.38 — 2026-05-19
+
+Live DAO Unclaimed Rewards + Global Refresh button.
+
+### Live Unclaimed Rewards (`fetchLiveUnclaimedRewards`)
+8 parallel RPC calls to capture the DAO's pending rewards across the 4 staking buckets, plus rebase, plus vote bribes:
+- 4× `all_pending_rewards` (zLUNA per bucket)
+- `user_pending_rebase` on gauge controller (ampLUNA)
+- `user_claimable` on bribe manager (various tokens — schema is `{start, end, buckets}` NOT an array; gotcha for any future caller)
+- 2× connector `state` queries for zLUNA → LUNA rate
+
+### Global Refresh button
+Top-right "Refresh All" button. 5-minute cooldown to prevent abuse. Invalidates all in-memory caches and triggers re-render of the live tiles (TLA VP, Unclaimed Rewards, TLA Deposits, etc.).
+
+---
+
+## Rev 3.37.1 — 2026-05-29 (fleet health audit)
+
+10-day post-deploy audit of the freshness monitoring system. **6 of 7 crons fresh; bribes-history flagged stuck — true positive, benign.**
+
+### bribes-history: stuck = chain is genuinely quiet
+- consecutiveStuckRuns: 4 (4 daily runs in a row with identical fingerprints)
+- Verified by direct chain query at 01:11 UTC against the cron's 23:35 UTC capture: **identical 16 active bribes, total 379,552,298,332 raw units**
+- Master stats unchanged since 2026-05-18: still 245 proposals / 167 executed / 53 epochs with bribes / 1 briber
+- PD hasn't proposed a new vote-incentives bribe in ~10 days; no one has claimed against existing bribes
+
+This is exactly the false-positive scenario flagged when designing the bribes threshold. The system is doing its job — accurately reporting that on-chain state isn't moving. The cron itself is healthy.
+
+**Status**: leaving the threshold at 3 for now. If quiet weeks become routine, bumping bribes-history `STUCK_THRESHOLD` from 3 to 7 (one full week of inactivity tolerance) is a one-line change. The other 6 crons have movement guaranteed by chain mechanics (LP shares, prices, LST ratios all drift passively); bribes don't — they only move on user action.
+
+### Everything else green
+- votion: fresh, last run Sun May 24 23:55 UTC (on schedule, weekly)
+- skeletonswap: fresh — running cleanly since the rebuild
+- astroport: fresh
+- network-and-prices: fresh (hourly)
+- tla-snapshot: fresh (hourly)
+- adao-positions: fresh
+
+No code changes from this audit. Documentation update only.
+
+---
+
+## Rev 3.37 — 2026-05-18
+
+Cron-fleet freshness monitoring. The motivation: in April 2026, the Skeleton Swap upstream (`dex.warlock.backbonelabs.io/api/pools/phoenix-1`) silently froze at its 2026-04-16T17:00:00Z snapshot. The cron kept running on schedule, the heartbeat said "ok," but every daily run captured the exact same numbers. This went undetected for 31 days because the existing health system only checked **whether** the cron ran, not whether the **data** changed.
+
+### Skeleton Swap cron rebuilt from scratch
+The frozen warlock endpoint isn't coming back — Skeleton Swap's own front-end migrated to a hybrid architecture. Mirrored that approach:
+- Pool list from `skeletonswap.backbonelabs.io/mainnet/phoenix-1/pools_list.json` (34 active pools)
+- Reserves queried directly from the chain via LCD smart-contract queries (`{"pool":{}}` per swap address)
+- Token prices from our existing `network-and-prices` cron output (no new external dependency)
+- TVL computed in JS: `Σ (reserve_i / 10^decimals_i) × price_i`
+- `volume_24h_usd` / `volume_7d_usd` / `apr_7d` columns now empty (no trustworthy source post-warlock)
+
+Cleaned `ss-pool-data_2026` of ~32 stale files (every daily backup from Apr 17 onward was identical to Apr 16; contaminated April monthly-avg; post-epoch-181 weekly averages). Pre-Apr-17 history preserved.
+
+### Freshness fingerprinting added to all 7 production crons
+Each cron now computes a SHA-256 over its volatile fields (reserves, prices, VP allocations, etc. — excluding counters that auto-increment) and writes the first 12 hex chars to its heartbeat. On the next run, the cron fetches its previous heartbeat and compares fingerprints:
+
+- `dataFreshness: "fresh"` — fingerprint differs from previous run (normal)
+- `dataFreshness: "suspicious"` — 2 identical runs in a row (yellow flag)
+- `dataFreshness: "stuck"` — 3+ identical runs in a row (red flag, escalates `status` to `stuck`)
+
+Detection windows by cadence:
+- Hourly crons (network-and-prices, tla-snapshot): ~3 hours after a freeze starts
+- Daily crons (skeletonswap, astroport, bribes-history, adao-positions): ~3 days
+- Weekly cron (votion): ~3 weeks
+
+Per-cron fingerprint inputs were chosen for each cron's specific volatility profile — e.g. tla-snapshot fingerprints per-pool `(voting_power.vp, depth_usd, staked_in_tla_usd)`, network-and-prices fingerprints sorted `(token_name, final_price_usd)` tuples, adao-positions fingerprints per-member position aggregates.
+
+### Footer cron-status widget
+New trigger in footer: `Rev 3.37 · Changelog · ● Cron status`. Click opens a modal with all 9 crons (the 7 freshness-enabled production crons plus `nft-inventory` and `marketplace-stats`). Each row shows:
+- Status dot — fresh / approaching-stale / stale / **data stuck** (pulsing red) / no-signal
+- Cron label + description
+- Inline freshness badge — `✓ fresh data`, `⚠ data suspicious (N consecutive)`, or `🔴 data stuck (N consecutive identical runs)`
+- Cadence (hourly/daily/weekly)
+- Age + last capturedAt timestamp
+
+Self-contained IIFE at the bottom of `index.html` — zero global scope pollution, doesn't touch any existing data flow. Re-checks every 30 seconds. The same widget was added to `test.html` (Rev 1.16 → 1.17).
+
+### test.html updates
+- Rev 1.16: Added the new `stuck` status to the health modal, extended `recordCronCapture()` to capture `dataFreshness` + `consecutiveStuckRuns` from heartbeats, migrated all cron source URLs to point at `data/heartbeat.json` instead of the main data files (so freshness fields get extracted).
+- Rev 1.17: Fixed votion showing "fetch failed" — the page had two cron-record paths (a bulk-load on page boot, and the new background heartbeat fetch). The bulk-load was using votion's per-epoch JSON file which 404s on the current epoch before Sunday's run. Consolidated everything onto the single heartbeat-based path.
+
+### Files changed
+- `cron-scripts/skeletonswap-lp_data/index.js` — full rewrite of data acquisition (preserved all aggregation/git logic)
+- `cron-scripts/{astroport, network-and-prices, tla-snapshot, votion, bribes-history, adao-positions}/...` — added `crypto` require + three freshness helpers + heartbeat field injection
+- `index.html` — CSS block + footer button + modal HTML + self-contained IIFE
+- `test.html` — updated existing cron-health system with freshness support, consolidated fetch path
+
+### What freshness monitoring can't detect (worth being honest about)
+1. **Quiet pools** — a small pool that legitimately stops trading would eventually flag stuck. Three-run threshold helps; dashboard surfaces `consecutiveStuckRuns` so a human can recognize "abandoned pool" vs "freeze."
+2. **Faulty cache rotating between states** — different fingerprints each run, but data still broken. Would need value-range checks, not fingerprint checks.
+3. **A new pool added with zero liquidity** — its zeros are stable; the rest of the fingerprint is what flags actual freezes.
+
+---
+
 ## Rev 3.36 — 2026-05-09
 
 Three mobile fixes against Rev 3.34/3.35 deploy. User screenshot showed:

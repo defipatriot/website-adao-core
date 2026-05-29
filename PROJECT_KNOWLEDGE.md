@@ -331,10 +331,10 @@ Each page has a target rev number for the changelog system rollout. See "Cross-p
 
 | Display name | File | Current rev | Notes |
 |---|---|---|---|
-| (Home) | `index.html` | 3.33 | The main dashboard, ~12.6k lines. Has the changelog system. |
+| (Home) | `index.html` | 3.48 | The main dashboard, ~12.6k lines. Has the changelog system. Live RPC tile architecture matured 3.38–3.48. |
 | NFT Explorer | `nft-explorer-index.html` | 4.13 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. Map view removed in Rev 4.13. |
 | aDAO Lore | `adao-lore.html` | 2.9 | Top nav tab. ✅ Renamed from `planet-map.html` in Rev 3.22. ✅ Cross-page chrome added. |
-| TLA Stats | `tla-stats.html` | 2.0 | Top nav tab. ✅ Rebuilt 2026-05-14 to consume continuous cron data sources. ✅ Cross-page chrome added in Rev 3.22. |
+| TLA Stats | `tla-stats.html` | 2.1 | Top nav tab. ✅ Rebuilt 2026-05-14 to consume continuous cron data sources. Member Data overlay + bribes resolver fix in Rev 2.1 (2026-05-17). |
 | DAO | `dao.html` | 1.6 | Top nav tab. ✅ Renamed from `dao_governance.html` in Rev 3.22. ✅ Cross-page chrome added. |
 | ALLY Rewards | `ally.html` | 3.4 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. Duplicate header cleaned in Rev 3.25. |
 | Tutorials | `tutorials.html` | 1.5 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. Duplicate header cleaned in Rev 3.25. |
@@ -343,8 +343,8 @@ Each page has a target rev number for the changelog system rollout. See "Cross-p
 | NFT Releases | `release-history.html` | 1.4 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. Duplicate header cleaned in Rev 3.25. |
 | Official Links | `links.html` | 1.4 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. Duplicate header cleaned in Rev 3.25. |
 | Alliances | `alliances.html` | 1.4 | Top info-card tile. ✅ Cross-page chrome added in Rev 3.24. Duplicate header cleaned in Rev 3.25. |
-| DAO TLA Deposits | `dao_tla_deposits.html` | 2.3 | Linked from DAO Links dropdown tile. ✅ Cross-page chrome added in Rev 3.24. Sticky header cleaned in Rev 3.25 (kept period buttons + epoch + Treasury cross-link). |
-| DAO Treasury | `dao_treasury.html` | 2.3 | Linked from DAO Links dropdown tile. ✅ Cross-page chrome added in Rev 3.24. Sticky header cleaned in Rev 3.25 (kept Live indicator). |
+| DAO TLA Deposits | `dao_tla_deposits.html` | 1.2 | Linked from DAO Links dropdown tile. ✅ Cross-page chrome added in Rev 3.24. Rev 1.1 added live overlay via `aDAOLive` library (2026-05-28). Rev 1.2 fixed compare anchor + chart extends to live. |
+| DAO Treasury | `dao_treasury.html` | 3.1 | Linked from DAO Links dropdown tile. ✅ Cross-page chrome added in Rev 3.24. Rev 3.0 (2026-05-28) — full unified-view rebuild (removed 4-tab structure, added token pills + Amount/USD toggle). Rev 3.1 (2026-05-29) — 3-bucket "What Changed" framework (Market / Organic / DAO Actions). |
 | Fuel Tool | `fuel-tool.html` | 1.3 | Linked from Tools page. ✅ Renamed from `fuel_tracker.html` in Rev 3.22. ✅ Cross-page chrome added in Rev 3.24. |
 | ampCapa Tool | `ampcapa-tool.html` | 1.3 | Linked from Tools page. ✅ Renamed from `capa_lp_converter.html` in Rev 3.22. ✅ Cross-page chrome added in Rev 3.24. |
 | TLA Docs | `tla-docs.html` | 1.3 | Linked from TLA Stats. ✅ Cross-page chrome added in Rev 3.24. Title block cleaned in Rev 3.25. |
@@ -505,6 +505,67 @@ If we ever need to change one of the structural fields, plan to communicate to u
 - **Where to look first:** the export-builder code that writes the JSON should be reading `store.liveEpochInfo?.currentEpoch` like the rest of the tool does. If it's reading a stale or non-populated field, the export gets `"unknown"`.
 - **Until fixed:** rename downloaded files manually before push (`astroport-epoch-184-2026-05-09.json` not `epoch-unknown`), and the Skeleton 4-epoch-avg numbers should be considered suspect for any epoch where `historicalEpochsLoaded` doesn't include the actual current epoch.
 
+### Critical data-capture gotcha — Silent coercion hides cron query failures (May 26 2026)
+
+**Root cause of "adao-positions cron dropped 6 of DAO's 16 LP positions for weeks before anyone noticed."**
+
+The cron's `queryContract` function returned `null` on transient LCD failures (rate-limiting from publicnode under 15-way concurrent load = ~255 in-flight queries per batch). Downstream code did:
+
+```js
+.then(r => ({ bucket, entries: Array.isArray(r) ? r : [] }))
+```
+
+`Array.isArray(null) === false`, so `null` got silently coerced to `[]`. No error recorded, no `_errors` push, nothing logged. Output looked legitimate — just had fewer positions than reality. For the DAO this meant the entire bluechip bucket (3 amp positions) plus 3 of 6 project amp positions vanished from cron output every single run.
+
+Detection took ~3 weeks because:
+- The cron output was still being written successfully (just incomplete)
+- The dashboard tile read cron data and showed "$6,340" — a plausible value
+- No one noticed until cross-referencing against Eris UI's $9,751 for the same wallet
+
+**Pattern to recognize**: any expression of the form `Array.isArray(r) ? r : []` or `r || []` where `r` came from a network call. These collapse "query failed" into "no data" without distinguishing the two.
+
+**Fix (adao-positions v1.3.0, shipped Rev 3.45):**
+1. **Retry with backoff** in `queryContract` — 2× primary attempts with 200-500 ms jittered backoff, then fallback endpoint, then `null`
+2. **Distinguish null from empty** — `entries: null` (failed) vs `entries: []` (genuinely empty), propagate as different states
+3. **Surface to `_errors`** — failures push to `portfolio._errors` so they appear in output
+4. **Lower concurrency** — `BATCH_CONCURRENCY` from 15 → 5. 5-way × 17 queries/member = ~85 concurrent peak, well within publicnode tolerance
+
+**General principle for crons:** any silent coercion of a network result is a latent bug. Always preserve the distinction between "we asked and got nothing back" and "we asked and the answer was empty." Push failures to a structured error list in the output so partial-data states are detectable downstream.
+
+### TLA pool valuation paths (matches cron + library logic)
+
+When valuing a DAO position against a pool from `tla-snapshot.json`, the resolver path depends on the position's asset shape:
+
+- **Cw20 LP tokens** → `poolByLpAddr[cw20.toLowerCase()]`
+- **Native / factory tokens** → `poolByGaugeId["native:" + denom]`
+- **Single-asset pools** (ampCAPA, xASTRO, ampROAR-ROAR) — have `lp_address: null`:
+  1. Try `tokenPrices[poolName].final_price_usd` from `network-and-prices.json` (most accurate)
+  2. Fallback to `lp_health.asset_0.price_usd` from snapshot
+  3. Last resort: compounder share fallback `staked_in_tla_usd × (userLp / totalLp)`
+
+Schema gotchas to remember:
+- `asset_configs[].gauge` IS the bucket name (`'single'`, `'stable'`, `'project'`, `'bluechip'`) — not a contract address
+- `user_claimable` (bribe manager) returns `{ start, end, buckets }` — NOT an array. Iterating directly throws.
+- `treasury.lp_positions[].estimated_position_usd` is the correct USD field (NOT `usd_value` at root)
+- `pool.gauge_pool_id` and member-vote `pool_gauge_id` carry the same values — different field names
+- `treasury.wallet_balances[].symbol` is matched on `/zluna/i` to find unredeemed reward tokens (any zluna-suffixed factory denom counts)
+
+### Treasury "What Changed" 3-bucket framework
+
+Documented in `dao_treasury.html` Rev 3.1 (2026-05-29). When showing how the treasury value changed over a window:
+
+```
+Net Change = Market Movement + Organic Growth + DAO Actions
+```
+
+- **Market Movement** — price impact on starting holdings (sum of `oldAmount × (newPrice − oldPrice)`)
+- **Organic Growth** — yield, rewards, slippage (`positionChange − propActionsUsd`)
+- **DAO Actions** — sum of executed props' actual treasury impact (`Σ calcPropImpactUsd(prop.netByToken)` for props in the window)
+
+Without splitting DAO Actions out, a "Deposit into TLA" prop deploying LUNA looks identical to losing money. The 3-bucket attribution makes intent legible. `isReceiptToken` filters zLUNA / amp-LP / LP shares from prop impact valuation so a deposit shows only the LUNA outflow, not the offsetting amp-LP token inflow.
+
+Implementation in `dao_treasury.html`: `getActualTreasuryImpact(prop)` returns per-token net flows; `calcPropImpactUsd(netByToken)` values them in current USD. Default compare window = most recent snapshot → Live.
+
 ### Modals
 - Standard pattern: `<div id="xModal" class="modal fixed inset-0 hidden">` + `<div class="modal-content scale-95">`.
 - Open: remove `hidden`, set opacity/scale on next animation frame.
@@ -531,6 +592,28 @@ If we ever need to change one of the structural fields, plan to communicate to u
 This keeps the log surface manageable — 5 log files instead of 17+ — while still letting users see what's been worked on recently across the whole site.
 
 **Naming convention reminder:** log files live at the root of the `website-adao-core` repo as `<short-name>-log.md` — NOT in any subdirectory. Use the short navigation label, not the full page filename (e.g. `explorer-log.md`, not `nft-explorer-index-log.md`).
+
+### Shared live-data library (`lib/adao-live-data.js`)
+
+Introduced in Rev 3.47 (2026-05-28). Single source of truth for live TLA / treasury / unclaimed-rewards fetching across the dashboard suite. Exposes `window.aDAOLive` with composite getters that follow **live RPC primary → cron fallback → snapshot last-resort** for each metric.
+
+**Why this exists:** the same fetch logic was duplicated across `index.html`, `dao_tla_deposits.html`, and `dao_treasury.html` — including the cron-vs-live-vs-snapshot resolution, the LP valuation paths (cw20 vs native vs single-asset), and the bank balance enumeration. Three copies that drifted out of sync. Library consolidates them.
+
+**Public API:**
+- `aDAOLive.getDaoTlaDeposits()` → composite LP positions + rewards + bribes + zLUNA
+- `aDAOLive.getDaoTreasury()` → wallet balances priced via CoinGecko
+- `aDAOLive.getDaoUnclaimedRewards()` → deposit + rebase + vote rewards
+- `aDAOLive.getTlaCatalog()` → pools, amp configs, token prices
+- `aDAOLive.queryChain(addr, msg)`, `aDAOLive.bankBalances(wallet)`, `aDAOLive.cw20Balance(...)` — primitives for one-off needs
+- `aDAOLive.getCron(name)` — raw cron data passthrough when needed
+- `aDAOLive.clearCache(pattern?)` — selective cache invalidation
+- Constants: `DAO_MAIN_WALLET`, `TLA_STAKING_BY_BUCKET`, `TLA_ASSET_COMPOUNDER`, `ZLUNA_CONNECTORS`, `denomMap`
+
+**Caching:** layered in-memory `Map` + `sessionStorage` (keyed `adao_live:`). Survives navigation between pages within a tab. TTL 5 min for live LP capture + catalog, 1 min for unclaimed rewards. Second page load is effectively instant.
+
+**Architecture rule:** dashboard tiles should be LIVE feeds (RPC primary), cron is fallback + historical capture only. Never tie tile freshness to cron's hourly cadence. New tile work goes through `aDAOLive`. The cron is correctly positioned as historical capture + resilience, not the data source for current state.
+
+**Migration status:** `index.html` and `dao_treasury.html` still have inline live-data code that should migrate to `aDAOLive` incrementally. New work uses the library; legacy paths get migrated when touched. Tracked in `CHANGES_PENDING.md`.
 
 ### Cross-page consistency requirements
 **Every user-facing page should look and feel like `index.html`.** This is a hard requirement — pages should be visually indistinguishable from each other except for body content. Specifically:

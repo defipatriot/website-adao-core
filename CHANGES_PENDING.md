@@ -8,7 +8,7 @@
 ## 🛠 Active / next round
 
 ### 🔥 P1 — Switch adao-positions Render schedule from weekly to daily
-**Identified 2026-05-17.** The cron is currently scheduled `0 1 * * 1` (Mondays only). For the Portfolio Tracker dashboard to accumulate meaningful position history, it needs to run **daily**. The cron code now produces a `data/daily/{YYYY-MM-DD}.json` archive on every run (added 2026-05-17) — that file overwrites within a day, so daily cadence gives one snapshot per calendar day.
+**Identified 2026-05-17. Confirmed still pending 2026-05-29.** The cron is currently scheduled `0 1 * * 1` (Mondays only). For the Portfolio Tracker dashboard to accumulate meaningful position history, it needs to run **daily**. The cron code now produces a `data/daily/{YYYY-MM-DD}.json` archive on every run (added 2026-05-17) — that file overwrites within a day, so daily cadence gives one snapshot per calendar day.
 
 Two changes required:
 1. **[ ] Update Render cron expression**: `0 1 * * 1` → `0 1 * * *` (this is a manual click in the Render dashboard)
@@ -18,17 +18,22 @@ Ship both together. If only the Render click happens, the heartbeat is wrong; if
 
 Without the Render change, letting things run for weeks produces 0 weeks of Portfolio Tracker history. **Top priority — should ship before any other accumulated-data work.**
 
-### 🔥 P1 — Push current `tla-stats.html` to thealliancedao.com
-**Built 2026-05-17.** Member Data overlay feature complete + critical bribes resolver bug fixed. Verified end-to-end against real production data.
+### ✅ Push current `tla-stats.html` to thealliancedao.com — SHIPPED 2026-05-17
+**Done.** Rev 2.1 deployed. Member Data overlay feature live + critical bribes resolver bug fixed. Global Epoch Bribes tile climbed from ~$820 to ~$1,300 as expected. See `tla-log.md` for full record.
 
-What ships:
-- Header dropdown for member selection
-- Pie chart member slice, waterfall member layer, threshold watch member filter
-- 6 member-only stat tiles (Astro/Skeleton LPs, Epoch Rewards, Epoch Bribes, two APR tiles)
-- Bribes resolver fix — was pricing cw20 bribe tokens (CAPA, ROAR, etc.) as $0. Global Epoch Bribes tile expected to climb from ~$820 to ~$1,300 on next load (more accurate).
-- All pool lookups now keyed on `gauge_pool_id` (truly unique) instead of `name+dex` (which collides).
+### 🟢 P2 — Migrate index.html inline live-data code to `aDAOLive` library
+**Identified 2026-05-28 (Rev 3.47).** The shared library `lib/adao-live-data.js` is now the canonical source for live RPC fetching, but `index.html` still has its own inline copies of `fetchLiveTlaDeposits`, `queryChain`, `fetchTlaSharedCatalog`, `fetchLiveTlaDepositsFromChain`, etc. They coexist (both work) but the duplication will drift. Migrate incrementally — when touching one of these code paths for another reason, swap it for the library call.
 
-See `tla-log.md` for the full change record (entry: Rev 2.1 — 2026-05-17).
+Bonus: removes ~300 lines from index.html, helping cold-start parse time slightly.
+
+### 🟢 P2 — Migrate dao_treasury.html inline live-balance code to `aDAOLive.getDaoTreasury()`
+**Identified 2026-05-28.** `dao_treasury.html` already pulled live wallet balances correctly before the library existed (it was the first page to use this pattern). Now that `aDAOLive.getDaoTreasury()` does the same thing with consistent caching across pages, migrate. The library was tested to return identical values ($13,912.14 across 9 priced tokens) against the page's own code at deploy time, so this is a safe drop-in.
+
+### 🟢 P2 — Fix TLA Deposits modal inside index.html to show live per-pool data
+**Identified 2026-05-28.** The TLA Deposits modal (drill-down from the tile) still shows snapshot per-pool data. With `aDAOLive.getDaoTlaDeposits()` already returning live per-position data (16 positions including bluechip + single-asset), the modal can show real-time per-pool breakdowns. Estimated ~80 lines to wire up.
+
+### 🟢 P2 — Enterprise Staked chart shows 403→503 jump in history
+**Identified 2026-05-24 (Rev 3.43).** The Enterprise Staked tile now correctly shows 403 (excluding 100 DAO-controlled broken NFTs), but historical chart data captured before the filter was applied shows the unfiltered 503 count. Cron-side fix needed in the source data — either backfill the historical archive files with the corrected counts, or have the dashboard apply the same filter when rendering historical points.
 
 ### 🟡 P2 — APR outliers for stable pairs (USDC-USDT, USDC-EURe)
 **Discovered 2026-05-17 audit.** These two pools show APR ~5× higher than Eris's number for the same pool. Specific to stable pools — non-stable pools are internally consistent. Likely tied to stable-pair price normalization in the `tla-snapshot` cron's APR formula. Needs investigation.
@@ -38,6 +43,11 @@ See `tla-log.md` for the full change record (entry: Rev 2.1 — 2026-05-17).
 
 ### 🟡 P2 — IBC denom resolution gap in network-and-prices
 **Discovered 2026-05-17 audit.** The LUNA-USDC bribe asset (`ibc/8D8A7F7253615E5F76CB6252A1E1BD921D5EDB7BBAAF8913FB1C77FF125D9995`) is not in the 27-token `network-and-prices` index. Eris prices this bribe at $12.93 but our resolver returns $0. Fix: add explicit IBC-denom → symbol mapping for known TLA-relevant denoms in the `network-and-prices` cron.
+
+Note: Rev 3.48 added native-denom lookups including this IBC hash → ASTRO in the vote-rewards capture path inside `index.html` as a local workaround. Cron-side fix would let other consumers benefit too.
+
+### 🟢 P3 — SS API migration
+**Status 2026-05-26.** Skeleton Swap rebuilt their API around May 4 — moved from `dex.warlock.backbonelabs.io` (frozen) to `/api/pools` direct path. `test.html` temporarily hides SS lines. SS cron needs updating to consume the new endpoint. May intersect with the Rev 3.37 chain-direct rebuild already done — confirm whether the new BackBone endpoint or the chain-direct path is the long-term plan.
 
 ### 🟢 dao-tla.html — Member Stats page (Pass 2)
 Member-level breakdowns deferred from the `tla-stats.html` V6 rebuild. Data already collected in `adao-positions/current.json` members array (46 members, each with summary VP, vote allocations, locks, rewards, bribes claim status).
