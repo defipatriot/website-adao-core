@@ -331,7 +331,7 @@ Each page has a target rev number for the changelog system rollout. See "Cross-p
 
 | Display name | File | Current rev | Notes |
 |---|---|---|---|
-| (Home) | `index.html` | 3.48 | The main dashboard, ~12.6k lines. Has the changelog system. Live RPC tile architecture matured 3.38–3.48. |
+| (Home) | `index.html` | 3.50 | The main dashboard, ~12.6k lines. Has the changelog system. Live RPC tile architecture matured 3.38–3.48. Snapshot-staleness modal disabled in Rev 3.49 (replaced by cron-status footer widget). Legacy snapshot infra audit + cleanup in Rev 3.50 (-18 KB dead code, staking APR migrated to cron). |
 | NFT Explorer | `nft-explorer-index.html` | 4.13 | Top nav tab. ✅ Cross-page chrome added in Rev 3.22. Map view removed in Rev 4.13. |
 | aDAO Lore | `adao-lore.html` | 2.9 | Top nav tab. ✅ Renamed from `planet-map.html` in Rev 3.22. ✅ Cross-page chrome added. |
 | TLA Stats | `tla-stats.html` | 2.1 | Top nav tab. ✅ Rebuilt 2026-05-14 to consume continuous cron data sources. Member Data overlay + bribes resolver fix in Rev 2.1 (2026-05-17). |

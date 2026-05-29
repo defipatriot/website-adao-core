@@ -7,7 +7,77 @@ This file also covers cross-cutting site changes that affect multiple pages — 
 
 ---
 
-## Rev 3.48 — 2026-05-29
+## Rev 3.50 — 2026-05-29
+
+Audit + cleanup pass for legacy epoch-snapshot remnants. Now that all tiles are live-RPC + cron-driven, several pieces of the old snapshot infrastructure were either dead or redundant.
+
+### Removed (dead code)
+
+**Orphan Snapshot Manager modal** (~212 HTML lines + ~60 JS lines)
+The `#snapshotModal` admin UI provided "Paste from Eris" and "Manual Entry" capture modes for the legacy per-epoch snapshot workflow. The trigger element (`id="snapshot-link"`) didn't exist anywhere in the DOM, so the modal couldn't actually be opened — confirmed dead. The capture flow now lives in `tla_tool.html` (admin tool, per PROJECT_KNOWLEDGE convention). Removed:
+- The full modal DOM (lines 2750–2960 pre-cleanup)
+- `setSnapshotMode()` function
+- `loadLastSnapshotValues()` function
+- `'snapshot-link': 'snapshotModal'` mapping in `modalTriggers`
+- The special-case click handler for the missing trigger
+- The `#snapshot-link` CSS rules
+
+**Dead `unclaimed-stale-banner` HTML block**
+The big red banner inside the DAO Unclaimed Rewards card was already hidden by `applyTlaStaleness` on every render (Rev 3.30 replaced it with the launch modal, then Rev 3.49 disabled that modal too). Removed:
+- The banner's HTML
+- The mobile CSS rules that styled it
+- The JS that hid it on every render (dead code path)
+
+The small `Stale Data` pill on the card title remains as a low-noise indicator if it's ever needed.
+
+### Migrated (legacy → cron)
+
+**`loadStakingApr()` now reads from the `network-and-prices` cron**
+Previously fetched `tla-ext_json_storage/Staking APR.csv`, parsed the last line, and used that as "the current staking APR." The cron's `network.staking_apr` field is computed hourly from chain queries (inflation, bonded ratio, community tax) and matches the same calculation — but is fresh on every cron run rather than waiting on manual CSV updates. Cleaner data path, one fewer legacy repo dependency.
+
+Note: `fetchStakingAprHistory()` (different function, used by chart modals for the full multi-year time series) is **kept on the CSV** — the cron doesn't have years of accumulated history, and that's the only source for it.
+
+### Relabeled (UI accuracy)
+
+**`unclaimed-data-status` initial text: "Data from TLA Snapshot" → "Loading..."**
+The label is overwritten on first live fetch (`Live • HH:MM:SS UTC` once `applyLiveUnclaimedRewards` succeeds). But for the brief flash before that, the original label lied — the tile isn't snapshot-driven anymore. Neutral "Loading..." is honest.
+
+### Kept (still needed, documented)
+
+- `fetchAllSnapshots()` (lines ~5000+) — loads weekly snapshots from `tla_json_storage` for the historical chart modals (epochs 161 onwards). Crons only started capturing in May 2026, so this is still the only source for multi-month chart history. Migrate when the cron has enough accumulated weekly archives.
+- `epoch_1-300_date.json` lookup — canonical 1-indexed epoch schedule, per PROJECT_KNOWLEDGE.
+- `adao_json_storage/adao_props.json` — DAO proposals data, separate concern.
+- `adao_json_storage/` sales history paths — NFT sales tracking, separate concern.
+- TLA Deposits modal "Snapshot" labels — the modal itself still shows snapshot per-pool data; labels are accurate. Migrating the modal to live per-pool data is tracked in CHANGES_PENDING (P2).
+
+### Impact
+- File size: ~931 KB → ~913 KB (-18 KB / -284 lines)
+- Cold-start parse time: marginal improvement
+- Fewer legacy data dependencies, one less point of confusion when reading the code
+
+---
+
+
+
+Disabled the "Snapshot data is stale" launch popup. The modal made sense when tiles were snapshot-driven, but the architecture has moved on:
+
+### Why this needed to go
+- **TLA VP, TLA Deposits, Unclaimed Rewards, Treasury, Broken NFTs all read live RPC primary now** (Rev 3.38, 3.41, 3.46, 3.47). Snapshots are fallback only.
+- **Cron health has its own visible surface** — the footer cron-status widget shipped in Rev 3.37 with freshness fingerprinting catches stuck/stale crons explicitly and surfaces them in the UI.
+- **The modal as written named exactly the wrong tiles** — text said "TLA deposits, VP, unclaimed rewards may not reflect recent claims" but those three are precisely what's NO LONGER snapshot-based. The popup would lie to users showing fresh data underneath.
+
+### What changed
+- `applyTlaStaleness()` no longer calls `showStaleDataModal(meta)` — call site commented out with explanation.
+- `applyTlaStaleness()` no longer sets dot indicators on `dao-tla-title` and `dao-tla-vp-title` — those are owned by the live setters now (`applyLiveTlaDeposits` and the TLA VP live fetcher). The old snapshot-based dot fought the live ones in a race condition; whichever ran last won.
+- The `showStaleDataModal()` function and `#staleDataModal` DOM are kept in place as a one-line revert path if some edge case is discovered.
+- The small "Stale Data" pill on the unclaimed-rewards card header remains — it's a low-noise indicator, not a viewport-blocking modal.
+
+### Cron health is the new authoritative staleness surface
+If a cron stops updating or starts returning stuck data (same fingerprint N runs in a row), the footer cron-status widget shows that explicitly. Users diagnosing "why is this number weird" go there now, not to a launch-time popup. This matches Design Principle #1 (honest data, no false positives) much better than warning about staleness that no longer affects the tiles.
+
+---
+
+
 
 Vote Rewards tile showed `$0` even though tokens were claimable. Two stacked bugs.
 

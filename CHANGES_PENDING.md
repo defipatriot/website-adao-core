@@ -144,7 +144,7 @@ Big refactor, not urgent. Would dramatically simplify the cross-page chrome roll
 ## 🧹 Cleanup — low priority, safe to defer
 
 - [ ] Remove dead Logos modal HTML in `index.html` (line 1745+) and the `'logo-modal-trigger': 'logoModal'` mapping in JS (~line 5396)
-- [ ] Delete `unclaimed-stale-banner` HTML element from `index.html` (Rev 3.30 hides it; replaced by modal)
+- [x] ~~Delete `unclaimed-stale-banner` HTML element from `index.html`~~ — **Done Rev 3.50.** Banner removed entirely along with its mobile CSS rules and the dead JS hide-call.
 - [ ] Deduplicate `fmt` helper from Rev 3.26 vs `safeLocale` from Rev 3.27 — both do the same thing
 - [ ] Remove `fetchTlaFromGitHub` + `_adaoSnapshotCache` if anything is still left after Rev 3.31's deletion (verify)
 - [ ] Old `dao_governance.html` is renamed to `dao.html` (Rev 3.22) — check Vercel for stale 404s on old URL
