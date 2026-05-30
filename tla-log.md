@@ -126,6 +126,9 @@ Added a global "Explain mode" toggle (top-right of Overview). Off by default, so
 #### Rev 3.36 — Replace explain mode with per-panel expandable descriptions; header tidy-ups
 Reverted the global Explain-mode toggle in favour of per-panel descriptions: every major panel (Liquidity Growth, Pool Health, Threshold Watch, Vote Breakdown) now keeps a short always-visible one-line description plus a "learn more" link that expands the full plain-language explanation inline (toggleDesc + .desc-full). Cleaner than a global mode — the explanation lives next to the panel and you open only the one you need. Also: (1) fixed the header reflow — the member summary chip (VP/LP/active) now sits on its own line below the member selector instead of inline, so selecting a member no longer pushes the Live Epoch / Epoch Ends In group around; (2) removed the "Data Snapshot — Epoch NNN" element from the header entirely (freshness already lives in the footer cron-health popover and the data-notice), replaced with a quiet green "Live" dot.
 
+#### Rev 3.37 — Footer rev label auto-tracks the changelog + last-updated date
+The footer "Rev 2.2 · Changelog" label was hardcoded in the HTML, so it never moved when tla-log.md was pushed (the changelog MODAL fetches live from GitHub, but the little rev label did not). Fixed by deriving the label from the changelog itself: on page load (and on modal open) the page reads the top `## Rev X — YYYY-MM-DD` header from tla-log.md and sets the footer to "Rev X · Changelog · updated <Mon D, YYYY>". Now it auto-tracks every future push — no more hand-editing — and adds an at-a-glance last-updated date so visitors can see the dashboard is actively maintained.
+
 ---
 
 ## Rev 2.2 — 2026-05-29
