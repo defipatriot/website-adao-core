@@ -129,6 +129,9 @@ Reverted the global Explain-mode toggle in favour of per-panel descriptions: eve
 #### Rev 3.37 — Footer rev label auto-tracks the changelog + last-updated date
 The footer "Rev 2.2 · Changelog" label was hardcoded in the HTML, so it never moved when tla-log.md was pushed (the changelog MODAL fetches live from GitHub, but the little rev label did not). Fixed by deriving the label from the changelog itself: on page load (and on modal open) the page reads the top `## Rev X — YYYY-MM-DD` header from tla-log.md and sets the footer to "Rev X · Changelog · updated <Mon D, YYYY>". Now it auto-tracks every future push — no more hand-editing — and adds an at-a-glance last-updated date so visitors can see the dashboard is actively maintained.
 
+#### Rev 3.38 — Changelog: jump-to-rev navigation
+The changelog modal is long (Rev 3 alone has 37 sub-entries before you reach Rev 2/1). Added a "Jump to:" pill row at the top of the modal — one pill per major revision (Rev 3, 2.2, 2.1, 2.0, 1.15, 1.14), each scrolls straight to that revision. Built dynamically from the ## Rev headers in tla-log.md (anchor ids added to each rev header during markdown parse), so it auto-includes any future revisions with no extra work. Note: the footer label intentionally shows the MAJOR rev ("Rev 3") not the sub-rev — the X.x detail lives inside the changelog.
+
 ---
 
 ## Rev 2.2 — 2026-05-29
