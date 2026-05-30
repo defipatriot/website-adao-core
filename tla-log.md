@@ -5,6 +5,56 @@ Newest revisions on top. Times are UTC.
 
 ---
 
+## Rev 2.2 — 2026-05-29
+
+Pool health, capital-flow, and a full member mode built on top of the Rev 2.1 member overlay. All additions live in the rendering layer; the cron data layer is untouched except for two new history rollups that ride along with the existing `tla-snapshot` cron (see `cron-scripts/` and the new data files below).
+
+### What changed
+
+#### Pool Health & Capital Flow panel (new)
+A watchlist of TLA's largest exposures, ranked by staked capital. Each pool shows a 4-epoch sparkline of its TLA stake, dollar flow this epoch, a health dot, and in/out/net summary cards. Comparisons are made within each pool's own `pool_address` series (never by name) so old/new pool migrations don't create phantom drops. Alarms are market-normalized — a pool is only flagged when it's draining materially faster than its bucket's median, so a broad market dip doesn't trip false alarms. Tiers: combined exit signal (depth + reserves + price all down hard), draining faster than peers, and sustained bleed (down every epoch and at least 15% cumulative). Reserve skew is shown only when a pair is meaningfully off 50/50.
+
+#### Member mode (new) — the panels become personal when you pick a wallet
+Selecting a member in the header now transforms two panels into a personal view, and reverts cleanly when deselected:
+
+- **Pool Health becomes "Your positions & flow"**: your LP positions ranked by your own capital. Each row splits two honest signals side by side:
+  - **Stake** — the change in your *real* LP units (vault/ampLP shares, falling back to LP tokens or underlying), which is the true deposit/withdraw signal. Auto-compounding and deposits grow it; only a genuine withdrawal shrinks it.
+  - **Value** — the USD change, which also moves with token price. Price-driven moves are tagged `(price)` so a falling token can never look like you pulling capital.
+  - Summary cards: **Value change** (USD, incl. price), **Stake added** (deposits + compounding), and **Stake reduced** (actual withdrawals only).
+- **Threshold Watch becomes "Your at-risk pools"**: driven by your actual positions (`status` + `distance_from_threshold_pp`), not your votes — your pools that are near the 1% line, dropped this epoch, or already inactive.
+
+Members holding the same pool under multiple stake configs are aggregated into one row. Member flow is epoch-over-epoch against the prior weekly archive; when that archive is missing, positions still list and the flow baseline is marked unavailable.
+
+#### Threshold Watch rework
+Rebuilt to be history-driven (keyed `name|bucket`): active danger-band pools (1–2% of bucket) most-at-risk first with an epoch-over-epoch trend, pools dropped this epoch, and an expandable list of drops over the last 4 epochs.
+
+#### Leaderboards & APR history
+Leaderboards now use true 4-epoch rolling averages with rank-movement badges and percentage deltas. New APR history (per-epoch rollup feeding a page consumer) adds an APR movement badge versus the last completed epoch.
+
+#### Fixes
+- **Single-asset pools** (ampCAPA, xASTRO) were mislabeled "Skeleton" in the Vote Breakdown waterfall — the dex sub-label was a binary `Astro` / `Skeleton`, so anything not Astroport fell through to Skeleton. They now correctly read "Single." (ampROAR-ROAR is a genuine Skeleton Swap pair and is unchanged.)
+- Removed the orphaned "snapshot missed" popup.
+- Removed the Skeleton Swap amber data-limitation banner.
+- Fixed a false STALE outline caused by the bribes-history sporadic-data flag.
+
+#### New data (cron side)
+Two history files now accumulate, written once/day by rollups folded into the existing `tla-snapshot` cron (no new Render service):
+- `apr-history.json` — per-epoch APR + staked averages per pool
+- `pool-status-history.json` — per-epoch VP, bucket %, status, depth, staked, and reserves per pool (keyed `pool_address|bucket`)
+
+### Verified working
+- Pool Health watchlist flags the genuinely draining pools (LUNA-arbLUNA sustained bleed, LUNA-ATOM faster-than-peers) and stays quiet otherwise; net flow reconciles
+- Single-asset pools read "Single"; Astroport reads "Astro"; Skeleton Swap reads "Skeleton"
+- Member mode verified against live `adao-positions` data: the stake-vs-value split correctly separates real withdrawals from price — the only genuine withdrawal DAO-wide this epoch is one member trimming USDC-SOLID ~19%; every other apparent outflow was price movement
+- Member at-risk view honestly shows "none near threshold" when all of a member's pools sit comfortably above the 1% line
+- Both history rollups produce output byte-identical to hand computation against real daily archives
+
+### Known limitations (acceptable)
+- Member flow is epoch-over-epoch (positions update at the adao-positions cron cadence), and depends on the prior epoch's weekly archive existing
+- For compounder vaults, manual deposits and auto-compounding both grow your unit count and can't be fully separated — hence the "Stake added: deposits + compounding" label
+
+---
+
 ## Rev 2.1 — 2026-05-17
 
 Member Data overlay feature + critical bribes resolver bug fix. Surgical additions to the rendering layer; cron data layer untouched (separate cron-side updates ship in the same session — see `cron-scripts/` repo for those).
