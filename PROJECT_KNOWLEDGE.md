@@ -25,6 +25,9 @@ The user has explicitly stated they will forget things and lose track. **Claude 
 | Naming collision discovered (e.g. our project vs. similar-named other) | "Naming clarification" section | SEO + comms accuracy |
 | User clarifies a workflow constraint (e.g. file naming on download) | "Working conventions" section | Smooth handoffs |
 | Admin-tool bug found or fixed (data-capture, snapshot tools) | "Critical data-capture gotcha" section | Prevent regression; admin tools don't have a changelog footer so this doc is the only record |
+| Catalog cron bug root-caused (`tla-registry` cron, `tla-catalog.html`, or schema/curation files) | "TLA Chain Registry catalog system" section ⟶ "Critical catalog gotchas" subsection, AND prepend a Rev entry in `catalog-log.md` | Catalog bug class lessons are easy to forget; document the **why** not just the fix |
+| New on-chain query method discovered, or new contract address surfaced for future queries | `queries.md` — add a Q-{Contract}-{Method} block with human label, input shape, output shape, and what it powers | This is the build foundation for the future query tool — don't lose method discoveries |
+| Catalog-related curated file changes (`token_overrides.json`, `acquisition_guides.json`, `known_contracts.json`, etc.) | `catalog-log.md` Rev entry | Curation changes are not code changes but DO affect the catalog output — track them so future audits can correlate "this token's display changed because we added an override" |
 
 ### When to update CHANGES_PENDING.md
 
@@ -166,7 +169,7 @@ PWA shortcuts, install prompts, default-page selectors — all are bonus feature
 - `defipatriot/website-adao-core` — project docs + changelogs (this repo).
 
 #### Cron-produced data repos (active 2026 — written automatically by Render crons)
-**9 production crons live and writing on schedule.** Cron source code lives in `defipatriot/cron-scripts` (one folder per cron). Each writes to its own `*-data_2026` data repo. Status verified 2026-05-17:
+**10 production crons live and writing on schedule.** Cron source code lives in `defipatriot/cron-scripts` (one folder per cron). Each writes to its own `*-data_2026` data repo. Status verified 2026-05-17 (9 crons) plus 2026-06-02 (catalog cron audit).
 
 | Data repo | Source cron | Schedule | Main output file |
 |---|---|---|---|
@@ -179,6 +182,7 @@ PWA shortcuts, install prompts, default-page selectors — all are bonus feature
 | `defipatriot/votion-data_2026` | `votion` | Weekly Sun 23:55 | `votion/votion-epoch-{N}.json` (next-epoch optimization) |
 | `defipatriot/nft-inventory-data_2026` | `nft-inventory` | Hourly :30 | `nfts.json` (full 10K inventory) + `summary.json` (minted/unminted/broken counts) |
 | `defipatriot/marketplace-data_2026` | `marketplace-stats` | Hourly :15 | BBL + Boost listings, floor prices, sales history (per-year files), activity feed |
+| `defipatriot/tla-chain-registry` | `tla-registry` (catalog) | Daily 01:00 | `2026/current.json` + `2026/heartbeat.json` — catalog of every TLA-gauged LP + underlyings + amplps, with cross-source name/CG/bridge reconciliation. See **"TLA Chain Registry catalog system"** section below for full architecture. |
 
 #### Notes on data repo numbering quirks
 - **Votion uses NEXT-epoch convention** — `votion-epoch-185.json` is captured during epoch 184, contains optimization data FOR upcoming epoch 185. This matches Eris's Votion UI convention.
@@ -307,7 +311,181 @@ Full per-cron audit performed. Most data is reliable. Two real issues found and 
 - Tokens have write scope to that cron's data repo only
 
 ### Per-cron documentation
-Each cron has its own `README.md` in its folder. Recent changes are tracked in a "Recent changes" section at the end of each cron's README. The top-level `cron-scripts/README.md` has a "Project status & roadmap" section covering cross-cutting context (strategic direction, data trust, prioritized roadmap). The dashboard (`tla-stats.html`) has its own changelog in `website-adao-core/tla-log.md` (following the per-page log convention: `index-log.md`, `tla-log.md`, `lore-log.md`, `explorer-log.md`, `dao-log.md`).
+Each cron has its own `README.md` in its folder. Recent changes are tracked in a "Recent changes" section at the end of each cron's README. The top-level `cron-scripts/README.md` has a "Project status & roadmap" section covering cross-cutting context (strategic direction, data trust, prioritized roadmap). The dashboard (`tla-stats.html`) has its own changelog in `website-adao-core/tla-log.md` (following the per-page log convention: `index-log.md`, `tla-log.md`, `lore-log.md`, `explorer-log.md`, `dao-log.md`, plus `catalog-log.md` for the TLA Chain Registry catalog system).
+
+---
+
+## TLA Chain Registry catalog system — the data foundation
+
+**Started 2026-05-XX, audited heavily 2026-06-02.** This is the 10th cron, named `tla-registry`. Unlike the other 9 crons which collect different aspects of TLA activity for the dashboards, this cron's job is to produce a **canonical registry** of every TLA-relevant token, LP, amplp, and contract — with cross-source reconciliation, on-chain verification, and explicit trust signals.
+
+### Scope & north star
+
+**The catalog is a TLA-only verification tool.** Its job is to surface everything in TLA's gauge (active or inactive or dewhitelisted) plus underlyings + amplps, with the metadata users need to participate safely. Out of scope: the wider DEX ecosystem, random Terra tokens, pools not in TLA's gauge.
+
+**`tla-catalog.html` is a verification surface, not the destination.** The page exists to make data problems visible. The real user-facing pages (`dao-tla.html` Member Stats, the future Portfolio Tracker, Vote Intelligence, Bribes panels) will consume the catalog data through proper UIs. For now: get the data right.
+
+**Honest data over false positives.** Identical principle to Design Principle #1 — applied to catalog. No silent fallbacks, no faking upstream gaps, no hiding source disagreement. When sources conflict, surface it. When data is missing, say it's missing.
+
+### Data flow
+
+```
+External sources (parallel, isolated)
+  ├─ chain-registry (cosmos/chain-registry terra2/assetlist.json)
+  ├─ Eris /prices  (backend.erisprotocol.com/prices)
+  ├─ Astroport /api/pools?chainId=phoenix-1
+  ├─ SS /api/pools/phoenix-1  (dex.warlock.backbonelabs.io)
+  └─ CoinGecko /coins/list?include_platform=true
+                          │
+                          ▼
+On-chain queries (Terra LCD, retry+fallback)
+  ├─ global-config.all_addresses  — get the address book
+  ├─ asset-gauge {distributions, config, last_distribution_period}
+  ├─ voting-escrow {num_tokens, all_tokens, lock_info}
+  ├─ asset-compounder {asset_configs}  — amplp factory state
+  ├─ ASSET_STAKING__{bucket} {whitelisted_asset_details}  — per-bucket LPs
+  ├─ For each LP: {minter} → {pair}  — resolve underlyings
+  └─ For each amplp: {minter} → {pair}  — resolve underlying LPs' underlyings
+                          │
+                          ▼
+Reconciliation + verification stages
+  ├─ Stage 5b dedup (no double-counting)
+  ├─ Stage 5c synthesize missing amplps  (Eris doesn't price all 65)
+  ├─ Stage 6 cascade is_amplp_underlying to correct layer
+  ├─ Stage 7b hardcoded override (boneLUNA + future cases)
+  ├─ Stage 7c CG verification: terra-2 platform + bridge-trace fallback
+  ├─ Stage 8b auto-suggest acquisition guide from bridge data
+  ├─ Scope filter (TLA-only) — drops out-of-scope addresses
+  └─ source_coverage block (per-source asset counts for tooltips)
+                          │
+                          ▼
+Output to defipatriot/tla-chain-registry
+  ├─ 2026/current.json     — the canonical catalog (~500 KB)
+  ├─ 2026/heartbeat.json   — cron status + last-run metadata
+  └─ 2026/daily/{YYYY-MM-DD}.json  — daily archives (planned)
+                          │
+                          ▼
+Consumer pages
+  ├─ tla-catalog.html  — verification surface (Phase 0)
+  ├─ tla-stats.html    — already consumes via aDAOLive.getTlaCatalog()
+  └─ Future: dao-tla.html, Portfolio Tracker, Vote Intelligence
+```
+
+### Cross-source naming reconciliation
+
+Every token in the catalog tracks what each source says about it separately:
+
+```json
+"sources": {
+  "eris":                  { "display": "boneLUNA", "_display_original": "bLUNA", "_display_overridden": true, "coingecko_id": "backbone-labs-staked-luna", "decimals": 6, "price_usd": "1.84" },
+  "astroport":             { "symbol": "bLUNA", "name": "Backbone Labs", "decimals": 6 },
+  "skeletonswap":          { "symbol": "bLUNA", "name": "...", "logo_url": "..." } | null,
+  "cosmos_chain_registry": { "symbol": "bLUNA", "name": "...", "logo_uri": "..." } | null,
+  "coingecko":             { "cg_id": "backbone-labs-staked-luna", "symbol": "bluna", "name": "...", "platform": "terra-2" }
+}
+```
+
+When sources disagree (different display names, different CG IDs, different decimals), the catalog surfaces the disagreement rather than picking a winner silently. The Cross-source naming panel on the page shows each source's claim side-by-side.
+
+### CG verification methodology
+
+CoinGecko's mapping table has well-known holes. Eris's `/prices` sometimes claims a CG ID that's wrong (3 mismatches caught in the 2026-06-02 audit alone — see `catalog-log.md` Rev 0.10). Stage 7c independently verifies every claimed CG ID against CG's own `terra-2` platform index, AND adds a bridge-trace fallback for tokens CG indexes by source chain (e.g., PAXG → `pax-gold` is keyed at the Ethereum address `0x45804880...`; we follow `bridge.all_traces` to find it).
+
+Per-token CG match status:
+
+| Status | Meaning |
+|---|---|
+| `verified` | Eris's claim matches CG's terra-2 listing for this address |
+| `verified_via_bridge` | Eris had no claim or wrong claim; we found the right CG ID by tracing the bridge path |
+| `discovered` | Eris had no claim; we found a terra-2 listing for this address |
+| `mismatch` | Eris claimed an ID; CG actually maps this address to a different ID — both surfaced |
+| `unverified_no_terra_addr` | Eris's claim refers to a CG ID that doesn't have a terra-2 platform entry |
+| `hardcoded_override` | Manual override (currently just `bLUNA → backbone-labs-staked-luna`) |
+| `no_mapping` | No source provided a CG ID; not found by terra-2 or bridge lookup |
+
+### Critical catalog gotchas — DON'T REPEAT
+
+#### Trust the chain, not API labels (verified 2026-06-02)
+SS's `/api/pools/phoenix-1` JSON has misleading denom labels for some IBC tokens — claims `ibc/C3988DBA...` for "ATOM on Dungeon" in pools that actually hold `ibc/27394FB0...`. The on-chain `pair{}` query bypasses the API and returns truth.
+
+**Verification:** user deposited standard-IBC ATOM into BOTH Astroport and SS LUNA-ATOM LPs. Both accepted. Followup `pair{}` queries on 17 same-named pairs across DEXes returned identical underlying addresses in every case. There's ONE ATOM token on Terra. SS's API just labels it weirdly.
+
+**Lesson:** never trust an API `denom` field when the contract is the authority. Use the dual-LCD query pattern (see `queries.md` Pattern B + Pattern D). When sources disagree, the chain wins.
+
+#### Self-referential vault detection (verified 2026-06-02)
+Eris's single-asset compounder vaults (ampCAPA at `factory/terra186rpf.../ampCAPA`, and any future similar) respond to `pair{}` as if they were 2-asset LPs, returning `asset_infos = [input_asset, self]`. Without intervention, `lp_to_underlyings` ends up with self-references that double-count into `tla_pools_count` and cascade `is_amplp_underlying` to the wrong layer.
+
+**Fix:** scope phase detects `lpAddr ∈ underlyings`, strips the self-reference, and tags entry `_is_vault: true`. Defense-in-depth in Stage 5b dedup and Stage 6 cascade.
+
+**Lesson:** any contract that responds to `pair{}` should be checked for the self-reference pattern before assuming it's a real LP.
+
+#### `(S)` suffix on pool names means Skeleton Swap (not single, not stable)
+TLA's gauge whitelists separate pool entries for Astroport-frontend AND SS-frontend pools of the same trading pair (because they're different on-chain contracts with separate liquidity, fees, votes). The catalog distinguishes via the `(S)` suffix on the SS variant.
+
+- `ATOM-LUNA LP` → Astroport pool at `terra19xrvvkq...`
+- `ATOM-LUNA LP (S)` → SS pool at `terra1adp223mw...`
+
+These are DIFFERENT contracts. The `(S)` is the indicator. Bucket (single/stable/project/bluechip) is a separate field.
+
+**Future UX win:** rename `(S)` to `(Skeleton Swap)` in display labels. Cryptic abbreviation isn't user-friendly.
+
+#### Skeleton Swap is White Whale code, operated by Backbone Labs
+SS pool contracts return `{ contract: "white_whale-pool", version: "1.3.8" }` from the contract-info query. After WW shut down, Backbone Labs took over the pool contracts and built SS as a new frontend on top of the existing infrastructure. Pool addresses are stable (no migration). This explains: (a) why SS pools have a different LP-token-derivation pattern than Astroport (`factory/{pair_addr}/uLP` vs cw20), (b) why config queries return a different shape, and (c) why SS's API has some legacy/inherited metadata quirks.
+
+**Lesson:** never assume "this DEX" means "this protocol team" — the operational layer (frontend, API, governance) can detach from the contract layer (deployed code, addresses).
+
+#### Synthesize records for amplps Eris doesn't price (Stage 5c)
+`asset_compounder.asset_configs` returns 65 amplp vaults. Eris's `/prices` only publishes prices for 54 of them. The 11 missing ones are amplps wrapping legacy/inactive LPs (arbLUNA-LUNA, WHALE-bWHALE, WETH.wh-wstETH, etc.). Without intervention, the catalog only shows 54 amplps and silently drops 11.
+
+**Fix:** Stage 5c synthesizes minimal records from `amplp_mappings` data so all 65 appear, priced as `null` (honest data). Page filter still works correctly because the synthesized records have correct `is_wrapped_by_amplp` / `subtype` fields.
+
+**Lesson:** when two sources have related but non-overlapping records (`asset_configs` knows about 65 amplps; `/prices` knows about 54), preserve the union, not the intersection.
+
+#### Headline-name recompute can clobber overrides (verified 2026-06-02)
+Hardcoded overrides (e.g., `bLUNA → boneLUNA` in Stage 7b) need to propagate to BOTH the headline_name field AND `sources.eris.display`, OR a later stage that recomputes headline_name from `sources.eris.display` will undo the override silently.
+
+**Fix:** override now writes to `sources.eris.display`, preserves the original as `sources.eris._display_original`, sets `_display_overridden: true` for page-side transparency.
+
+**Lesson:** when a stage sets a field that downstream stages might recompute, set ALL the contributing source fields too, and mark the override explicitly so page rendering can show provenance.
+
+### Curated files (lives in `website-adao-core`)
+
+These accompany the cron's automated reconciliation with manual curation:
+
+| File | Purpose |
+|---|---|
+| `categories.json` | Token category definitions (token / lp_token / amplp_token / contract) |
+| `wallets.json` | Council member + institutional wallets |
+| `protocols.json` | Protocol metadata (Eris, Astroport, BBL/Skeleton Swap, etc.) |
+| `known_contracts.json` | Labeled contract addresses for the catalog's contracts tab |
+| `token_overrides.json` | Per-token corrections (display name, subtype, notes). **Skip stubs** (keys not matching real chain addresses) are filtered by `isRealAddress()` check in Stage 7 |
+| `acquisition_guides.json` | Per-token "how to acquire" routes — verified or `route_known_unverified` |
+
+### Phase 0 → Phase 1+ — what comes next
+
+The catalog (Phase 0) is the data foundation. Future builds depend on it:
+
+- **Phase 1: TLA Stats** — already shipping; will increasingly consume catalog data via `aDAOLive.getTlaCatalog()`
+- **Phase 2: Member Stats (`dao-tla.html`)** — surface the 46 named TLA members' positions
+- **Phase 3: Portfolio Tracker** — time-series + P&L using catalog + `adao-positions` daily archive
+- **Phase 4: LP Health Scoring** — multi-epoch ungameable metrics using catalog as the "what LPs exist" registry
+- **Phase 5: Bribes Tracking** — surface bribes-history cron data through catalog-aware UI
+- **Phase 6: Vote Intelligence** — recommendation engine; key differentiator vs Eris UI
+- **Phase 7: Mobile + SEO pass** — across all user-facing pages
+- **Phase 8: Composability / API** — speculative; expose catalog as queryable JSON
+
+Detailed phase definitions live in `CHANGES_PENDING.md` under "Catalog roadmap (Phase 1+)".
+
+### Reading order for catalog work
+
+A future Claude session asked to work on catalog should read (in order):
+
+1. **PROJECT_KNOWLEDGE.md** — this file. Get the lay of the land.
+2. **catalog-log.md** — latest Rev entries. What changed recently, why.
+3. **queries.md** — what we ask the chain and what comes back.
+4. **CHANGES_PENDING.md** — search for "catalog" — what's pending.
+
+That's ~30 minutes to fully reload context. The 2026-06-02 audit night taught us that without persistent documentation, sessions lose 80% of their working context on every chat-hop and end up re-litigating decisions and chasing already-found bugs. **Don't let that happen again.**
 
 ---
 
@@ -348,6 +526,7 @@ Each page has a target rev number for the changelog system rollout. See "Cross-p
 | Fuel Tool | `fuel-tool.html` | 1.3 | Linked from Tools page. ✅ Renamed from `fuel_tracker.html` in Rev 3.22. ✅ Cross-page chrome added in Rev 3.24. |
 | ampCapa Tool | `ampcapa-tool.html` | 1.3 | Linked from Tools page. ✅ Renamed from `capa_lp_converter.html` in Rev 3.22. ✅ Cross-page chrome added in Rev 3.24. |
 | TLA Docs | `tla-docs.html` | 1.3 | Linked from TLA Stats. ✅ Cross-page chrome added in Rev 3.24. Title block cleaned in Rev 3.25. |
+| TLA Catalog | `tla-catalog.html` | 0.10 | **Verification surface** for the TLA Chain Registry catalog data. Renders cross-source token/LP/amplp reconciliation with CG verification badges + take-rate panels + cron-status footer. Not a destination — exists to make data problems visible. Detailed history in `catalog-log.md`. Phase 0 = catalog data correctness; real user-facing tools (Portfolio, Vote Intelligence, Bribes) come after. |
 | _Admin: TLA Tool_ | `tla_tool.html` | — | Internal admin (manual TLA snapshots). Favicon + analytics only — chrome intentionally skipped (admin context). |
 | _Admin: TLA Tool Ext_ | `tla-tool_ext.html` | — | Internal admin extension. Favicon + analytics only — chrome intentionally skipped. |
 | _Admin: DAO Gov Tool_ | `dao_governance_tool.html` | — | Internal governance audit tool. Favicon + analytics only — chrome intentionally skipped. |
@@ -578,7 +757,7 @@ Implementation in `dao_treasury.html`: `getActualTreasuryImpact(prop)` returns p
 - Inline markdown parser handles `# / ## / ### / ####` headings, `-` lists, `**bold**`, `*italic*`, `` `code` `` inline.
 - Updates: bump rev in HTML AND prepend a new `## Rev x.y — date` block to the relevant log file.
 
-**Simplified log file scope** — only the **5 top-level navigation destinations** get their own dedicated log files. All other pages display `index-log.md` since most site changes happen on the homepage anyway:
+**Simplified log file scope** — only the **5 top-level navigation destinations** get their own dedicated log files. All other pages display `index-log.md` since most site changes happen on the homepage anyway. **Exception**: the TLA Chain Registry catalog system has its own log (`catalog-log.md`) because it tracks both a page AND its producer cron, and Phase 0 is substantial enough to deserve a dedicated history.
 
 | Page | Log file fetched | Notes |
 |---|---|---|
@@ -587,6 +766,7 @@ Implementation in `dao_treasury.html`: `getActualTreasuryImpact(prop)` returns p
 | aDAO Lore | `lore-log.md` | Tracks Lore page changes |
 | TLA Stats | `tla-log.md` | Tracks TLA Stats changes |
 | DAO | `dao-log.md` | Tracks DAO landing page changes |
+| TLA Catalog (`tla-catalog.html`) | `catalog-log.md` | Tracks catalog page + `tla-registry` cron changes together |
 | All other pages (ALLY, Tutorials, Tools, Rarity, NFT Releases, Official Links, Alliances, DAO Treasury, DAO TLA Deposits, Fuel Tracker, Capa Converter, TLA Docs, etc.) | `index-log.md` | Show the site-wide changelog |
 
 This keeps the log surface manageable — 5 log files instead of 17+ — while still letting users see what's been worked on recently across the whole site.
@@ -721,10 +901,12 @@ Fetch these raw URLs to load context:
 - `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/CHANGES_PENDING.md`
 - `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/index-log.md`
 - `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/tla-log.md` (if working on TLA stats)
+- `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/catalog-log.md` (if working on the TLA catalog / `tla-registry` cron)
+- `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/queries.md` (any time on-chain queries are involved)
 
 If working on cron-side code, also pull:
-- The relevant cron's source from `defipatriot/cron-scripts` (e.g. `tla-snapshot/tla-snapshot.js`)
-- The latest output JSON for that cron to verify schema (e.g. `tla-snapshot-data_2026/main/data/tla-snapshot.json`)
+- The relevant cron's source from `defipatriot/cron-scripts` (e.g. `tla-snapshot/tla-snapshot.js`, `chain/tla-registry/tla-registry.js`)
+- The latest output JSON for that cron to verify schema (e.g. `tla-snapshot-data_2026/main/data/tla-snapshot.json`, `tla-chain-registry/main/2026/current.json`)
 
 ---
 

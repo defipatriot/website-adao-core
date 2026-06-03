@@ -7,6 +7,31 @@
 
 ## 🛠 Active / next round
 
+### 🔥 P1 — Deploy pending TLA Chain Registry catalog updates (Rev 0.10)
+**Identified 2026-06-02.** End-of-audit-night state. Local files have ~14.5 KB of cron improvements and ~5 KB of page improvements over what's deployed. Bundle ready in `pause-checkpoint.zip` from the audit session.
+
+Contents (full per-stage rationale in `catalog-log.md` Rev 0.10):
+1. Self-referential vault detection in scope phase (ampCAPA-class bug)
+2. Stage 5b dedup (no double-counting amplps)
+3. Stage 5c synthesize 11 missing amplp records
+4. Stage 6 cascade `is_amplp_underlying` to correct layer
+5. Stage 7b override → source propagation (boneLUNA naming case)
+6. Stage 7c CG verification with bridge-trace fallback (PAXG → pax-gold)
+7. Stage 8b auto-suggest acquisition guide from bridge data
+8. `source_coverage` block + page tooltips
+9. CG verification badges + per-status colors
+10. Override badge on Eris UI row with provenance tooltip
+
+**NOT included** (intentionally — wrong premise): `dex-scope-fix.zip` Step E. Was reverted from local cron file before bundling.
+
+**Verification after deploy:**
+- bLUNA card → headline `boneLUNA`, override badge present
+- PAXG card → CG link with `✓ via bridge` teal badge
+- ampCAPA → `TLA pools: 1 (single)` (not 2)
+- FUEL → `amplp underlying: yes (wrapped by amplp)`
+- USDt → "How to acquire" panel with Kava hint
+- ATOM card → tooltips on "not listed" rows show source counts
+
 ### 🔥 P1 — Switch adao-positions Render schedule from weekly to daily
 **Identified 2026-05-17. Confirmed still pending 2026-05-29.** The cron is currently scheduled `0 1 * * 1` (Mondays only). For the Portfolio Tracker dashboard to accumulate meaningful position history, it needs to run **daily**. The cron code now produces a `data/daily/{YYYY-MM-DD}.json` archive on every run (added 2026-05-17) — that file overwrites within a day, so daily cadence gives one snapshot per calendar day.
 
@@ -45,6 +70,43 @@ Bonus: removes ~300 lines from index.html, helping cold-start parse time slightl
 **Discovered 2026-05-17 audit.** The LUNA-USDC bribe asset (`ibc/8D8A7F7253615E5F76CB6252A1E1BD921D5EDB7BBAAF8913FB1C77FF125D9995`) is not in the 27-token `network-and-prices` index. Eris prices this bribe at $12.93 but our resolver returns $0. Fix: add explicit IBC-denom → symbol mapping for known TLA-relevant denoms in the `network-and-prices` cron.
 
 Note: Rev 3.48 added native-denom lookups including this IBC hash → ASTRO in the vote-rewards capture path inside `index.html` as a local workaround. Cron-side fix would let other consumers benefit too.
+
+### 🟢 P2 — TLA Chain Registry catalog: SS indexer overhaul
+**Identified 2026-06-02 audit.** Skeleton Swap's `/api/pools/phoenix-1` JSON has misleading denom labels for some IBC tokens (claims `ibc/C3988DBA...` for ATOM in pools that actually hold standard `ibc/27394FB0...`). Currently the SS source data attaches to the wrong addresses for ATOM/USDC/dATOM and shows as "not listed" on the right tokens.
+
+**Fix:** for each SS pool from the API, look up the actual pair contract via `pool_address`, query `pair{}` on-chain (or reuse already-queried data when the contract is in TLA's gauge), and attach SS source data to the addresses the contract actually holds. Bonus: same pattern works for SS-only pools if we ever want to include them.
+
+Effort: medium (~50-100 lines in the cron's SS indexer phase). High clarity win — every TLA-relevant token would show correct SS coverage.
+
+### 🟢 P2 — TLA Chain Registry catalog: pool architecture surfacing
+**Identified 2026-06-02 audit.** The catalog already knows that TLA has both Astroport-frontend pools AND Skeleton-Swap-frontend pools (which run on inherited White Whale code via Backbone Labs). Surface this directly: query each pool's contract-info ({contract, version}) and tag pools as `astroport-pair` / `astroport-pair-stable` / `astroport-pair-concentrated` / `white_whale-pool`.
+
+Page-side: explain `(S)` suffix as `(Skeleton Swap)` in display labels. Add a "Pool architecture" badge on detail cards. Detail tooltip: "Pool architecture: White Whale v1.3.8 (operated by Backbone Labs as Skeleton Swap)" so users understand the historical context (WW shut down → BBL took over contracts → SS frontend).
+
+### 🟢 P2 — TLA Chain Registry catalog: acquisition guide curation pass
+**Identified 2026-06-02 audit.** Council members (especially the owner) have first-hand verified routes for tokens they actually hold. Several tokens in TLA still have `auto_suggested` or `route_known_unverified` guides where a council member could provide a verified route.
+
+Drafts captured in `catalog-log.md` Rev 0.10 narrative:
+- **ATOM** — standard Keplr IBC from Cosmos Hub. Verified by owner 2026-06-02 (deposit test).
+- **USDC** — Swapped.com → Keplr Noble → IBC to Terra. Verified by owner 2026-06-02.
+- **wBTC.atom** — Skip.go bridge from Ethereum WBTC (Eureka path). Route_known_unverified.
+- **PAXG** — same Skip.go pattern from Ethereum. Route_known_unverified.
+- **wBTC.creda.a** — Creda Finance minting on Terra (not a bridge). Unverified.
+- **USDt** — auto-suggested guide will show "Kava-suspected" from bridge data.
+- **EURe** — owner noted "truly don't know how you get it"; auto-derived shows source-chain hint.
+
+Effort: low per token (a JSON entry). High clarity benefit — users deposit into the wrong variant if they pick the wrong bridge.
+
+### 🟢 P2 — TLA Chain Registry catalog: Eris CG-ID outreach
+**Identified 2026-06-02 audit.** Stage 7c CG verification caught 3 wrong CG IDs in Eris's `/prices`:
+
+| Token | Eris claims | Should be |
+|---|---|---|
+| USDC | `usd-coin` (Circle generic) | `ibc-bridged-usdc` (Noble variant, "USDC.N") |
+| EURe | `monerium-eur-money` (deprecated v1, "EURe [OLD]") | `monerium-eur-money-2` |
+| WETH.axl | `ethereum` (native ETH!) | `weth` |
+
+Three outreach drafts (technical / brief / casual) prepared during the audit session; holding pending owner decision on whether/how to send.
 
 ### 🟢 P3 — SS API migration
 **Status 2026-05-26.** Skeleton Swap rebuilt their API around May 4 — moved from `dex.warlock.backbonelabs.io` (frozen) to `/api/pools` direct path. `test.html` temporarily hides SS lines. SS cron needs updating to consume the new endpoint. May intersect with the Rev 3.37 chain-direct rebuild already done — confirm whether the new BackBone endpoint or the chain-direct path is the long-term plan.
@@ -125,6 +187,41 @@ Once 4+ epochs of clean daily data exists, rebuild these tabs with proper histor
 
 ---
 
+## 🏗 Catalog roadmap (Phase 1+ builds on top of Phase 0 catalog)
+
+Identified during the 2026-06-02 audit. The TLA Chain Registry catalog (Phase 0) is the data foundation; these are the user-facing tools that build on it. **Don't start any of these without the catalog data being solid first** — the whole point of Phase 0 was to make sure the foundation is trustworthy before building on it.
+
+### Member Stats page (`dao-tla.html`) — Phase 2
+**Status:** not built. Page slot reserved. Already mentioned above under the original "dao-tla.html" entry.
+
+What catalog enables: each of the 46 TLA members has positions in specific LPs / amplps / single-asset stakes. The catalog tells us what those positions ARE (which LP, what underlyings, which DEX/architecture). Combined with `adao-positions/current.json` (member-level holdings), we can render per-member portfolio panels with proper LP/amplp labels and trust signals.
+
+### Portfolio Tracker — Phase 3
+Already documented above under P4. Catalog enables proper labeling: not just "LP token at terra1...", but "ATOM-LUNA LP on Astroport, wrapping into ATOM-LUNA AMPLP for compounding."
+
+### LP Health Scoring — Phase 4
+Already documented above under P4. Catalog provides the universe of LPs to score; queries.md has all the inputs needed for the scoring formulas (fee accumulation, depth, volume — see Q-Pair-* queries).
+
+### Bribes Tracking — Phase 5
+**Status:** `bribes-history` cron already exists. Page needs building.
+
+What catalog enables: instead of opaque "bribe paid to pool X at address Y", render with proper LP labels, underlying token symbols, and trust signals. "$12.93 in CAPA paid to ATOM-LUNA LP (S) by terra1tuuw...".
+
+### Vote Intelligence — Phase 6
+**Status:** identified as key differentiator from Eris UI. Eris structurally can't tell users "this LP is being over-voted relative to its fee generation" because Eris IS the protocol. We can.
+
+What catalog enables: the canonical "what LPs exist + what they hold + what their architecture is" registry that vote-recommendation algorithms need to operate on. Combined with Q-AssetGauge-Votes per-member queries (see queries.md), we can build coalition detection and ROI-of-vote-allocation calculators.
+
+### Mobile + SEO pass — Phase 7
+**Status:** mobile-friendliness pass planned across all user-facing pages (simpler content pages first, then complex chart/grid pages). SEO foundation in place (robots.txt, sitemap.xml, Search Console verification) but per-page metadata is index-only.
+
+`tla-catalog.html` itself needs mobile pass eventually — currently desktop-optimized verification surface.
+
+### Composability / API — Phase 8 (speculative)
+**Status:** speculative. Catalog already publishes static JSON via raw.githubusercontent.com — could add a thin wrapper exposing filtered queries ("all active LPs in stable bucket", "all tokens with no_acquisition_guide flag"). Risk: providing an API means owning its uptime.
+
+---
+
 ## 🚀 Future projects — separate threads
 
 ### ✅ TLA data collection automation — COMPLETED 2026-05-12 → 2026-05-14
@@ -157,6 +254,9 @@ Big refactor, not urgent. Would dramatically simplify the cross-page chrome roll
 - [ ] **Skeleton Swap data going forward** — keep capturing best-effort with "unverified" label (current decision), or stop capturing entirely until chain-direct cron is built? Current call: keep, the cost of leaving it running is low.
 - [ ] LST ratios: keep the hardcoded fallbacks or remove? (See Design Principle #1; current call is keep.)
 - [ ] Astroport chain-direct verification — build it or trust the API? See P3. Adds complexity; useful as trust layer for scoring.
+- [ ] **(S) suffix rename** — change `(S)` to `(Skeleton Swap)` in catalog display? Cryptic abbreviation vs. clarity. Owner preference TBD. Identified 2026-06-02.
+- [ ] **Catalog → API/JSON exposure** — when the catalog is solid, should we expose it as a public JSON feed (e.g., `tla-catalog.json` link on `tla-catalog.html`) so other Terra projects can consume it? Owner preference TBD. Identified 2026-06-02.
+- [ ] **Eris CG-ID outreach** — send the 3 mismatch findings (USDC, EURe, WETH.axl) to Eris team or hold? Drafts prepared in 3 tones (technical / brief / casual). Identified 2026-06-02.
 - [x] ~~Should the cron run daily or hourly?~~ — **Resolved.** Hourly for tla-snapshot + network-prices (data freshness matters), daily for DEX/bribes captures (less time-sensitive). **Reopened 2026-05-17 for adao-positions**: was weekly, should be daily for Portfolio Tracker history. See P1.
 - [x] ~~Where does the new cron write?~~ — **Resolved.** One `*-data_2026` GitHub repo per cron. Independent systems principle.
 - [x] ~~How does the cron handle the multi-week capture gap?~~ — **Resolved.** Crons started fresh in May 2026 with no historical backfill. Historical data before this lives in legacy `tla-ext_json_storage` files (used for trend charts only).
