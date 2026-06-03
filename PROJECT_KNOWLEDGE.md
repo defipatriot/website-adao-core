@@ -448,18 +448,24 @@ Hardcoded overrides (e.g., `bLUNA → boneLUNA` in Stage 7b) need to propagate t
 
 **Lesson:** when a stage sets a field that downstream stages might recompute, set ALL the contributing source fields too, and mark the override explicitly so page rendering can show provenance.
 
-### Curated files (lives in `website-adao-core`)
+### Curated files (live in `tla-chain-registry/curated/`)
 
-These accompany the cron's automated reconciliation with manual curation:
+These accompany the cron's automated reconciliation with manual curation. **Important: they live in the data repo (`tla-chain-registry/curated/`), NOT in `website-adao-core/`.** The cron reads them from the same repo it writes the output to, so they're versioned alongside the catalog they affect.
 
 | File | Purpose |
 |---|---|
-| `categories.json` | Token category definitions (token / lp_token / amplp_token / contract) |
-| `wallets.json` | Council member + institutional wallets |
-| `protocols.json` | Protocol metadata (Eris, Astroport, BBL/Skeleton Swap, etc.) |
+| `categories.json` | Token category taxonomy (token / lp_token / amplp_token / contract) |
+| `wallets.json` | Council member + institutional wallet labels |
+| `protocols.json` | Protocol metadata (Eris, Astroport, BBL/Skeleton Swap, Capapult, etc.) |
 | `known_contracts.json` | Labeled contract addresses for the catalog's contracts tab |
-| `token_overrides.json` | Per-token corrections (display name, subtype, notes). **Skip stubs** (keys not matching real chain addresses) are filtered by `isRealAddress()` check in Stage 7 |
-| `acquisition_guides.json` | Per-token "how to acquire" routes — verified or `route_known_unverified` |
+| `token_overrides.json` | Per-token corrections (display name, subtype, notes, variant-trap warnings). **Skip stubs** (keys not matching real chain addresses) are filtered by `isRealAddress()` check in Stage 7 |
+| `acquisition_guides.json` | Per-token "how to acquire" routes — `verified: true/false` flag distinguishes confirmed routes from `route_known_unverified` drafts |
+
+Each file has a top-level `_meta` block with its schema, plus an optional `_curation_queue` section at the bottom listing known TODOs. Underscore-prefixed entries (like `_example_wBTCatom_disabled`) are ignored by the cron — remove the underscore to activate.
+
+**Two-tier override system** (intentional, both have a place):
+- `token_overrides.json` (curated) — normal address-keyed display/subtype/warning corrections
+- `HARDCODED_OVERRIDES` (in cron code, Stage 7b) — special-case overrides for situations the cron must enforce regardless of curated data (the boneLUNA naming dispute is the canonical example — it also propagates `_display_overridden: true` and preserves the original raw value for transparency, which isn't expressible via the curated file format)
 
 ### Phase 0 → Phase 1+ — what comes next
 
