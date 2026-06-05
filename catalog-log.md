@@ -9,6 +9,55 @@ Newest revisions on top. Times are UTC. Cron-side and page-side changes are inte
 
 ---
 
+## Rev 0.12.1 — 2026-06-05 (logo URL hotfix)
+
+User-reported visible failures on arbLUNA, ampLUNA, xASTRO, FUEL after Rev 0.12 deploy. Root-caused two distinct issues:
+
+### Issue 1 — Most curated URLs in Rev 0.12 were wrong
+
+Of the 17 new URLs added to `token_overrides.json`, **12 were 404**. The chain-registry uses:
+- **Filename casing** that doesn't match the symbol (`arbluna.svg` not `arbLUNA.png`, `xAstro.svg` not `xASTRO.png`)
+- **SVG file extensions** for many newer entries (we assumed PNG)
+- **Different chains** than we assumed (FUEL is on Neutron, not Migaloo)
+
+**Fix:** audited every URL against the actual chain-registry assetlist.json files. Found correct URLs for 11 of 12. The 12th (rSWTH) doesn't have its own logo in chain-registry; fell back to parent SWTH icon as a pragmatic substitute. All 20 URLs now HTTP 200 verified.
+
+| Token | Old (404) | New (200) |
+|---|---|---|
+| arbLUNA | `terra2/images/arbLUNA.png` | `terra2/images/arbluna.svg` |
+| dATOM | `cosmoshub/images/dATOM.png` | `neutron/images/dATOM.svg` |
+| xASTRO | `neutron/images/xASTRO.png` | `neutron/images/xAstro.svg` |
+| wstETH | `_non-cosmos/ethereum/images/wsteth.png` | `_non-cosmos/ethereum/images/wsteth.svg` |
+| ampWHALE | `migaloo/images/ampWHALE.png` | `migaloo/images/ampwhale.svg` |
+| FUEL | `migaloo/images/fuel.png` | `neutron/images/fuel.png` |
+| wETH.wh / WETH.axl | `_non-cosmos/ethereum/images/weth.png` | `_non-cosmos/ethereum/images/weth.svg` |
+| wSOL.wh | `solana/images/sol.png` | `_non-cosmos/solana/images/sol.svg` |
+| wBNB.wh / wBNB.axl | `bsc/images/bnb.png` | `_non-cosmos/binancesmartchain/images/bnb.png` |
+| rSWTH | `carbon/images/rSWTH.png` | `carbon/images/swth.png` (parent fallback) |
+
+### Issue 2 — Cron chain-registry extractor skipped SVG-only entries
+
+The cron's `indexChainRegistry` function only picked up `.png` URLs from chain-registry's asset entries. Many newer tokens (ampLUNA, arbLUNA, xAstro, ampwhale, etc.) are SVG-only in chain-registry — so the cron silently dropped them from its source data.
+
+This explained why `sources.cosmos_chain_registry.logo_uri` was null for ampLUNA in our live data, even though ampLUNA HAS a logo in chain-registry. SS source happened to have it too (which is what was actually being used).
+
+**Fix:** `indexChainRegistry` now picks up PNG OR SVG (preferring PNG when both exist). Both render fine in `<img>`. Future-proofs as chain-registry continues migrating to SVG.
+
+### Verification
+
+- 36 single tokens still have resolved logos (same count, but now all 20 curated ones actually work)
+- The 4 user-reported failures (arbLUNA, ampLUNA, xASTRO, FUEL) all verified to load correctly with new URLs
+- Cron's SVG fix will add 1+ more chain-registry logos on next run (modest immediate gain, important future-proofing)
+
+### Deploy state
+
+- **Cron**: 135,181 bytes (+464 bytes vs Rev 0.12) — single SVG-fallback fix in `indexChainRegistry`
+- **token_overrides.json**: 10,948 bytes (+321 bytes vs Rev 0.12) — 12 URL corrections, no schema changes
+
+Page (`tla-catalog.html`) does not need a hotfix — its fallback chain works correctly; the data underneath was the problem.
+
+---
+
 ## Rev 0.12 — 2026-06-05 (token logos)
 
 Spans all three layers — curated data, cron aggregation, page rendering — implementing a unified token-logo system across the catalog. Three layers of fallback so users always see *something* recognizable for every token.
