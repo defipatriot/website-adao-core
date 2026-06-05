@@ -9,6 +9,62 @@ Newest revisions on top. Times are UTC. Cron-side and page-side changes are inte
 
 ---
 
+## Rev 0.13 — 2026-06-05 (wallet names + avatars)
+
+User-reported issue: the catalog page showed "a bunch of addresses but really not member names." Investigation found that DAODAO PFPK profile names (160 wallets) and avatars (43 wallets) WERE being captured by the cron — but the page didn't render them. The data layer was good; the rendering layer was incomplete.
+
+### Coverage before / after
+
+| State | Wallets with meaningful name on card |
+|---|---|
+| **Before Rev 0.13** | 2 (just curated `aDAO Treasury` and `aDAO Council Multi-Sig`) — other 666 showed truncated address as title |
+| **After Rev 0.13** | 668 of 668 (100%) — every card has either a real name, a PFPK profile name, or a "{DAO} member" identifier |
+
+Breakdown after fix:
+- 2 wallets show curated labels (existing)
+- 160 wallets show PFPK profile names (existing data, newly rendered)
+- 506 wallets show `{DAO} member` synthesized label (new from cron Rev 0.13)
+- 43 wallets render their PFPK NFT avatar as the card icon (was generic fa-user)
+
+### Page changes
+
+**Name resolution priority chain extended.** `daodao_name` now in the fallback chain for card titles and sort comparisons:
+```
+headline_name → display_name → label → daodao_name → symbol → truncated address
+```
+
+**Wallet card icon renders PFPK avatar when available.** ipfs:// URLs rewritten to ipfs.io public gateway; `<img onerror>` falls back to fa-user if 404.
+
+**Wallet card subline now shows primary DAO membership** instead of generic "member · DAODAO". Picks the most prominent membership (TLA > highest VP > first). Format: "TLA (+2 more)" when wallet is in multiple DAOs.
+
+**Wallet detail view gets a PFPK profile panel** at the top showing avatar + name + brief explanation when present.
+
+### Cron changes — `headline_name` for wallets
+
+Post-PFPK-enrichment loop computes a canonical `headline_name` per wallet using priority:
+
+1. Curated `label`
+2. `daodao_name` (PFPK)
+3. `{DAO} member` synthesized from primary `dao_memberships` entry
+4. (left null — page falls through to address)
+
+Result: downstream consumers (future `dao-tla.html` Member Stats page, `tla-stats.html`, any other page) read one canonical field instead of duplicating the priority logic.
+
+### What this doesn't (yet) solve
+
+- The 506 wallets with synthesized "{DAO} member" labels still don't show a real person's name — those people just haven't registered a PFPK profile. Out of our hands; PFPK is opt-in.
+- The ~46 specific TLA council member wallets (the ones holding voting_escrow NFTs) include some without PFPK names that are nonetheless known to the community. These should be curated into `wallets.json` for full coverage. See "Open items" in CHANGES_PENDING.md (P2 — TLA council member curation).
+
+### Deploy state
+
+Not yet deployed:
+- **Cron**: 138,771 bytes (+2.0 KB vs Rev 0.12.2)
+- **Page**: 122,787 bytes (+4.8 KB vs Rev 0.12.2)
+
+Both files syntax-validated. Page change works immediately on deploy (reads existing `daodao_name` field from current.json); cron change populates the new `headline_name` field on next run.
+
+---
+
 ## Rev 0.12.2 — 2026-06-05 (cron CDN cache bypass)
 
 User reported logos still broken even after Rev 0.12.1 deploy. Investigation revealed the corrected URLs WERE in the deployed `token_overrides.json` on GitHub, but the cron read STALE data when it ran.
