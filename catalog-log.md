@@ -9,6 +9,71 @@ Newest revisions on top. Times are UTC. Cron-side and page-side changes are inte
 
 ---
 
+## Rev 0.12.2 — 2026-06-05 (cron CDN cache bypass)
+
+User reported logos still broken even after Rev 0.12.1 deploy. Investigation revealed the corrected URLs WERE in the deployed `token_overrides.json` on GitHub, but the cron read STALE data when it ran.
+
+### Root cause — GitHub raw URL CDN caching
+
+`raw.githubusercontent.com` is fronted by Fastly with a 5-minute cache. Sequence of events:
+
+1. User pushed corrected `token_overrides.json` to GitHub at T+0
+2. User triggered cron manually at T+2 min (well-intentioned but premature)
+3. Cron's `fetchCurated()` hit `raw.githubusercontent.com/.../main/curated/token_overrides.json`
+4. Fastly served the OLD cached file (from before the push) — `x-cache: HIT`, `source-age: 164s`
+5. Cron wrote stale URLs into `current.json`
+
+The deployed file on GitHub had the correct URLs, but the cron's view of it was 2-3 minutes behind.
+
+### Things tried that DIDN'T work
+
+- Query-string cache-buster `?_=${Date.now()}` — Fastly ignores query strings for these URLs
+- `Cache-Control: no-cache` request header — Fastly ignores
+- `Pragma: no-cache` request header — Fastly ignores
+
+### The actual fix — SHA-pinned URLs
+
+Raw GitHub URLs are cached by full path. Different SHA = different path = different cache key = guaranteed cache miss for unseen SHAs.
+
+`fetchCurated()` now:
+
+1. Hits GitHub API once: `api.github.com/repos/{repo}/commits/{branch}` → returns latest commit SHA
+2. Builds curated file URLs using that SHA: `raw.githubusercontent.com/{repo}/{sha}/curated/{file}.json`
+3. Fetches all curated files from those SHA-pinned URLs
+
+If the SHA lookup fails (rate limit, API down), falls back to the branch-name URL with a warning logged. So worst case, behavior matches pre-fix — no new failure mode.
+
+GitHub API has 60 unauthenticated requests/hour limit. We use 1 per cron run. Trivial budget impact.
+
+### Why the user's report was correct
+
+State after Rev 0.12.1 deploy + first cron run:
+
+| Token | Deployed override file | Cron's view of override (current.json) |
+|---|---|---|
+| arbLUNA | `arbluna.svg` ✓ | `arbLUNA.png` ⚠ (stale) |
+| xASTRO | `xAstro.svg` ✓ | `xASTRO.png` ⚠ (stale) |
+| FUEL | `neutron/.../fuel.png` ✓ | `migaloo/.../fuel.png` ⚠ (stale) |
+| ampWHALE | `ampwhale.svg` ✓ | `ampWHALE.png` ⚠ (stale) |
+| ampLUNA | (no override needed) | `ampluna.svg` ✓ (picked up from chain-registry source via SVG fix) |
+
+So ampLUNA fixed via the SVG fallback, but the 4 with overrides got stale data.
+
+### Recovery procedure for Rev 0.12.1 (one-time)
+
+Before deploying Rev 0.12.2, the user just needed to trigger ONE more cron run — by then the 5-minute Fastly cache had expired, so the cron would get the correct curated data.
+
+After deploying Rev 0.12.2, this class of bug is permanently fixed — future curated pushes can be immediately followed by manual cron triggers without waiting.
+
+### Deploy state
+
+- **Cron**: 136,746 bytes (+1.6 KB vs Rev 0.12.1) — single function rewrite in `fetchCurated()`
+- Other files unchanged
+
+This rev fixes the MECHANISM. The user should additionally trigger a manual cron run after deploy to refresh `current.json` with correct logo URLs.
+
+---
+
 ## Rev 0.12.1 — 2026-06-05 (logo URL hotfix)
 
 User-reported visible failures on arbLUNA, ampLUNA, xASTRO, FUEL after Rev 0.12 deploy. Root-caused two distinct issues:
