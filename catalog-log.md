@@ -9,6 +9,77 @@ Newest revisions on top. Times are UTC. Cron-side and page-side changes are inte
 
 ---
 
+## Rev 0.11 — 2026-06-05 (amplp classification fix)
+
+Real bugs found by user inspection of the amplp_tokens tab. Two cron bugs root-caused, plus three page-side improvements to make the amplp tab self-explanatory.
+
+### Cron — Bug A: 55 of 65 amplps had wrong subtype
+
+**Symptom:** the amplp_tokens tab showed only ~10 entries despite `amplp_mappings` knowing about 65. The other 55 amplps were classified as `subtype='native'` (factory denoms inherited this from the generic catch-all) or `subtype='lst'` (the LST regex falsely matched amplps whose names contained "luna" — e.g. `arbLUNA-LUNA AMPLP`).
+
+**Root cause:** Stage 5c only set `subtype='amplp'` on tokens it created from scratch. Tokens that were already in `tokens[]` (because Eris's `/prices` returned them) got their subtype set by the later generic logic at the bottom of `buildTokenCatalog`. Two paths corrupted them:
+
+```js
+// Generic inference at line 1407-1413:
+if (t.type === 'factory') t.subtype = 'native';   // wrong for amplps
+// LST regex at line 1415 unconditionally overrode:
+if (/^(amp|arb|b|st)/.test(t.symbol) && /luna/i.test(sym)) t.subtype = 'lst';
+```
+
+**Fix:**
+- New Stage 5d normalizes ALL entries in `amplp_mappings` to `subtype='amplp'` regardless of how they entered the catalog
+- LST detection at line 1415 now guards against overriding `'amplp'`
+
+### Cron — Bug B: every amplp showed `tla_pools_count: 0`
+
+**Symptom:** every amplp displayed "Appears in TLA pools: no" on the catalog page. But amplps DEFINITELY appear in TLA pools — staking the amplp IS how you participate in a TLA gauge.
+
+**Root cause:** Stage 5 credits the LP token entries in `pools[]`. Stage 5b backfills underlying tokens via `lpToUnderlyings`. Neither touches amplps because amplps are wrappers, not pool entries and not underlyings. So they never got their `tla_pools_count` incremented.
+
+**Fix:** Stage 5d (same new stage) mirrors `appears_in.tla_pools` from the underlying LP onto the amplp (or falls back to `mapping.bucket` if the underlying LP isn't itself a tracked TLA pool — happens for legacy amplps). Also inherits `gauge_status` and records `wraps_lp_address` for the page to use.
+
+**Simulation against current live data:**
+- 55 amplps got their subtype corrected
+- 65 of 65 amplps got TLA pools backfilled
+- Examples: `ampWHALE-ampLP → single`, `LUNA-USDC-ampLP → stable`, `LUNA-ampLUNA-ampLP → project`
+
+### Page — DEX badge on amplp/LP cards
+
+Derives from name pattern + the new `wraps_lp_address` link:
+- Underlying LP name ends in `(S)` → **Skeleton Swap** badge (amber)
+- Underlying LP is a hyphenated pair → **Astroport** badge (blue)
+- Amplp wraps a single token (no hyphen, no "LP") → **Single-asset vault** badge (purple) — Eris's compounder, not a DEX pool
+
+Renders on both amplp_tokens AND lp_tokens cards. Tooltip explains "white_whale-pool architecture, operated by Backbone Labs" for (S) variants.
+
+### Page — "Wraps" relationship panel on amplp detail view
+
+Top-of-detail panel for any amplp showing:
+- **Wraps:** the underlying LP's display name
+- **Wrapped LP address:** monospace, truncated, hover for full
+- **Underlying DEX:** Astroport / Skeleton Swap / Single-asset vault (with hover explainer)
+- **TLA bucket:** which bucket the staked position counts toward
+
+Makes the "amplified version of [X]" relationship visible without forcing the user to deduce it from the name.
+
+### Page — Category subtitle banner
+
+Above the grid, when a specific tab is active (not "all"), shows a one-liner explaining what's in that tab. Especially important for `amplp_tokens`:
+
+> *Amplified LP tokens — auto-compounding wrappers around regular LPs. Stake the underlying LP to receive these; rewards auto-compound back into more LP. The non-amplified LP version lives in the "lp tokens" tab.*
+
+Helps users navigating between `lp_tokens` and `amplp_tokens` understand the relationship (you're depositing the regular LP to GET the amplp back; amplp is the wrapper that does the auto-compounding work).
+
+### Deploy state at end of Rev 0.11
+
+Not yet deployed (bundled for review):
+- **Cron**: 133,172 bytes (deployed: 129,407; +3.8 KB)
+- **Page**: 109,196 bytes (deployed: 101,730; +7.5 KB)
+
+Both files syntax-validated. Cron simulation against current `current.json` shows expected results (55 subtype corrections, 65 TLA-pool backfills).
+
+---
+
 ## Rev 0.10 — 2026-06-02 (audit night)
 
 **Major data-quality audit + Phase 0 documentation pivot.** This is the closing entry of a multi-hour session that identified ~10 systemic bugs in the cron's data layer, verified 17 cross-DEX same-named LPs against on-chain `pair{}` data, and produced the first round of durable knowledge files (this changelog, `queries.md`, updates to `PROJECT_KNOWLEDGE.md` and `CHANGES_PENDING.md`).
