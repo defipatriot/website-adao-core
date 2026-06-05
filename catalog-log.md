@@ -9,6 +9,95 @@ Newest revisions on top. Times are UTC. Cron-side and page-side changes are inte
 
 ---
 
+## Rev 0.12 — 2026-06-05 (token logos)
+
+Spans all three layers — curated data, cron aggregation, page rendering — implementing a unified token-logo system across the catalog. Three layers of fallback so users always see *something* recognizable for every token.
+
+### Curated — `token_overrides.json` extended with `logo_url`
+
+Added a `logo_url` field to 20 single-token override entries (3 existing wBTC variants now have logos; 17 new entries covering ATOM, dATOM, USDC, USDt, EURe, ASTRO, xASTRO, wstETH, INJ, SWTH, rSWTH, WHALE, ampWHALE, bWHALE, FUEL, arbLUNA, stLUNA, wETH.wh, wSOL.wh, wBNB.wh, wBNB.axl, WETH.axl, wBTC.creda.a).
+
+URLs sourced from the `cosmos/chain-registry` repo's per-chain folders (cosmoshub, neutron, migaloo, carbon, stride, terra2, `_non-cosmos/ethereum`, solana, bsc). The pattern is `https://raw.githubusercontent.com/cosmos/chain-registry/master/{chain}/images/{symbol}.png`. Where uncertain, the page's `<img onerror>` handler falls back to a colored letter circle — no broken-image experience.
+
+Schema extended in `_meta`: `logo_url` documented as the canonical field.
+
+### Cron — Stage 7d added (logo aggregation)
+
+After Stage 7 applies curated overrides, the new Stage 7d resolves a single canonical `logo_url` per token using priority order:
+
+1. **`token.override.logo_url`** — curated (highest priority)
+2. **`sources.cosmos_chain_registry.logo_uri`** — covers terra-2-native tokens like LUNA, ROAR, ampLUNA
+3. **`sources.skeletonswap.logo_url`** — covers additional wrapped tokens
+4. *(future)* Eris CDN, Astroport API, CoinGecko per-coin endpoint — none implemented yet
+
+**Simulation result against current live data:**
+- 36 of 173 single tokens resolve to a direct logo URL
+  - 20 via curated override
+  - 13 via chain-registry
+  - 3 via SkeletonSwap
+- 137 remaining tokens have no direct logo (will use letter fallback)
+
+For LPs and amplps the cron does not compute a composite — that's a rendering concern handled page-side using the existing `scope.lp_to_underlyings` + `amplp_mappings` data.
+
+### Page — three rendering paths
+
+New helper functions before `renderCard`:
+
+```
+entryLogoHtml(entry, sizePx)   — main entry point. Picks single vs composite vs FA icon.
+tokenLogoHtml(token, sizePx)   — single-token <img> with onerror letter fallback.
+lpLogoHtml(token, sizePx)      — composite of 2 underlying tokens (overlapping circles).
+logoFallbackInitials(name)     — derives 2-letter initials (handles "X-Y LP", "ampLUNA", etc).
+logoFallbackColor(str)         — stable color hash so the same token always gets the same color.
+```
+
+Used in two places:
+- **Card header** at 28px (replaces the FontAwesome `fa-coins` icon)
+- **Detail modal header** at 56px (large, prominent)
+- **"Wraps" panel** on amplp detail at 40px (shows the wrapped LP's composite)
+
+**Three rendering paths:**
+1. **Single token w/ logo** → `<img>` with `onerror` swap to letter circle
+2. **LP / amplp** → composite of 2 overlapping circles (each 72% of card size, second offset right)
+3. **No logo data** → deterministic letter circle (colored by hash of token name)
+
+**Page-side fallback:** `tokenLogoHtml` re-does the cron's priority lookup directly from `token.sources` if `token.logo_url` isn't yet populated. This lets the page work as soon as curated logos are committed to GitHub — no need to wait for cron deploy.
+
+**Composite coverage:** 133 of 137 LP/amplp tokens get a full composite (both underlying tokens have resolved logos). The remaining 4 have at least one underlying without a logo — these still render gracefully with letter fallback for the missing side.
+
+**Contracts and wallets** keep their FontAwesome icons (`fa-file-contract`, `fa-user`) — they're not asset tokens, so a logo concept doesn't apply.
+
+### CSS additions
+
+```css
+.token-logo-fallback   — colored letter circle (stable per-token color)
+.token-logo-wrap       — img wrapper with consistent sizing
+.token-logo-composite  — overlapping wrapper for 2-token LP/amplp composites
+```
+
+The composite has a thin dark border + cyan glow so each component circle reads clearly when they overlap.
+
+### Deploy state
+
+Not yet deployed:
+- **Cron**: 134,717 bytes (deployed: 133,172; +1.5 KB)
+- **Page**: 118,029 bytes (deployed: 109,196; +8.8 KB)
+- **token_overrides.json**: 10,627 bytes (deployed: 4,552; +6.1 KB)
+
+All three files validated. Cron + page can deploy independently — page works in fallback mode if cron's Stage 7d hasn't run yet.
+
+### Why three layers (instead of just one)
+
+Could have done page-only rendering. Reason for going all three layers:
+
+- **Curated overrides** are durable knowledge — a logo URL is just metadata about a token, no different from its display name or notes
+- **Cron aggregation** makes the data reusable — future pages (tla-stats, Member Stats, Portfolio Tracker) read `t.logo_url` directly instead of duplicating the priority-resolution logic
+- **Page rendering** is where the visual composition happens (single vs LP composite vs letter fallback)
+
+Each layer has a single responsibility. Adding a new logo to a token means editing one JSON file; everything downstream picks it up next cron run.
+
+---
+
 ## Rev 0.11 — 2026-06-05 (amplp classification fix)
 
 Real bugs found by user inspection of the amplp_tokens tab. Two cron bugs root-caused, plus three page-side improvements to make the amplp tab self-explanatory.
