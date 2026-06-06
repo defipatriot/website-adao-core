@@ -169,7 +169,7 @@ PWA shortcuts, install prompts, default-page selectors — all are bonus feature
 - `defipatriot/website-adao-core` — project docs + changelogs (this repo).
 
 #### Cron-produced data repos (active 2026 — written automatically by Render crons)
-**10 production crons live and writing on schedule.** Cron source code lives in `defipatriot/cron-scripts` (one folder per cron). Each writes to its own `*-data_2026` data repo. Status verified 2026-05-17 (9 crons) plus 2026-06-02 (catalog cron audit).
+**10 production crons live and writing on schedule.** Cron source code lives in `defipatriot/cron-scripts` (one folder per cron). Each writes to its own `*-data_2026` data repo. Status verified 2026-06-06 (all 10 crons, post Rev 0.16 catalog deploy).
 
 | Data repo | Source cron | Schedule | Main output file |
 |---|---|---|---|
@@ -317,7 +317,28 @@ Each cron has its own `README.md` in its folder. Recent changes are tracked in a
 
 ## TLA Chain Registry catalog system — the data foundation
 
-**Started 2026-05-XX, audited heavily 2026-06-02.** This is the 10th cron, named `tla-registry`. Unlike the other 9 crons which collect different aspects of TLA activity for the dashboards, this cron's job is to produce a **canonical registry** of every TLA-relevant token, LP, amplp, and contract — with cross-source reconciliation, on-chain verification, and explicit trust signals.
+**Started 2026-05-XX. Audited heavily 2026-06-02 (Rev 0.10) and locked in 2026-06-06 (Rev 0.16, Phase 0 complete).** This is the 10th cron, named `tla-registry`. Unlike the other 9 crons which collect different aspects of TLA activity for the dashboards, this cron's job is to produce a **canonical registry** of every TLA-relevant token, LP, amplp, and contract — with cross-source reconciliation, on-chain verification, and explicit trust signals.
+
+### 🔒 Phase 0 status — LOCKED IN (2026-06-06)
+
+After 8 revs in 4 days (0.10 → 0.16), the data foundation is complete:
+
+- **173 tokens**, all with `headline_name`, source coverage transparency
+- **75 pools**, 72 with full on-chain architecture (contract name, version, pair_type, dex)
+- **65 amplps**, all classified with bucket inheritance + wraps_lp link
+- **668 wallets**, all with `headline_name` (curated label > PFPK profile name > "{DAO} member" synthesized)
+- **43 wallets** with PFPK NFT avatars rendered as card icons
+- **AllianceDAO 100% coverage**: 157/157 addresses captured, 45/46 names match (1 is TNS-only)
+- **Cross-DEX verified**: 17/17 same-named pairs (Astroport vs SS variants) have identical on-chain underlyings
+- **Source coverage transparency**: cosmos_chain_registry / eris / astroport / skeletonswap / coingecko all fetched_ok per run
+- **Architecture from cw2 raw storage**: Rev 0.15 fix — `/raw/contract_info` works on contracts that don't expose `{contract_info: {}}` as a smart query (which is most Astroport / WW pair contracts)
+- **SS source synthesis**: tokens in SS pools per on-chain truth but missing from SS API metadata (USDC, ATOM, dATOM) get synthesized `sources.skeletonswap` entries with `_synthesized: true` marker
+
+Subsequent phases build on this without further data-layer changes:
+- Phase 1: TLA Stats migration (`tla-stats.html` consumes catalog)
+- Phase 2: Member Stats (`dao-tla.html` — new)
+- Phase 3: Portfolio Tracker
+- Phase 4-7: LP Health, Bribes, Vote Intelligence, mobile/SEO pass
 
 ### Scope & north star
 
@@ -389,7 +410,7 @@ When sources disagree (different display names, different CG IDs, different deci
 
 ### CG verification methodology
 
-CoinGecko's mapping table has well-known holes. Eris's `/prices` sometimes claims a CG ID that's wrong (3 mismatches caught in the 2026-06-02 audit alone — see `catalog-log.md` Rev 0.10). Stage 7c independently verifies every claimed CG ID against CG's own `terra-2` platform index, AND adds a bridge-trace fallback for tokens CG indexes by source chain (e.g., PAXG → `pax-gold` is keyed at the Ethereum address `0x45804880...`; we follow `bridge.all_traces` to find it).
+CoinGecko's mapping table has well-known holes. Eris's `/prices` sometimes claims a CG ID that's wrong (3 mismatches caught in the 2026-06-02 audit; consistently flagged in every cron run since — see `catalog-log.md` Rev 0.10). Stage 7c independently verifies every claimed CG ID against CG's own `terra-2` platform index, AND adds a bridge-trace fallback for tokens CG indexes by source chain (e.g., PAXG → `pax-gold` is keyed at the Ethereum address `0x45804880...`; we follow `bridge.all_traces` to find it). Mismatches are surfaced in `coingecko_match` field per token.
 
 Per-token CG match status:
 

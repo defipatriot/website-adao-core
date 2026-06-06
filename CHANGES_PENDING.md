@@ -1,60 +1,74 @@
 # Changes Pending — aDAO website
 
 > Rolling list of identified work for upcoming sessions. See PROJECT_KNOWLEDGE.md "Tracking responsibilities" for what goes here vs. there.
-> Older completed items have been pruned — they live in changelog files (`index-log.md` etc.) instead.
+> Older completed items have been pruned — they live in changelog files (`index-log.md`, `catalog-log.md`, etc.) instead.
+
+Last cleared: **2026-06-06** (post Rev 0.16 deploy). All TLA Chain Registry catalog P2 items moved to "completed" since Phase 0 is locked in.
 
 ---
 
 ## 🛠 Active / next round
 
-### 🔥 P1 — Deploy pending TLA Chain Registry catalog updates (Rev 0.10)
-**Identified 2026-06-02.** End-of-audit-night state. Local files have ~14.5 KB of cron improvements and ~5 KB of page improvements over what's deployed. Bundle ready in `pause-checkpoint.zip` from the audit session.
-
-Contents (full per-stage rationale in `catalog-log.md` Rev 0.10):
-1. Self-referential vault detection in scope phase (ampCAPA-class bug)
-2. Stage 5b dedup (no double-counting amplps)
-3. Stage 5c synthesize 11 missing amplp records
-4. Stage 6 cascade `is_amplp_underlying` to correct layer
-5. Stage 7b override → source propagation (boneLUNA naming case)
-6. Stage 7c CG verification with bridge-trace fallback (PAXG → pax-gold)
-7. Stage 8b auto-suggest acquisition guide from bridge data
-8. `source_coverage` block + page tooltips
-9. CG verification badges + per-status colors
-10. Override badge on Eris UI row with provenance tooltip
-
-**NOT included** (intentionally — wrong premise): `dex-scope-fix.zip` Step E. Was reverted from local cron file before bundling.
-
-**Verification after deploy:**
-- bLUNA card → headline `boneLUNA`, override badge present
-- PAXG card → CG link with `✓ via bridge` teal badge
-- ampCAPA → `TLA pools: 1 (single)` (not 2)
-- FUEL → `amplp underlying: yes (wrapped by amplp)`
-- USDt → "How to acquire" panel with Kava hint
-- ATOM card → tooltips on "not listed" rows show source counts
-
 ### 🔥 P1 — Switch adao-positions Render schedule from weekly to daily
-**Identified 2026-05-17. Confirmed still pending 2026-05-29.** The cron is currently scheduled `0 1 * * 1` (Mondays only). For the Portfolio Tracker dashboard to accumulate meaningful position history, it needs to run **daily**. The cron code now produces a `data/daily/{YYYY-MM-DD}.json` archive on every run (added 2026-05-17) — that file overwrites within a day, so daily cadence gives one snapshot per calendar day.
+**Identified 2026-05-17. Confirmed still pending 2026-06-06.** The cron is currently scheduled `0 1 * * 1` (Mondays only). For the Portfolio Tracker dashboard to accumulate meaningful position history, it needs to run **daily**. The cron code now produces a `data/daily/{YYYY-MM-DD}.json` archive on every run — that file overwrites within a day, so daily cadence gives one snapshot per calendar day.
 
 Two changes required:
-1. **[ ] Update Render cron expression**: `0 1 * * 1` → `0 1 * * *` (this is a manual click in the Render dashboard)
+1. **[ ] Update Render cron expression**: `0 1 * * 1` → `0 1 * * *` (manual click in Render dashboard)
 2. **[x] Update `next_expected_run_at` constant in `adao-positions.js`** — done 2026-05-17, now `25 * 60 * 60 * 1000` (25 hours)
 
 Ship both together. If only the Render click happens, the heartbeat is wrong; if only the code change is deployed, the dashboard flags the cron stale every 25 hours.
 
 Without the Render change, letting things run for weeks produces 0 weeks of Portfolio Tracker history. **Top priority — should ship before any other accumulated-data work.**
 
-### ✅ Push current `tla-stats.html` to thealliancedao.com — SHIPPED 2026-05-17
-**Done.** Rev 2.1 deployed. Member Data overlay feature live + critical bribes resolver bug fixed. Global Epoch Bribes tile climbed from ~$820 to ~$1,300 as expected. See `tla-log.md` for full record.
+---
 
-### 🟢 P2 — Migrate index.html inline live-data code to `aDAOLive` library
+### 🔥 P1 — Migrate `index.html` off retired admin-tool storage repos
+**Identified 2026-06-05 during deving.zone outage investigation.** The page still reads from old admin-tool storage repos (`tla_json_storage`, `tla-ext_json_storage`) that stopped publishing on **2026-05-17**. The page silently falls back to epoch 185 (now 3+ weeks stale) labeled "STALE - N epochs old" in the console but renders without obvious warning to users.
+
+Affected fetches in `index.html`:
+- `fetchTlaData()` — `tla_json_storage/main/tla-data-epoch-N-end.json` (last write epoch 185)
+- `fetchTlaExtData()` — `tla-ext_json_storage/main/tla-ext-epoch-N-end.json` (last write epoch 185)
+
+The data now lives across multiple `_2026` repos with different schemas. Field mapping documented in catalog-log.md (Rev 0.15 deep-dive).
+
+**Path forward:** Hybrid approach — `fetchTlaExtData` has a clean 1:1 mapping to `network-and-prices-data_2026/data/network-and-prices.json` (do this first, 1-2 hrs). `fetchTlaData` needs multi-source composition (do as separate larger pass, 4-6 hrs).
+
+**Why P1 now:** every passing day the stale data drifts further. Member-facing tiles (TLA Deposits, Locks, treasury balances) become wrong.
+
+---
+
+### 🟢 P2 — Add timeout / AbortController to all `await response.json()` calls in `index.html`
+**Identified 2026-06-05** during deving.zone outage. When deving.zone returned 200 OK headers but stalled mid-body, `fetch().catch()` didn't fire (it only handles network errors), `response.json()` hung forever waiting for body end, and the page appeared blank/spinning with no JS error.
+
+**Fix pattern:**
+```js
+const controller = new AbortController();
+const timeoutId = setTimeout(() => controller.abort(), 10000);
+fetch(url, { signal: controller.signal })
+  .finally(() => clearTimeout(timeoutId))
+const data = await response.json().catch(() => null);
+```
+
+Apply to all four primary fetches (`onChainStatsUrl`, `contractUrl`, `ampLunaRateUrl`, `priceUrl`) and any other `.json()` in the page. Without this, any third-party endpoint hiccup blanks the page silently.
+
+---
+
+### 🟢 P2 — Filter LCD 500 responses on "no new proposal" as not-an-error
+**Identified 2026-06-05.** The `checkForLiveProposals` loop in `index.html` queries `terra1va3tny5...` for proposals 38, 39, 40, 41, 42 to detect new ones. The contract throws 500 when proposal doesn't exist — which is the **normal case** (no new proposals). The page logs these as errors, generating ~5 console errors per page load even when nothing is wrong.
+
+**Fix:** Treat HTTP 500 with a "proposal does not exist" error body as "no new proposal" (not an error). Stop the loop on first 500 (proposals are sequential).
+
+---
+
+### 🟢 P2 — Migrate `index.html` inline live-data code to `aDAOLive` library
 **Identified 2026-05-28 (Rev 3.47).** The shared library `lib/adao-live-data.js` is now the canonical source for live RPC fetching, but `index.html` still has its own inline copies of `fetchLiveTlaDeposits`, `queryChain`, `fetchTlaSharedCatalog`, `fetchLiveTlaDepositsFromChain`, etc. They coexist (both work) but the duplication will drift. Migrate incrementally — when touching one of these code paths for another reason, swap it for the library call.
 
-Bonus: removes ~300 lines from index.html, helping cold-start parse time slightly.
+Bonus: removes ~300 lines from `index.html`, helping cold-start parse time slightly.
 
-### 🟢 P2 — Migrate dao_treasury.html inline live-balance code to `aDAOLive.getDaoTreasury()`
+### 🟢 P2 — Migrate `dao_treasury.html` inline live-balance code to `aDAOLive.getDaoTreasury()`
 **Identified 2026-05-28.** `dao_treasury.html` already pulled live wallet balances correctly before the library existed (it was the first page to use this pattern). Now that `aDAOLive.getDaoTreasury()` does the same thing with consistent caching across pages, migrate. The library was tested to return identical values ($13,912.14 across 9 priced tokens) against the page's own code at deploy time, so this is a safe drop-in.
 
-### 🟢 P2 — Fix TLA Deposits modal inside index.html to show live per-pool data
+### 🟢 P2 — Fix TLA Deposits modal inside `index.html` to show live per-pool data
 **Identified 2026-05-28.** The TLA Deposits modal (drill-down from the tile) still shows snapshot per-pool data. With `aDAOLive.getDaoTlaDeposits()` already returning live per-position data (16 positions including bluechip + single-asset), the modal can show real-time per-pool breakdowns. Estimated ~80 lines to wire up.
 
 ### 🟢 P2 — Enterprise Staked chart shows 403→503 jump in history
@@ -71,20 +85,11 @@ Bonus: removes ~300 lines from index.html, helping cold-start parse time slightl
 
 Note: Rev 3.48 added native-denom lookups including this IBC hash → ASTRO in the vote-rewards capture path inside `index.html` as a local workaround. Cron-side fix would let other consumers benefit too.
 
-### 🟢 P2 — TLA Chain Registry catalog: SS indexer overhaul
-**Identified 2026-06-02 audit.** Skeleton Swap's `/api/pools/phoenix-1` JSON has misleading denom labels for some IBC tokens (claims `ibc/C3988DBA...` for ATOM in pools that actually hold standard `ibc/27394FB0...`). Currently the SS source data attaches to the wrong addresses for ATOM/USDC/dATOM and shows as "not listed" on the right tokens.
-
-**Fix:** for each SS pool from the API, look up the actual pair contract via `pool_address`, query `pair{}` on-chain (or reuse already-queried data when the contract is in TLA's gauge), and attach SS source data to the addresses the contract actually holds. Bonus: same pattern works for SS-only pools if we ever want to include them.
-
-Effort: medium (~50-100 lines in the cron's SS indexer phase). High clarity win — every TLA-relevant token would show correct SS coverage.
-
-### 🟢 P2 — TLA Chain Registry catalog: pool architecture surfacing
-**Identified 2026-06-02 audit.** The catalog already knows that TLA has both Astroport-frontend pools AND Skeleton-Swap-frontend pools (which run on inherited White Whale code via Backbone Labs). Surface this directly: query each pool's contract-info ({contract, version}) and tag pools as `astroport-pair` / `astroport-pair-stable` / `astroport-pair-concentrated` / `white_whale-pool`.
-
-Page-side: explain `(S)` suffix as `(Skeleton Swap)` in display labels. Add a "Pool architecture" badge on detail cards. Detail tooltip: "Pool architecture: White Whale v1.3.8 (operated by Backbone Labs as Skeleton Swap)" so users understand the historical context (WW shut down → BBL took over contracts → SS frontend).
+### 🟢 P2 — CoinGecko bulk fetch failing in `network-and-prices-data_2026`
+**Identified 2026-06-05.** The `network-and-prices` cron heartbeat reports `coingecko_bulk.ok = false` causing overall `status = partial`. Astroport prices are filling the gap so user-facing data still works, but CG bulk is failing systematically (rate-limited 429s observed in the cron log). Investigation needed in the `network-and-prices` cron code.
 
 ### 🟢 P2 — TLA Chain Registry catalog: acquisition guide curation pass
-**Identified 2026-06-02 audit.** Council members (especially the owner) have first-hand verified routes for tokens they actually hold. Several tokens in TLA still have `auto_suggested` or `route_known_unverified` guides where a council member could provide a verified route.
+**Identified 2026-06-02 audit. Still pending.** Council members (especially the owner) have first-hand verified routes for tokens they actually hold. Several tokens in TLA still have `auto_suggested` or `route_known_unverified` guides where a council member could provide a verified route.
 
 Drafts captured in `catalog-log.md` Rev 0.10 narrative:
 - **ATOM** — standard Keplr IBC from Cosmos Hub. Verified by owner 2026-06-02 (deposit test).
@@ -98,167 +103,51 @@ Drafts captured in `catalog-log.md` Rev 0.10 narrative:
 Effort: low per token (a JSON entry). High clarity benefit — users deposit into the wrong variant if they pick the wrong bridge.
 
 ### 🟢 P2 — TLA Chain Registry catalog: Eris CG-ID outreach
-**Identified 2026-06-02 audit.** Stage 7c CG verification caught 3 wrong CG IDs in Eris's `/prices`:
+**Identified 2026-06-02 audit. Still pending.** 3 tokens have `coingecko_match = "mismatched"` where Eris's `/prices` claims a CoinGecko ID that doesn't actually match the token on CG's terra-2 platform list. These produce wrong USD prices on any consumer that trusts Eris's claim directly.
 
-| Token | Eris claims | Should be |
-|---|---|---|
-| USDC | `usd-coin` (Circle generic) | `ibc-bridged-usdc` (Noble variant, "USDC.N") |
-| EURe | `monerium-eur-money` (deprecated v1, "EURe [OLD]") | `monerium-eur-money-2` |
-| WETH.axl | `ethereum` (native ETH!) | `weth` |
+User-side: ping Eris team, ask them to correct the mappings in their backend. Catalog-side: already handled (Stage 7c flags as mismatched, downstream consumers can skip).
 
-Three outreach drafts (technical / brief / casual) prepared during the audit session; holding pending owner decision on whether/how to send.
+### 🟢 P2 — TLA Chain Registry catalog: fill council member curation candidates
+**Identified 2026-06-05 (Rev 0.15).** 125 TLA member wallets have no curated label and no PFPK profile name. Top 30 by VP templatized in `tla-chain-registry/curated/curation-candidates.json` (drop-in compatible with `wallets.json`).
+
+User action: open the file, fill in `label` fields for addresses you recognize, merge into `wallets.json` under the `wallets` key, push. Next cron run picks them up.
+
+Biggest unnamed wallet: 5.4M VP (`terra13aae4futz6jk...`) — significant council member.
 
 ### 🟢 P3 — SS API migration
-**Status 2026-05-26.** Skeleton Swap rebuilt their API around May 4 — moved from `dex.warlock.backbonelabs.io` (frozen) to `/api/pools` direct path. `test.html` temporarily hides SS lines. SS cron needs updating to consume the new endpoint. May intersect with the Rev 3.37 chain-direct rebuild already done — confirm whether the new BackBone endpoint or the chain-direct path is the long-term plan.
-
-### 🟢 dao-tla.html — Member Stats page (Pass 2)
-Member-level breakdowns deferred from the `tla-stats.html` V6 rebuild. Data already collected in `adao-positions/current.json` members array (46 members, each with summary VP, vote allocations, locks, rewards, bribes claim status).
-
-**Updated direction 2026-05-17**: this should likely be PROMOTED to header-level Portfolio Tracker (separate page accessed from the header), not a tab inside tla-stats.html. The Member Data overlay shipped in 2026-05-17 covers the inline use case; a proper Portfolio Tracker page covers the deeper "is my position growing, am I being exploited" use case that's the main TLA Stats differentiator from Eris. Wait for 2-4 weeks of accumulated daily data before building.
-
-Spec (whenever built):
-- Standalone page, linked from header (alongside Member Data dropdown)
-- Per-member portfolio panel: locked VP, individual locks, vote allocations, pending rewards, pending bribes
-- **Time-series view** using `adao-positions/data/daily/*.json` history (requires P1 schedule change first)
-- P&L computation: position value over time, fees earned, "is this position actually growing"
-- Optional: leaderboard by VP, recent activity
-
-### Trend chart accumulation (low priority — passive)
-The stat-tile mini sparklines on `tla-stats.html` are currently empty because only `epoch-184` weekly archive exists (cron started capturing this week). Will populate naturally as weekly snapshots accumulate — probably 4+ weeks needed for visual signal. No action needed; just wait.
-
-### Token grade scoring formula refinement
-Current `computePoolScores()` in `tla-stats.html` is a simplified stub. Real scoring should weight access/performance/support based on the criteria from `tla_config.json`. Refine once enough historical data accumulates to validate output. **Note (2026-05-17)**: the bigger plan is LP Health Scoring (see P3 below) that goes deeper than token grades — score formula refinement may be subsumed by that work.
-
-### Resilience prereqs (per index-log Rev 3.27 / 3.29 follow-ups)
-- [ ] Per-fetch try/catch isolation in `index.html`'s `fetchLiveOnChainData` so one failed treasury balance fetch doesn't poison every downstream calculation
-- [ ] Fallback LCD endpoint on 5xx — both `terra.publicnode.com` and `terra-lcd.publicnode.com` returned 500s on May 8, 2026 and the cascade null-safety added in 3.27 was the only thing preventing total dashboard failure
-- [ ] Apply the same parallel epoch-fallback pattern from `fetchTlaFromGitHub` to `fetchTlaData` (TLA Stats page) — works correctly today but unnecessarily slow on stale fallback
-- [ ] Per-fetch timeout in `fetchLiveOnChainData` for the slow Terra LCD calls — 14.67s load times mostly come from there
-
-### NFT Explorer / dashboard tile work
-- [ ] DAO Broken/Held NFTs: live-filter the `nfts` array against the 3 multisig wallet addresses. Hardcoded `1000` per Props 64-69 is correct but not future-proof. Need the two liquidity-wallet addresses (`...8ywv`, `...417v`) added to the codebase first.
-- [ ] LST hardcoded ratios (`bLUNA || 1.6048` etc., ~10 places) — soft Design Principle #1 violation but ratios drift slowly. Decide: keep or replace with spinner.
+**Identified 2026-05-04.** The SS API migrated to `/api/pools` ~May 4. The cron already handles the new endpoint but `test.html` temporarily hides SS lines (legacy display logic). Cleanup: re-enable SS lines in `test.html` once verified, or remove if no longer needed.
 
 ---
 
-## 🚀 P3 — Medium-effort work (next 1-2 months)
+## 🆕 New ideas / not yet prioritized
 
-### Chain-direct Skeleton Swap capture cron
-**Need driven by 2026-05-17 audit.** Current `skeletonswap-lp_data` cron pulls from BackBone Labs' aggregator API (`dex.warlock.backbonelabs.io/api/pools/phoenix-1`), which has been returning cached/stale data for ~30 days. Effective coverage is ~50% real / ~50% duplicate-frozen.
+### Phase 1+ direction (post Phase 0 lock-in)
 
-Fix: build a new cron that queries Skeleton Swap pool contracts directly from chain (same approach as Astroport). Frees us from the BackBone dependency entirely. Once running and producing fresh data for several weeks, retire the BackBone-based cron OR keep it as a secondary source for cross-check.
+After Rev 0.16 locked in Phase 0, four directions for next phase:
 
-This is the same investigation pattern documented in the audit: chain-direct queries to `terra-lcd.publicnode.com/cosmwasm/wasm/v1/contract/{addr}/smart/{query}` work fine for current state. Schedule and cadence TBD; probably hourly to match Astroport.
+- **A. TLA Stats migration** — evolve existing 7,000-line `tla-stats.html` Rev 3.51 to consume catalog data via `aDAOLive.getTlaCatalog()`. Big effort but biggest user impact.
+- **B. Member Stats `dao-tla.html`** — net-new page using catalog as foundation. Per-member VP, positions, voting patterns, P&L. Fresh build, no legacy.
+- **C. `index.html` migration** — close the tech debt from the deving.zone investigation (also overlaps with P1 above).
+- **D. Portfolio Tracker** — depends on adao-positions daily archive being in place (P1 above), then time-series + P&L.
 
-### Match Eris APR methodology
-**Identified 2026-05-17 audit.** Our `tla-snapshot` cron computes pool APR as `annual_emissions_usd / staked_in_tla_usd × 100`. Eris uses `annual_emissions_usd / depth_usd × 100`. Both correct, measuring different things — our denominator is smaller (TLA-only) so our APR reads higher.
+User to choose direction at next session start.
 
-User preference (2026-05-17): match Eris exactly to avoid user confusion when cross-referencing pages. Fix: change formula in `tla-snapshot.js` to use `depth_usd` denominator. **One-line change**, all downstream APRs will then match Eris within rounding. Test thoroughly before deploy — some methodology differences may remain for stable pools (see P2 above).
-
-### Chain-direct verification layer for Astroport
-**Defense against API manipulation.** Current astroport cron trusts Astroport's API completely — `pools.getAll` is the single source of truth for TVL, volume, fees, reserves. If their API ever serves stale or manipulated data (as happened to BackBone for Skeleton), we'd have no way to detect it.
-
-Add: hourly chain-direct query to each pool's `{pool:{}}` contract endpoint, cross-check returned reserves against the API. If discrepancy > N%, flag and log. ~50 lines added to the cron. Not blocking accumulation — useful as a trust layer once we're building scoring on top of this data.
-
----
-
-## 🏗 P4 — Major builds (after 2-4 weeks of accumulated daily data)
-
-These are the differentiating products. Wait until we have enough daily history to power them meaningfully.
-
-### Portfolio Tracker page
-The big one. Per-member time-series view: position value, fees earned, P&L computation, "is your position actually growing or being harvested." Uses `adao-positions-data_2026/data/daily/*.json` history (depends on P1 schedule fix shipping first).
-
-Eris structurally can't tell users this — they're the protocol. A third-party analytics site can.
-
-### LP Health Scoring
-Composite score per pool from sustained-over-N-epochs metrics:
-- Depth stability (variance over time = real LPs vs transient capital)
-- Volume-to-depth ratio sustained (real trading vs idle TVL)
-- Fee generation consistency (real revenue vs promotional emissions)
-- Oracle source (chain-native vs centralized vs manipulable — binary flag, weighted heavily)
-- Whale concentration (Gini coefficient of LP shares)
-- Bribe-to-organic-volume ratio (gaming this is expensive over multiple epochs)
-
-The whole point is **resistance to gaming**. 24h data is gameable; sustained multi-epoch metrics aren't. Each scoring factor needs a "you can't game this without spending more than you'd extract" justification.
-
-### Pools + TLA Liquidity tabs rebuild
-Once 4+ epochs of clean daily data exists, rebuild these tabs with proper historical context. Multi-epoch depth/volume trends, "this LP had $X depth on date Y" verifiable at block height, etc.
+### Hardening: third-party endpoint resilience
+The deving.zone outage exposed how a single third-party JSON endpoint hanging mid-body can blank the entire page. Pattern in P2 above (AbortController on `.json()`) is the immediate fix. Broader hardening could include:
+- Cached fallback for `deving.zone/nfts/alliance_daos.json` (we have 157-member CSV)
+- Service worker or `<noscript>` fallback page
+- Surface "feature degraded" banner instead of blank when key endpoints fail
 
 ---
 
-## 🏗 Catalog roadmap (Phase 1+ builds on top of Phase 0 catalog)
+## ✅ Recently shipped (last 30 days, summarized — full detail in changelogs)
 
-Identified during the 2026-06-02 audit. The TLA Chain Registry catalog (Phase 0) is the data foundation; these are the user-facing tools that build on it. **Don't start any of these without the catalog data being solid first** — the whole point of Phase 0 was to make sure the foundation is trustworthy before building on it.
+- **Rev 0.16 (2026-06-06)**: Phase 0 lock-in — 5 polish fixes (Eris not labeled DEX, pair_type normalization, definitional failure detection, SS source synthesis, expanded fingerprint)
+- **Rev 0.15 (2026-06-06)**: contract_info via cw2 raw storage (fixes Rev 0.14 error spam), SS indexer correction, avatar capture defensive ungating, curation candidates file
+- **Rev 0.14 (2026-06-05)**: Pool architecture surfacing — all 75 pools get architecture object (contract, version, pair_type, dex)
+- **Rev 0.13 (2026-06-05)**: Wallet names + avatars — 668/668 wallets have meaningful labels (PFPK names + synthesized DAO-membership labels)
+- **Rev 0.12.x (2026-06-05)**: Token logos (3-layer system) + curated URL audit + CDN cache bypass via SHA-pinned URLs
+- **Rev 0.11 (2026-06-05)**: amplp classification fix — 65 amplps fully classified with bucket inheritance
+- **Rev 0.10 (2026-06-02)**: 10 systemic catalog fixes (self-referential vault detection, Stage 5/6/7 cascade, source coverage transparency)
 
-### Member Stats page (`dao-tla.html`) — Phase 2
-**Status:** not built. Page slot reserved. Already mentioned above under the original "dao-tla.html" entry.
-
-What catalog enables: each of the 46 TLA members has positions in specific LPs / amplps / single-asset stakes. The catalog tells us what those positions ARE (which LP, what underlyings, which DEX/architecture). Combined with `adao-positions/current.json` (member-level holdings), we can render per-member portfolio panels with proper LP/amplp labels and trust signals.
-
-### Portfolio Tracker — Phase 3
-Already documented above under P4. Catalog enables proper labeling: not just "LP token at terra1...", but "ATOM-LUNA LP on Astroport, wrapping into ATOM-LUNA AMPLP for compounding."
-
-### LP Health Scoring — Phase 4
-Already documented above under P4. Catalog provides the universe of LPs to score; queries.md has all the inputs needed for the scoring formulas (fee accumulation, depth, volume — see Q-Pair-* queries).
-
-### Bribes Tracking — Phase 5
-**Status:** `bribes-history` cron already exists. Page needs building.
-
-What catalog enables: instead of opaque "bribe paid to pool X at address Y", render with proper LP labels, underlying token symbols, and trust signals. "$12.93 in CAPA paid to ATOM-LUNA LP (S) by terra1tuuw...".
-
-### Vote Intelligence — Phase 6
-**Status:** identified as key differentiator from Eris UI. Eris structurally can't tell users "this LP is being over-voted relative to its fee generation" because Eris IS the protocol. We can.
-
-What catalog enables: the canonical "what LPs exist + what they hold + what their architecture is" registry that vote-recommendation algorithms need to operate on. Combined with Q-AssetGauge-Votes per-member queries (see queries.md), we can build coalition detection and ROI-of-vote-allocation calculators.
-
-### Mobile + SEO pass — Phase 7
-**Status:** mobile-friendliness pass planned across all user-facing pages (simpler content pages first, then complex chart/grid pages). SEO foundation in place (robots.txt, sitemap.xml, Search Console verification) but per-page metadata is index-only.
-
-`tla-catalog.html` itself needs mobile pass eventually — currently desktop-optimized verification surface.
-
-### Composability / API — Phase 8 (speculative)
-**Status:** speculative. Catalog already publishes static JSON via raw.githubusercontent.com — could add a thin wrapper exposing filtered queries ("all active LPs in stable bucket", "all tokens with no_acquisition_guide flag"). Risk: providing an API means owning its uptime.
-
----
-
-## 🚀 Future projects — separate threads
-
-### ✅ TLA data collection automation — COMPLETED 2026-05-12 → 2026-05-14
-**Done.** 9 production crons live on Render (votion, skeletonswap, astroport, bribes-history, network-and-prices, tla-snapshot, adao-positions, nft-inventory, marketplace-stats). All writing to their respective `*-data_2026` GitHub repos. `tla-stats.html` rebuilt (V6) to consume from the new continuous data sources instead of per-epoch manual snapshots. See PROJECT_KNOWLEDGE.md "TLA cron infrastructure" section for the as-built architecture. `tla_tool.html` and `tla-tool_ext.html` retained as manual fallback but no longer the primary capture path.
-
-### Slim manual capture by prefilling chain-derivable fields
-Pair this with the cron work or do standalone. The Rev 3.31 `fetchDaoTlaVp` work proved the live-query pattern. Now mostly moot since the new crons cover most of what was manual.
-
-### Capa Protocol integration prep
-Once partnership solidifies — likely new pages/sections + lore integration (per the framework Lion DAO established → Canyon-Clans of Ozara North).
-
-### Static site generator migration
-Big refactor, not urgent. Would dramatically simplify the cross-page chrome rollout (currently per-page duplicated code) and meta-tag application. Astro or Eleventy. Logged for awareness; only consider when it actively blocks something.
-
----
-
-## 🧹 Cleanup — low priority, safe to defer
-
-- [ ] Remove dead Logos modal HTML in `index.html` (line 1745+) and the `'logo-modal-trigger': 'logoModal'` mapping in JS (~line 5396)
-- [x] ~~Delete `unclaimed-stale-banner` HTML element from `index.html`~~ — **Done Rev 3.50.** Banner removed entirely along with its mobile CSS rules and the dead JS hide-call.
-- [ ] Deduplicate `fmt` helper from Rev 3.26 vs `safeLocale` from Rev 3.27 — both do the same thing
-- [ ] Remove `fetchTlaFromGitHub` + `_adaoSnapshotCache` if anything is still left after Rev 3.31's deletion (verify)
-- [ ] Old `dao_governance.html` is renamed to `dao.html` (Rev 3.22) — check Vercel for stale 404s on old URL
-
----
-
-## 📝 Open questions / decisions needed
-
-- [ ] **APR methodology — match Eris or document our own?** Cron's APR uses TLA-staked denominator; Eris uses depth_usd. Both correct, measure different things. Current direction (2026-05-17): match Eris. One-line cron change, but want to test thoroughly. See P3.
-- [ ] **Skeleton Swap data going forward** — keep capturing best-effort with "unverified" label (current decision), or stop capturing entirely until chain-direct cron is built? Current call: keep, the cost of leaving it running is low.
-- [ ] LST ratios: keep the hardcoded fallbacks or remove? (See Design Principle #1; current call is keep.)
-- [ ] Astroport chain-direct verification — build it or trust the API? See P3. Adds complexity; useful as trust layer for scoring.
-- [ ] **(S) suffix rename** — change `(S)` to `(Skeleton Swap)` in catalog display? Cryptic abbreviation vs. clarity. Owner preference TBD. Identified 2026-06-02.
-- [ ] **Catalog → API/JSON exposure** — when the catalog is solid, should we expose it as a public JSON feed (e.g., `tla-catalog.json` link on `tla-catalog.html`) so other Terra projects can consume it? Owner preference TBD. Identified 2026-06-02.
-- [ ] **Eris CG-ID outreach** — send the 3 mismatch findings (USDC, EURe, WETH.axl) to Eris team or hold? Drafts prepared in 3 tones (technical / brief / casual). Identified 2026-06-02.
-- [x] ~~Should the cron run daily or hourly?~~ — **Resolved.** Hourly for tla-snapshot + network-prices (data freshness matters), daily for DEX/bribes captures (less time-sensitive). **Reopened 2026-05-17 for adao-positions**: was weekly, should be daily for Portfolio Tracker history. See P1.
-- [x] ~~Where does the new cron write?~~ — **Resolved.** One `*-data_2026` GitHub repo per cron. Independent systems principle.
-- [x] ~~How does the cron handle the multi-week capture gap?~~ — **Resolved.** Crons started fresh in May 2026 with no historical backfill. Historical data before this lives in legacy `tla-ext_json_storage` files (used for trend charts only).
-- [x] ~~Epoch numbering off-by-one fix — rename archives or accept gap?~~ — **Resolved 2026-05-15.** Accepted the gap. All crons now use `epochIndex + 1`. Verified live 2026-05-17: crons correctly report epoch 185. Epoch-184 archives exist but no epoch-185 archive files until each cron's next nightly run.
-- [x] ~~Should we backfill 4 months of historical chain data for the new tabs?~~ — **Resolved 2026-05-17.** Not feasible without paid archive node access ($50-500/mo). Public LCDs prune state after ~100 blocks (~10 min). Tendermint RPC disabled on `terra.publicnode.com`. Astroport API has no historical endpoint. Decision: forward-only chain-based capture. Accept 4-month wait. In 4 months we'll have 4 months of trustworthy data for both DEXes.
+Phase 0 LOCKED IN as of 2026-06-06 after Rev 0.16 deploy.
