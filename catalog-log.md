@@ -9,6 +9,102 @@ Newest revisions on top. Times are UTC. Cron-side and page-side changes are inte
 
 ---
 
+## Rev 0.14 — 2026-06-05 (pool architecture surfacing)
+
+Completes the Phase 0 data foundation by closing the last major gap: every pool now has its on-chain contract identity captured. Identified via Phase 0 audit — all 75 pool entries had zero architecture metadata (no contract type, no version, no DEX info). Future pages (Member Stats, Portfolio Tracker, LP Health Scoring) all need this to distinguish Astroport-XYK pools from Astroport-stable pools from SS-WW pools.
+
+### What gets captured
+
+For each pool the cron now queries `contract_version{}` on the pair contract (the contract identified earlier via `minter{}` for cw20 LPs or via factory-denom regex for native LPs). Combined with the `pair_type` field already returned by the existing `pair{}` query, we now have:
+
+```json
+"architecture": {
+  "pair_address": "terra1...",
+  "pair_type": "xyk" | "stable" | "concentrated" | ...,
+  "contract":   "white_whale-pool" | "astroport-pair" | "astroport-pair-stable" | "astroport-pair-concentrated",
+  "version":    "1.3.8" | "1.5.0" | ...,
+  "dex":        "Astroport" | "Skeleton Swap" | (other if novel contract)
+}
+```
+
+This appears in two places in `current.json`:
+- **Per-pool**: `pools[].architecture` — easiest for page consumers
+- **Indexed**: `scope.lp_to_architecture[lp_addr]` — for tools that join by LP address
+
+### Why both pair_type AND contract identity
+
+`pair_type` alone tells us the AMM math (xyk / stable / concentrated). `contract` identity tells us the codebase. Both matter:
+
+- **Skeleton Swap pools** use White Whale's `white_whale-pool` contracts (v1.3.8) that Backbone Labs took over after WW shut down. They're all `xyk`/`constant_product` math.
+- **Astroport pools** can be `astroport-pair` (xyk), `astroport-pair-stable`, or `astroport-pair-concentrated` — three different contracts, three different math curves.
+
+A user wants to know: "Is this Skeleton Swap or Astroport?" (operational identity) AND "What's the slippage curve?" (AMM math). Showing both — `"Skeleton Swap • white_whale-pool v1.3.8 • xyk"` — gives the complete picture.
+
+### Cron changes
+
+Inside `buildLpUniverse()`:
+- Added `lpToArchitecture` map alongside `lpToUnderlyings`
+- New `contract_version{}` query on each pair contract (after the existing `pair{}` query, same pair address — no extra lookup needed)
+- `pair_type` normalization handles both string format (`"constant_product"`) and object format (`{xyk: {}}`) — Astroport versions vary
+- DEX label derived from contract name (`white_whale*` → "Skeleton Swap", `astroport*` → "Astroport")
+- Errors silently swallowed per query (`.catch(() => null)`) — pool architecture is best-effort, not blocking
+
+After `buildLpUniverse` returns, a small loop attaches `pool.architecture = lpToArchitecture[lpAddr]` so downstream readers don't have to do the join themselves.
+
+### Query overhead
+
+- Existing per-cron LCD queries in this stage: 122 (minter for 47 cw20 LPs + pair for all 75 pools)
+- New queries added: 75 (`contract_version` per pool)
+- New total: 197 sequential queries with existing retry/backoff
+- Expected runtime increase: ~30s
+
+Acceptable given the cron's daily cadence.
+
+### Page changes
+
+**Card-level DEX badge** (existing in Rev 0.11) now prefers on-chain `arch.dex` over name-based inference. Tooltip shows full architecture string: `"white_whale-pool v1.3.8 (xyk) — operated by Backbone Labs"`. Falls back to name-based detection if `lp_to_architecture` data is missing (e.g. before cron has run with new code).
+
+**LP token detail view** gets a new "Pool architecture" row showing the formatted architecture string.
+
+**Amplp "Wraps" panel** enhanced — when on-chain architecture is available, replaces name-based DEX inference with authoritative data and shows a "Pool architecture" sub-row with `contract vX.Y.Z · pair_type` detail. Tooltip distinguishes "inferred from name" vs "on-chain contract_version".
+
+### What this enables for future work
+
+- **Member Stats page**: can show each user's LP positions with proper venue labeling
+- **Portfolio Tracker**: can group positions by AMM curve (xyk vs stable vs concentrated) for slippage modeling
+- **LP Health Scoring**: scoring criteria can differ by pool architecture (concentrated has IL profile different from xyk)
+- **Bribes Tracking**: can correlate bribe efficiency with pool type
+- **Query tool**: "show all stable pools" / "show all SS pools" filters become trivial
+
+### Deploy state
+
+Not yet deployed:
+- **Cron**: 142,534 bytes (+3.8 KB vs Rev 0.13) — additions in `buildLpUniverse` + scope export
+- **Page**: 127,116 bytes (+4.3 KB vs Rev 0.13) — architecture rendering in card badge, detail view, Wraps panel
+
+Both files syntax-validated. Page works in degraded mode if cron hasn't yet populated `lp_to_architecture` (falls back to name-based inference). After cron runs with new code, page surfaces authoritative on-chain data.
+
+### Phase 0 status: COMPLETE
+
+With Rev 0.14, the catalog data foundation now covers:
+
+- ✓ 173 tokens with headline_name (100%)
+- ✓ 75 pools with bucket + distribution + total_vp (existing)
+- ✓ 75 pools with on-chain architecture (NEW in Rev 0.14)
+- ✓ 65 amplps fully classified with bucket inheritance + wraps_lp_address
+- ✓ 668 wallets with headline_name (100%)
+- ✓ Token logos (36 single + 133 composites)
+- ✓ DAO membership data per wallet
+- ✓ Source coverage transparency
+- ✓ Curated overrides system
+- ✓ Reliable curated reads (SHA-pinned cache bypass)
+- ✓ Verified cross-DEX token identity (17/17 same-named pairs)
+- ✓ AllianceDAO member coverage (157/157, 98% with names)
+
+Phase 1 (TLA Stats migration), Phase 2 (Member Stats), Phase 3 (Portfolio Tracker), and beyond can build on this foundation without further data-layer work.
+
+---
+
 ## Rev 0.13 — 2026-06-05 (wallet names + avatars)
 
 User-reported issue: the catalog page showed "a bunch of addresses but really not member names." Investigation found that DAODAO PFPK profile names (160 wallets) and avatars (43 wallets) WERE being captured by the cron — but the page didn't render them. The data layer was good; the rendering layer was incomplete.
