@@ -9,6 +9,111 @@ Newest revisions on top. Times are UTC. Cron-side and page-side changes are inte
 
 ---
 
+## Rev 0.16 — 2026-06-06 (Phase 0 lock-in: 5 polish fixes)
+
+Sweep of every remaining issue found in the Rev 0.15 production run audit. Goal: lock Phase 0 with zero known data-quality issues, zero error-log noise, before moving on.
+
+### Issues fixed
+
+| # | Issue (from Rev 0.15 audit) | Fix |
+|---|---|---|
+| 1 | 1 pool labeled with `dex: "eris-alliance-hub-lst"` (Eris vault isn't a DEX) | DEX label restricted to recognized contract families only |
+| 2 | 24 pools with `pair_type: "custom"` (misleading — they're concentrated) | Normalize: `custom`+concentrated contract → `concentrated`; `stable_swap` → `stable`; `xyk` → `constant_product` |
+| 3 | ~4 noisy minter query warnings per run from contracts that don't support `minter` | `queryContract` detects "unknown variant" / "not supported query" errors as definitional failures — no retry, no fallback attempt, no warning |
+| 4 | 3 tokens (USDC/ATOM/dATOM) missing `sources.skeletonswap` despite being in SS pools | New `ensureSkeletonSourceForArchitecturePools` synthesizes SS source entries for any underlying of an SS-architecture pool, marked `_synthesized: true` |
+| 5 | Freshness fingerprint stayed identical across runs despite architecture data changing | Fingerprint now includes architecture contract+version per pool, wallet count, amplp count, architecture resolution count |
+
+### Fix 1 — Eris vault no longer masquerades as DEX
+
+`eris-alliance-hub-lst` (the single-asset Eris compounder vault contract) was being labeled as `dex: "eris-alliance-hub-lst"` because my Rev 0.14 fallback used the contract name as the DEX label when it didn't match white_whale or astroport prefixes. Eris vaults respond to `pair{}` queries with self-referential data — they look like a pair but they're auto-compounding vaults.
+
+**Fix:** No fallback. Only `white_whale*` → "Skeleton Swap" and `astroport*` → "Astroport". Any other contract leaves `dex` as `null`. The pool still gets `contract` and `version` populated for transparency, just not a DEX label.
+
+### Fix 2 — pair_type normalization
+
+Different Astroport contract versions return inconsistent `pair_type` strings:
+- xyk pools: `"constant_product"` (modern) or `"xyk"` (older)
+- stable pools: `"stable"` or `"stable_swap"`
+- concentrated pools: `"concentrated"` (rarely) or `"custom"` (most often)
+
+**Fix:** Normalize at capture time. After Rev 0.16 expect:
+- `~31 × constant_product` (was 29 constant_product + 11 xyk = 40, but xyk are mostly Astroport xyk now folded in)
+- `~23 × concentrated` (was 24 "custom", normalized)
+- `~8 × stable` (was 6 stable + 2 stable_swap, merged)
+
+### Fix 3 — Definitional failure detection
+
+`queryContract` now recognizes two error patterns as definitional (not transient):
+- `unknown variant` (contract's QueryMsg enum doesn't have that variant)
+- `not supported query` (contract refuses the query)
+
+For these, it returns `null` immediately — no retry, no fallback LCD, no warning. Saves ~4 warning lines per cron run from `minter` calls hitting pair contracts that don't have `minter` (correct: pair contracts ARE the minter, not the other way around).
+
+### Fix 4 — SS source synthesis
+
+The Rev 0.15 SS relocator assumed mislabeled denoms could be moved to correct addresses. Empirical reality: SS API simply doesn't return token-level metadata for some pools (USDC, ATOM, dATOM specifically). No mislabel to relocate — the data isn't there in any form.
+
+**Fix:** After the relocator runs, a second pass synthesizes SS source entries for any underlying of an SS-architecture pool (per cw2 contract name) that has no SS source yet. Entry shape:
+```json
+{
+  "_synthesized": true,
+  "_reason": "underlying of SS pool per on-chain pair{} + cw2 contract name",
+  "is_in_ss_pool": true
+}
+```
+
+The `_synthesized` flag distinguishes inferred-from-on-chain entries from real API-fetched metadata. The actual token info (symbol/decimals/logo) still comes from cosmos_chain_registry / eris / astroport — SS source just indicates membership.
+
+Expected after deploy: 3 new synthesized entries (USDC, ATOM, dATOM) → SS coverage on SS-pool underlyings goes from 18/21 to 21/21.
+
+### Fix 5 — Expanded fingerprint
+
+Old fingerprint inputs: epoch, directory_size, tokens_count, contracts_count, pools[].{gauge_pool_id, bucket, distribution_pct}.
+
+New inputs (Rev 0.16 added):
+- `wallets_count` — catches discovery changes
+- `amplp_count` — catches amplp_mappings shifts
+- `arch_resolved_count` — catches architecture regression (Rev 0.14 → 0.15 should have rippled here)
+- `pools[].architecture.contract` + `version` — stable per-pool architecture identity
+
+This means Rev 0.15 → Rev 0.16 should show fingerprint change (architecture data different), which restores the freshness signal we lost.
+
+### Cron stats expected after deploy
+
+```
+   step B: pair{} lookups — ~46 succeeded, ~2 failed, 1 native LP skipped
+           75 LP addresses, 35 underlying token addresses
+           architecture resolved for ~72 pools (full: contract+version+type), 0 partial
+           attached architecture to ~72 pool objects
+
+🔧 SS source synthesis: marked 3 on-chain SS-pool underlyings as known-to-SS
+   (no API metadata available, but pair contract confirms membership)
+
+🔍 Freshness: ✓ fresh (fp <NEW>, prev 5e0b3d3f8e7f)
+```
+
+And NO `unknown variant` or `not supported query` warnings.
+
+### Deploy state
+
+Not yet deployed:
+- **Cron**: 156,210 bytes (+5.6 KB vs Rev 0.15)
+- **Page**: unchanged (Rev 0.14 page renders architecture correctly)
+
+### Phase 0 status: LOCKED IN ✅
+
+After Rev 0.16 deploys, the catalog data foundation is at:
+- 173 tokens — all named, all sourced (with synthesized SS entries closing the last gap)
+- 75 pools — all with bucket+distribution, 72 with full architecture
+- 65 amplps — all classified
+- 668 wallets — all named
+- 0 noisy log lines per cron run
+- Freshness fingerprint catches every meaningful data change
+
+Ready for Phase 1.
+
+---
+
 ## Rev 0.15 — 2026-06-06 (P2 cleanup + Rev 0.14 follow-up fix)
 
 Combines three planned P2 cleanups (SS indexer correction, avatar capture defensive ungating, curation candidates) PLUS a fix for a problem that surfaced in Rev 0.14's first production run.
