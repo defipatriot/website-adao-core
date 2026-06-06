@@ -9,6 +9,67 @@ Newest revisions on top. Times are UTC. Cron-side and page-side changes are inte
 
 ---
 
+## Rev 0.15 — 2026-06-06 (P2 cleanup + Rev 0.14 follow-up fix)
+
+Combines three planned P2 cleanups (SS indexer correction, avatar capture defensive ungating, curation candidates) PLUS a fix for a problem that surfaced in Rev 0.14's first production run.
+
+### 0. Rev 0.14 follow-up: contract_info via raw storage (the urgent fix)
+
+**The problem:** Rev 0.14 added a `{contract_version: {}}` smart query on every pair contract to capture architecture (contract name + version). The first production run revealed that **Astroport and White Whale pair contracts don't expose `contract_version` (or `contract_info`) as a smart query**. Their QueryMsg enums simply don't include those variants. Result: every architecture query returned 500 with messages like:
+
+```
+Error parsing into type astroport::pair::QueryMsg: unknown variant `contract_v...
+Error parsing into type astroport::pair_concentrated::QueryMsg: unknown variant ...
+Error parsing into type white_whale_std::pool_network::pair::QueryMsg: unknown ...
+```
+
+With cron retry+fallback, this produced **~140 error log lines per run** for zero data captured. The Rev 0.14 stats reflected it: "architecture resolved for **0** pools (full: contract+version+type), 72 partial (pair_type only)".
+
+**The fix:** Switch from a smart query to a **raw storage query**. Every cw2-compliant contract stores `ContractVersion { contract, version }` at the standard storage key `contract_info` — regardless of whether the contract implements a smart query handler for it. The wasmd LCD exposes raw state at `/cosmwasm/wasm/v1/contract/{addr}/raw/{base64_key}` — no QueryMsg routing involved.
+
+New helper function `queryContractRaw(addr, storageKey)` does the raw fetch, base64-decodes the wrapped value, and JSON-parses the cw2 ContractVersion struct. It's quiet-by-default (no console.warn on retry/fallback) since some contracts may legitimately not be cw2-compliant and we don't want the Rev 0.14 noise pattern back.
+
+Expected after deploy: cron log shows "architecture resolved for ~70 pools (full)" instead of 0, no `unknown variant` error spam, and `pools[].architecture` actually has `contract` + `version` + `dex` fields populated.
+
+### 1. SS indexer correction
+
+**The bug:** SS's `/api/pools` returns wrong denoms for some IBC tokens (most famously `"ATOM on Dungeon"` at `ibc/C3988DBA...` for pools whose `pair{}` contract actually holds standard `ibc/27394FB0...` ATOM). The old `indexSkeletonSwap` trusted those API labels, so SS metadata indexed under denoms that don't exist in our scope → scope filter dropped them → real ATOM/USDC/dATOM ended up with `sources.skeletonswap = null`.
+
+**Affected tokens (3, audited from live data):**
+- USDC at `ibc/2C962DAB...` — used in `LUNA-USDC LP (S)`
+- ATOM at `ibc/27394FB0...` — used in `ATOM-LUNA LP (S)` and `ATOM-dATOM LP (S)`
+- dATOM at `ibc/223FF539...` — used in `ATOM-dATOM LP (S)`
+
+**The fix:** A new `relocateSkeletonSourceData` function runs after `buildLpUniverse`. For each SS pool, it compares SS's claimed underlyings against the on-chain truth in `lpToUnderlyings` (captured via `pair{}` queries). When SS's claim doesn't match anything on-chain, the SS metadata gets relocated to the "orphan" on-chain address. N-1-of-N matching covers the common case.
+
+Idempotent. Adds `_relocated_from` marker on relocated entries for debuggability.
+
+### 2. Avatar capture defensive ungating
+
+Rev 0.13 gated avatar capture inside `if (data?.name)`. Audit found 0 current cases — but the gating was incidental, not intentional. As the user base grows this would silently bite. One-line restructure: name and avatar capture independently. `namesFound` counter still tracks name-only captures.
+
+### 3. Curation candidates file (no code change — deliverable for the user)
+
+125 TLA member wallets have no curated label and no PFPK name. Top 30 by VP templatized into `curation-candidates.json` ready for the user to fill in. Largest candidate is a 5.4M VP wallet. Drop-in compatible with `curated/wallets.json` — fill in labels, paste under `wallets` key, next cron picks them up.
+
+### Deploy state
+
+Not yet deployed:
+- **Cron**: 150,556 bytes (+8 KB vs Rev 0.14) — adds queryContractRaw + relocateSkeletonSourceData + avatar ungating + the raw-storage architecture query swap
+- **Page**: unchanged (Rev 0.14 page renders architecture correctly when present)
+- **Curated-candidates file**: included in package as a tool/aid, not a code deliverable
+
+Cron syntax-validated. After deploy + first cron run, expect:
+- ~140 fewer error log lines per run
+- `pools[].architecture.contract` and `.version` populated for most pools
+- 3 newly-correct `sources.skeletonswap` entries (USDC, ATOM, dATOM)
+
+### Phase 0 status: complete, now with quality fixes
+
+The polish items are knocked out. Member Stats and other Phase 1+ work can proceed without further data-layer changes.
+
+---
+
 ## Rev 0.14 — 2026-06-05 (pool architecture surfacing)
 
 Completes the Phase 0 data foundation by closing the last major gap: every pool now has its on-chain contract identity captured. Identified via Phase 0 audit — all 75 pool entries had zero architecture metadata (no contract type, no version, no DEX info). Future pages (Member Stats, Portfolio Tracker, LP Health Scoring) all need this to distinguish Astroport-XYK pools from Astroport-stable pools from SS-WW pools.
