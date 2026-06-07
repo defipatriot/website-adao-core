@@ -667,8 +667,437 @@ if (!arraysEqual(onChainUnderlyings, ssApiClaim)) {
 
 ---
 
+## 11. Alliance NFT Collection (aDAO NFT)
+
+**Address:** `terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9`
+
+**Role:** The aDAO NFT collection — standard CW721 plus aDAO-specific `rewards` query and `break_nft` execute. Contract label: `alliance-nft-collection`. Audited by SCV-Security 2023-11-24 (8 findings, 4 resolved / 4 acknowledged).
+
+### Default queries (Chainscope)
+
+`config`, `rewards`, `nft_info`, `all_nft_info`, `owner_of`, `approval`, `approvals`, `all_operators`, `num_tokens`, `contract_info`, `tokens`, `all_tokens`, `minter`
+
+### Custom queries
+
+```
+Q-AdaoNft-AllTokens
+  Human label:   "Enumerate every NFT in the collection"
+  Used by:       nft-inventory cron Phase 1
+  Input shape:   { "all_tokens": { "limit": 30, "start_after": "<token_id>" } }
+  Inputs:        limit (cap 30 default), start_after (last seen token_id for pagination)
+  Output shape:  { "tokens": ["1", "2", "3", ...] }
+  Powers:        Phase 1 enumeration of all 10,000 NFT IDs
+  Notes:         Standard CW721 paginated query. 334 pages at limit 30.
+
+Q-AdaoNft-AllNftInfo
+  Human label:   "Get owner + metadata for one NFT"
+  Used by:       nft-inventory cron Phase 2
+  Input shape:   { "all_nft_info": { "token_id": "1234" } }
+  Inputs:        token_id (string)
+  Output shape:  {
+                   "access": { "owner": "terra1..." },
+                   "info":   { "extension": {
+                       "name": "AllianceDAO NFT #1234",
+                       "image": "ipfs://...",
+                       "attributes": [
+                         { "trait_type": "broken", "value": "false" },
+                         { "trait_type": "Rarity", "value": 9876 },
+                         ...
+                       ]
+                   }}
+                 }
+  Powers:        Per-NFT owner + broken status + rank + image
+  Notes:         broken flag lives in extension.attributes; value can be string "true"/"false" or boolean.
+
+Q-AdaoNft-Rewards
+  Human label:   "What ampLUNA share does this NFT have?"
+  Used by:       not used for backing display — see gotcha below
+  Input shape:   { "rewards": { "token_id": "1234" } }
+  Inputs:        token_id
+  Output shape:  {
+                   "rewards": [
+                     {
+                       "info": { "cw20": "terra1ecgazyd0waaj3g7l9cmy5gulhxkps2gmxu9ghducvuypjq68mq2s5lvsct" },
+                       "amount": "88202952"
+                     }
+                   ]
+                 }
+  Powers:        Theoretically per-NFT claimable. In practice misleading for broken NFTs (see gotcha).
+  Notes:         🔴 GOTCHA: returns non-zero amounts for already-broken NFTs that can't claim again
+                 ("you can only claim once" per break_nft docs). Three broken NFTs returned three
+                 different non-zero values in testing (88.20, 27.91, 49.39). The audit doesn't
+                 flag this — the query is informational/historical, computed as a share without
+                 checking broken state. The actual `break_nft` execute message blocks re-claims.
+                 For UI backing display use treasury_balance / unbroken_count (~88.20 today).
+                 Verified empirically: this formula matches the contract's actual distribution math.
+
+Q-AdaoNft-NumTokens
+  Human label:   "How many NFTs exist?"
+  Used by:       nft-inventory cron (sanity check vs all_tokens enumeration)
+  Input shape:   { "num_tokens": {} }
+  Inputs:        none
+  Output shape:  { "count": 10000 }
+  Powers:        Capture-rate validation
+  Notes:         Always 10,000 for aDAO.
+
+Q-AdaoNft-OwnerOf
+  Human label:   "Who owns this NFT?"
+  Used by:       on-demand spot checks (cron uses all_nft_info instead since it's both owner + metadata in one call)
+  Input shape:   { "owner_of": { "token_id": "1234" } }
+  Inputs:        token_id
+  Output shape:  { "owner": "terra1..." }
+  Powers:        Quick ownership lookup
+  Notes:         For marketplace-listed NFTs, returns the MARKETPLACE contract address, not the
+                 original seller. Use marketplace queries (Q-Bbl-AuctionByContract,
+                 Q-Atrium-ListingsByCollection, Q-Boost-Launches) to resolve real owner.
+```
+
+### Execute messages (for reference)
+
+```
+break_nft — claim ampLUNA share and mark NFT as broken
+  Input:   { "break_nft": "1234" }
+  Effect:  Sends per-NFT ampLUNA share to caller, sets broken=true.
+  Limits:  ONE-SHOT per NFT (cannot re-claim even though rewards query may still return non-zero).
+           Caller must be current owner.
+```
+
+### Pagination notes
+
+`all_tokens` uses `start_after` keyed by the last token_id from the previous page. Standard CW721 pattern.
+
+### Gotchas
+
+- **Rewards query lies for broken NFTs** (see Q-AdaoNft-Rewards above). For per-NFT backing display, compute `treasury_balance / unbroken_count` collection-wide instead. Both values agree at 88.20 ampLUNA today, but only the latter is reliable.
+- **Daily yield accrual pattern.** Once per day (typically ~00:50 UTC, triggered by Eris auto-compound bot at `terra1gtuvt6eh4m67tvd2dnfqhgks9ec6ff08c5vlup`), `alliance_claim_rewards` is executed on this contract. The flow: claim LUNA from all 49 Alliance validators → bond LUNA to Eris Staking Hub → 90% of new ampLUNA stays in NFT contract for unbroken holders, 10% sent to DAO main wallet (`terra1sffd4efk...`). Decoded from txn `70757515D0FEBE07DABC2013CAC9217514C16AE252AA54BF5E395A9885215B18` on 2026-04-25.
+- **Boost mechanic.** As NFTs break and claim their share, the unbroken count decreases. Same daily inflow is divided among fewer NFTs → per-NFT yield grows. At launch (10,000 unbroken): ~0.081 ampLUNA/day. Today (8,907 unbroken): ~0.091 ampLUNA/day (+12.3%). Verified working — the rewards query returning 88.20 = treasury 785,796 / unbroken 8,907 = boost math correct.
+
+---
+
+## 12. Enterprise NFT Staking
+
+**Address:** `terra1e54tcdyulrtslvf79htx4zntqntd4r550cg22sj24r6gfm0anrvq0y8tdv`
+
+**Role:** Enterprise-framework NFT staking contract. Holds 503 aDAO NFTs total: **100 broken** (DAO-controlled via stake — governance leverage) + **403 unbroken** (real user stakes). Per-user enumeration available.
+
+**Critical naming note:** This is DIFFERENT from the DAO Treasury contract (`terra1h8psjg...rp4l7v`) which is sometimes informally called "Enterprise treasury." Treasury holds 898 broken NFTs separately for DAO governance.
+
+### Default queries (Chainscope)
+
+`config`, `members`, `nfts`, `state`, plus Enterprise framework standard queries
+
+### Custom queries
+
+```
+Q-EnterpriseNftStaking-Members
+  Human label:   "Who has staked NFTs here and how many each?"
+  Used by:       nft-inventory cron Phase 3
+  Input shape:   { "members": { "limit": 30, "start_after": "terra1..." } }
+  Inputs:        limit (default 30), start_after (last seen address for pagination)
+  Output shape:  {
+                   "members": [
+                     { "user": "terra1...", "weight": 12 },
+                     ...
+                   ]
+                 }
+  Powers:        Per-user staker breakdown (mirrors DAODAO indexer's per-staker counts)
+  Notes:         weight = number of NFTs the user has staked. May use field name "user" or "address"
+                 depending on Enterprise framework version — cron handles both defensively.
+                 Filter: only users with weight > 0 are real stakers (some entries may show 0 for unstaked-but-tracked).
+```
+
+### Pagination notes
+
+`start_after` keyed by the last user/address from the previous page. ~200 stakers across multiple pages typically.
+
+### Gotchas
+
+- **Broken NFTs at this address are NOT user stakes** — they are DAO-controlled stakes used for governance leverage. Distinguish via Phase 2 broken status: `owner == enterprise && !broken` = real user stake, `owner == enterprise && broken` = DAO control.
+
+---
+
+## 13. BBL Marketplace (Necropolis)
+
+**Address:** `terra1ej4cv98e9g2zjefr5auf2nwtq4xl3dm7x0qml58yna2ml2hk595s7gccs9`
+
+**Role:** BackBone Labs marketplace (Necropolis). Contract: `bbl-necropolis-marketplace v2.2.2`. Code ID 3737. Accepts bLUNA + native LUNA. Hosts 19 NFT collections across multiple chains (7 on Terra). Backend API at `https://warlock.backbonelabs.io/api/v1/dapps/necropolis/collections` (off-chain reference, returns volume + floor + last_sale per collection).
+
+### Default queries (Chainscope)
+
+`config`, `state`, `auction`, `royalty_fee`, `royalty_admin`, `all_royalty_fee`, `calculate_price`, `nft_auction`, `bid_history_by_auction_id`, `bids_count`, `auction_by_contract`, `auction_by_seller`, `auction_by_amount`, `auction_by_end_time`, `not_started_auction`, `auction_by_bidder`, `offers_by_bidder`, `user_balance`, `live_auction_config`, `collection_offers_by_bidder`, `collection_offers_by_contract`
+
+### Custom queries
+
+```
+Q-Bbl-AuctionByContract
+  Human label:   "List all active auctions for one NFT collection"
+  Used by:       nft-inventory cron Phase 4
+  Input shape:   { "auction_by_contract": {
+                     "nft_contract": "terra1phr9fngj...w3apw9",
+                     "limit": 30,
+                     "start_after": "<last auction_id>"
+                  }}
+  Inputs:        nft_contract (collection address), limit (default 30), start_after (auction_id)
+  Output shape:  {
+                   "auctions": [
+                     {
+                       "auction_id": "17753",
+                       "auction_type": "buy_now",     // or "english"
+                       "nft_contract": "terra1phr9fngj...",
+                       "token_id": "5678",
+                       "seller": "terra1v0k9r7c...",  // ✅ real owner (resolved!)
+                       "denom": "cw20:terra17aj4ty...", // bLUNA or "uluna"
+                       "reserve_price": "2200000000",   // 2200 bLUNA (6 dec)
+                       "amount": "2200000000",          // same as reserve for buy_now; current bid for auction
+                       "bidder": null,
+                       "end_time": 0,                   // 0 = no expiry; otherwise unix timestamp
+                       "duration": 0,
+                       "extension_duration": 180,       // anti-snipe seconds
+                       "creator_address": "terra1sffd4efk...", // royalty recipient (DAO main wallet)
+                       "royalty_fee": "0.05",           // 5%
+                       "is_settled": false,
+                       "offers": null
+                     }, ...
+                   ]
+                 }
+  Powers:        Marketplace listings on the explorer with seller resolution, price, royalty info
+  Notes:         Error "unknown field `contract`" if you use param name `contract` — must be `nft_contract`.
+
+Q-Bbl-BidHistoryByAuctionId
+  Human label:   "Show all bids on this auction"
+  Used by:       future Rev F (bid timeline display)
+  Input shape:   { "bid_history_by_auction_id": { "auction_id": "17753" } }
+  Inputs:        auction_id
+  Output shape:  list of { bidder, amount, timestamp }
+  Powers:        "Last bid was X bLUNA, 3 hours ago" on auction detail
+  Notes:         Not used yet.
+
+Q-Bbl-CollectionOffersByContract
+  Human label:   "Show standing buy offers for any NFT in this collection"
+  Used by:       future Rev F (collection-wide demand display)
+  Input shape:   { "collection_offers_by_contract": { "nft_contract": "terra1phr9fngj...w3apw9" } }
+  Inputs:        nft_contract
+  Output shape:  list of buyer + offer amount + token
+  Powers:        "5 buyers offering 1,500 bLUNA for any NFT in this collection"
+  Notes:         Not used yet.
+```
+
+### Pagination notes
+
+`start_after` keyed by `auction_id` from last page. ~2 pages for aDAO at 43 active auctions.
+
+### Gotchas
+
+- **Param name is `nft_contract`, not `contract`.** Error message is helpful: returns `Error parsing into type bbl_necropolis_marketplace::auction::QueryMsg: unknown field 'contract', expected one of 'nft_contract', 'start_after', 'limit'`.
+- **Denom can be cw20: prefix OR native.** Parse defensively.
+- **`creator_address`** field is the DAO main wallet — royalty flows back to DAO automatically on every sale.
+
+### Off-chain: BBL backend API
+
+Backend at `https://warlock.backbonelabs.io/api/v1/dapps/necropolis/collections` returns rich pre-computed data (off-chain, off-spec for the query tool but useful for reference):
+
+- `volume` (total all-time trading volume per collection in bLUNA)
+- `floor`, `unbroken_floor`, `broken_floor` (separate floor prices)
+- `last_sale_amount`, `last_sale_token_id`, `last_sale_auction_id`
+- `royalty_pct`
+- `dao_address`, `dao_provider`, `necropolis_contract`
+
+Pulled via HAR capture 2026-06-06. 19 collections total (8 Terra, 4 Injective, 4 Osmosis, 2 CosmosHub, 3 Dungeon).
+
+---
+
+## 14. Atrium Marketplace
+
+**Address:** `terra15du229lqcxkn939pmjgklqunftf604q4wz87kt5awj6reghec5jqs0w0kj`
+
+**Role:** Atrium NFT marketplace. Contract: `crates.io:atrium-marketplace v1.6.0-rc1`. Label: `atrium-marketplace v1.0.0-rc1`. Code ID 3857. Marketplace fee 150 bps (1.5%). Multi-collection — listings include other Terra collections (e.g. Scandalous Birds, Galactic Punks). Accepts cw20 and native payment tokens (SOLID observed in current listings).
+
+### Default queries (Chainscope)
+
+`config`, `listing`, `listings_by_collection`, `listings_by_seller`, `all_listings`, `offer`, `offers_by_nft`, `royalty`, `fee_info`, `fee_info_for_trade`, `is_collection_allowed`, `allowed_collections`, `collection_stats`, `launch_caps`, `collection_offer`, `collection_offers_for_collection`, `collection_offers_by_buyer`, `trait_registry`
+
+### Custom queries
+
+```
+Q-Atrium-ListingsByCollection
+  Human label:   "List active listings for one NFT collection on Atrium"
+  Used by:       nft-inventory cron Phase 4
+  Input shape:   { "listings_by_collection": {
+                     "collection": "terra1phr9fngj...w3apw9",
+                     "limit": 30,
+                     "start_after": <last listing id (number)>
+                  }}
+  Inputs:        collection (NFT contract address), limit, start_after (numeric listing id)
+  Output shape:  {
+                   "listings": [
+                     {
+                       "id": 9,
+                       "seller": "terra1vrjdx0t...",        // ✅ real owner (resolved!)
+                       "nft_contract": "terra1phr9fngj...",
+                       "token_id": "2219",
+                       "price": "100000000",                 // 100 SOLID (6 dec)
+                       "payment": { "Cw20": { "contract_addr": "terra10aa3zd..." } },
+                                                             // OR { "Native": "uluna" }
+                       "expires_at": 0,                      // 0 = never expires
+                       "created_at": 20733876,               // block height
+                       "whitelisted_buyer": null,            // private sale buyer
+                       "time_locked_until": null,            // time-locked listing
+                       "locked_for": null,
+                       "whitelist": null
+                     }, ...
+                   ]
+                 }
+  Powers:        Multi-token marketplace listings (SOLID, USDC, etc.) with seller resolution
+  Notes:         start_after is the numeric listing id (not string). Pagination cap defensive at 100 pages.
+
+Q-Atrium-AllListings
+  Human label:   "List active listings across ALL collections"
+  Used by:       not used (we filter to aDAO via listings_by_collection instead)
+  Input shape:   { "all_listings": { "limit": 30 } }
+  Output shape:  same per-listing shape; includes other collections
+  Powers:        Cross-collection floor / activity exploration
+  Notes:         Returns multi-collection — only ~1 in 10 is currently aDAO. Filter client-side.
+
+Q-Atrium-CollectionStats
+  Human label:   "Aggregate stats (floor / volume) for one collection"
+  Used by:       future Rev F (Atrium-side collection stats display)
+  Input shape:   { "collection_stats": { "collection": "terra1phr9fngj...w3apw9" } }
+  Output shape:  floor / volume / counts (TBD — not yet sampled)
+  Powers:        "Atrium floor: X SOLID" on collection page
+  Notes:         Not used yet.
+
+Q-Atrium-AllowedCollections
+  Human label:   "Which collections are listable on Atrium?"
+  Used by:       reference / admin tooling
+  Input shape:   { "allowed_collections": {} }
+  Output shape:  list of NFT contract addresses approved for listing
+  Powers:        Adding new collections (admin) requires they be in this allowlist
+  Notes:         AllianceDAO NFT + Scandalous Birds confirmed in allowlist. Other Terra collections
+                 from BBL (Skeleton Punks, pixeLions, Galactic Punks, SoulReapers, Burning Lion Festival,
+                 Origin Enigma) are NOT currently in the Atrium allowlist as of 2026-06-06.
+```
+
+### Pagination notes
+
+`start_after` is a numeric listing id. Atrium's id assignment is global (not per-collection) so ids may skip if other collections have intervening listings.
+
+### Gotchas
+
+- **Multi-collection marketplace.** `all_listings` returns listings from ALL collections — must filter client-side on `nft_contract`. Use `listings_by_collection` to avoid waste.
+- **Payment shape is wrapped.** `{Cw20: {contract_addr: '...'}}` for cw20 tokens or `{Native: 'uluna'}` for native. Parse defensively.
+
+---
+
+## 15. Boost Marketplace
+
+**Address:** `terra1kj7pasyahtugajx9qud02r5jqaf60mtm7g5v9utr94rmdfftx0vqspf4at`
+
+**Role:** Boost NFT marketplace. Contract: `launch-nft v1.4.0`. Label: `launch-nft-permissionless`. Code ID 3488. Multi-collection. Accepts ANY Cosmos registry token. Listings are called "launches" — the contract supports two types: simple NFT swaps (direct sale for tokens) and Launch Agreements (time-locked / vesting deals).
+
+### Default queries (Chainscope)
+
+`ownership`, `config`, `state`, `royalties_info`, `launch`, `launches`, `whitelist`
+
+### Custom queries
+
+```
+Q-Boost-Launches
+  Human label:   "List all launches ever created on Boost (active + history)"
+  Used by:       nft-inventory cron Phase 4 (with client-side filter)
+  Input shape:   { "launches": { "start_after": <last id> } }
+  Inputs:        start_after (numeric launch id; omit on first call)
+  Output shape:  [
+                   {
+                     "id": 475,
+                     "name": "",                              // optional label
+                     "cancelled": false,                      // true = seller cancelled
+                     "done": false,                           // true = sold
+                     "owner": "terra1hr8zsf...",              // ✅ real owner (resolved!)
+                     "from": {
+                       "contract": "terra1phr9fngj...w3apw9", // collection address
+                       "token_id": "8803"
+                     },
+                     "to_info": {
+                       "native": "uluna" | "ibc/..." | "cw20:terra1...",
+                       // OR (alternate shape):
+                       "cw20": "terra1..."
+                     },
+                     "runtime": {
+                       "nft": { "setup": { "to_amount": "20000000" }, "runtime": {} },
+                       // OR:
+                       "la": { "setup": { "to_amount": "100000" }, "runtime": {
+                         "total": { "info": { ... }, "amount": "..." },
+                         "remaining": "...",
+                         "end": { "period": 118 } | "permanent"
+                       }}
+                     }
+                   }, ...
+                 ]
+  Powers:        Multi-collection multi-token marketplace listings with seller resolution
+  Notes:         Returns ALL launches across ALL collections, including cancelled and completed.
+                 Must filter client-side: `!cancelled && !done && from.contract == ADAO_NFT`.
+                 Response shape varies (`to_info.native` vs `to_info.cw20`, `runtime.nft` vs `runtime.la`).
+
+Q-Boost-Launch
+  Human label:   "Get one specific launch by id"
+  Used by:       diagnostic / verification (cron uses launches[] in bulk)
+  Input shape:   { "launch": { "id": 475 } }
+  Output shape:  single launch object (same shape as element of launches[])
+  Powers:        Single-listing detail lookup
+```
+
+### Pagination notes
+
+`start_after` is a numeric launch id. Defensive cap at 200 pages (could grow to many thousands of historical launches across all collections).
+
+### Gotchas
+
+- **Returns multi-collection AND historical data.** Both `cancelled === true` and `done === true` entries are mixed with active ones. Filter client-side. Defensive: also check `from.contract === ADAO_NFT_CONTRACT`.
+- **`to_info` shape is inconsistent.** Three forms observed:
+  - `{ "native": "uluna" }` — native LUNA
+  - `{ "native": "ibc/2C962DAB..." }` — IBC token wrapped as native
+  - `{ "native": "cw20:terra1..." }` — cw20 string WRAPPED in native field (weird)
+  - `{ "cw20": "terra1..." }` — direct cw20 reference
+  Parser must check both `.cw20` and `.native` keys, and recognize `cw20:` prefix in the native string.
+- **`runtime` shape is inconsistent.** `runtime.nft.setup.to_amount` for direct NFT sales OR `runtime.la.setup.to_amount` for Launch Agreement (time-locked) sales.
+
+---
+
+## 16. ampLUNA Token (CW20)
+
+**Address:** `terra1ecgazyd0waaj3g7l9cmy5gulhxkps2gmxu9ghducvuypjq68mq2s5lvsct`
+
+**Role:** Standard CW20 token — the LST that backs the aDAO NFT collection. Daily Alliance rewards flow into the NFT contract as ampLUNA (90% to holders pool, 10% to DAO main wallet).
+
+### Standard CW20 queries
+
+`balance`, `token_info`, `minter`, `marketing_info`, `download_logo`, `allowance`, `all_allowances`, `all_accounts`
+
+### Custom queries
+
+```
+Q-AmpLuna-Balance
+  Human label:   "How much ampLUNA does an address hold?"
+  Used by:       nft-inventory cron Phase 6 (NFT contract balance for backing math)
+  Input shape:   { "balance": { "address": "terra1phr9fngj...w3apw9" } }
+  Inputs:        address
+  Output shape:  { "balance": "785796778857" }   // 6 decimals → 785,796.78 ampLUNA
+  Powers:        Treasury backing display: total ampLUNA available for unbroken NFT holders.
+                 Divided by unbroken_count → per-NFT share (88.20 ampLUNA today).
+  Notes:         Standard CW20 balance query.
+```
+
+### Gotchas
+
+- 6 decimals.
+- ampLUNA → LUNA exchange rate available from Eris global config (Q-ErisConfig-State → `arb_max.ratio` or via `tla-chain-registry` catalog's `eris_exchange_rate` field).
+- USD conversion: `ampluna_amount * eris_exchange_rate * luna_usd_price`. Pull `luna_usd_price` from `network-and-prices-data_2026/data/current.json`.
+
+---
+
 # Maintenance log
 
 | Date | Change |
 |---|---|
 | 2026-06-02 | Initial document created at the close of catalog audit. All current `tla-registry` cron queries inventoried, plus the wishlist queries for Vote Intelligence, Portfolio Tracker, Pool Detail View, and the future query tool. SS API gotcha documented after empirical deposit test + on-chain pair{} verification on 17 pairs. |
+| 2026-06-06 | Added sections 11-16 for NFT explorer Rev B work: aDAO NFT collection (incl. rewards query gotcha + audit findings + daily yield flow), Enterprise NFT staking, BBL marketplace + bbl backend API, Atrium marketplace, Boost marketplace, ampLUNA CW20. Documents all queries newly added to `nft-inventory` cron in Rev B. |

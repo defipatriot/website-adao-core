@@ -180,7 +180,7 @@ PWA shortcuts, install prompts, default-page selectors — all are bonus feature
 | `defipatriot/ss-pool-data_2026` | `skeletonswap-lp_data` | Daily 23:45 ⚠ | `data/{month}_backup/{YYYY-MM-DD}.csv` + weekly avg. **Upstream source unreliable** — BackBone aggregator returning cached data for ~30 days as of 2026-05-17. Don't use for scoring; see cron-scripts/skeletonswap-lp_data/README.md "Data quality warning" for full audit. |
 | `defipatriot/bribes-data_2026` | `bribes-history` | Daily 23:35 | `data/current-state.json` + `data/by-epoch/epoch-{N}.json` + `data/pd-bribes-history.json` |
 | `defipatriot/votion-data_2026` | `votion` | Weekly Sun 23:55 | `votion/votion-epoch-{N}.json` (next-epoch optimization) |
-| `defipatriot/nft-inventory-data_2026` | `nft-inventory` | Hourly :30 | `nfts.json` (full 10K inventory) + `summary.json` (minted/unminted/broken counts) |
+| `defipatriot/nft-inventory-data_2026` | `nft-inventory` | Hourly :30 | **Schema v2 (Rev B, 2026-06-07).** `data/nfts.json` (full 10K inventory, per-NFT records with `real_owner`, marketplace `listing{...}`, 10 classification flags) + `data/summary.json` (aggregate counts + `daodao_stakers[]` + `enterprise_stakers[]` + `marketplaces` stats + `backing` ampLUNA data) + `data/heartbeat.json` + `data/daily/{YYYY-MM-DD}.json` snapshots. Replaces `deving.zone/nfts/alliance_daos.json` (third-party feed with confirmed bugs). |
 | `defipatriot/marketplace-data_2026` | `marketplace-stats` | Hourly :15 | BBL + Boost listings, floor prices, sales history (per-year files), activity feed |
 | `defipatriot/tla-chain-registry` | `tla-registry` (catalog) | Daily 01:00 | `2026/current.json` + `2026/heartbeat.json` — catalog of every TLA-gauged LP + underlyings + amplps, with cross-source name/CG/bridge reconciliation. See **"TLA Chain Registry catalog system"** section below for full architecture. |
 
@@ -205,6 +205,14 @@ Originally discovered May 10 2026 via HAR capture of the Eris liquidity-hub UI f
 | Global Config | `terra1hwxg6s732eparz3ys7sa4t5f64ngpd2w8syrca6z7ckv3fs9uqnsvrpcqa` |
 | PD DAO multisig (briber) | `terra1k8ug6dkzntczfzn76wsh24tdjmx944yj6mk063wum7n20cwd7lxq4lppjg` |
 | zLUNA Hub | `terra1u72y7gppxrsncctvgfyqduv3md6pgq77pqhz9rxgwl3dqgye00cq7vmf8u` |
+| aDAO NFT Collection | `terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9` (added 2026-06-07 for Rev B) |
+| DAO Treasury (NFT custody) | `terra1h8psjgcsg9fef7w2yv0j6262sfcaszj8vs4tsy3uwla6zwtaspvqrp4l7v` — holds 898 broken NFTs for DAO governance. **Not** the same as "Enterprise" — see Rev B notes. |
+| Enterprise NFT Staking | `terra1e54tcdyulrtslvf79htx4zntqntd4r550cg22sj24r6gfm0anrvq0y8tdv` — 503 NFTs (100 DAO-controlled broken + 403 real user stakes) |
+| Small DAO Wallet (NFT custody) | `terra1yqv0af22675wlcmgflxk4ve07vt8qlm999gk0cuw5l64r5xxgadsyg8ywv` — 2 broken NFTs for DAO governance |
+| BBL Marketplace (Necropolis) | `terra1ej4cv98e9g2zjefr5auf2nwtq4xl3dm7x0qml58yna2ml2hk595s7gccs9` — bbl-necropolis-marketplace v2.2.2 |
+| Atrium Marketplace | `terra15du229lqcxkn939pmjgklqunftf604q4wz87kt5awj6reghec5jqs0w0kj` — atrium-marketplace v1.6.0-rc1 |
+| Boost Marketplace | `terra1kj7pasyahtugajx9qud02r5jqaf60mtm7g5v9utr94rmdfftx0vqspf4at` — launch-nft v1.4.0 (launch-nft-permissionless) |
+| ampLUNA CW20 | `terra1ecgazyd0waaj3g7l9cmy5gulhxkps2gmxu9ghducvuypjq68mq2s5lvsct` — Eris LST. Backs aDAO NFT collection. |
 
 ---
 
@@ -247,7 +255,8 @@ Replaces the manual `tla_tool.html` + `tla-tool_ext.html` capture flow. **9 prod
 ┌──────────────────────────────────────────────────────────────────┐
 │ 2 NFT-SIDE CRONS — separate from TLA, support the NFT pages      │
 ├──────────────────────────────────────────────────────────────────┤
-│ nft-inventory     hourly :30   10K NFTs, mint/broken/DAODAO state│
+│ nft-inventory     hourly :30   10K NFTs + 3 marketplaces +       │
+│                                Enterprise + DAODAO + backing     │
 │ marketplace-stats hourly :15   BBL+Boost listings, sales, floor  │
 └──────────────────────────────────────────────────────────────────┘
                               ↓
@@ -513,6 +522,123 @@ A future Claude session asked to work on catalog should read (in order):
 4. **CHANGES_PENDING.md** — search for "catalog" — what's pending.
 
 That's ~30 minutes to fully reload context. The 2026-06-02 audit night taught us that without persistent documentation, sessions lose 80% of their working context on every chat-hop and end up re-litigating decisions and chasing already-found bugs. **Don't let that happen again.**
+
+---
+
+## NFT Collection economic model — the chain-of-truth picture
+
+**Built up 2026-06-06/07 during NFT inventory Rev B work.** This section consolidates everything we know about how the aDAO NFT collection actually works on-chain — distinguishing what's true from what the previous data feed (deving.zone) claimed.
+
+### NFT counts breakdown (verified live 2026-06-06)
+
+```
+10,000 total
+├─ 5,828 unminted    — at DAO main wallet (terra1sffd4efk...), all unbroken
+├─   898 treasury    — at DAO Treasury (terra1h8psjg...rp4l7v), all broken (DAO gov)
+├─     2 dao_8ywv    — at small DAO wallet (terra1yqv0af...g8ywv), broken
+├─   100 enterprise_dao_broken — at Enterprise NFT staking, broken (DAO gov via stake)
+├─   403 enterprise_staked     — at Enterprise NFT staking, unbroken (real user stakes)
+├─ 1,661 daodao_staked         — at DAODAO staking contract (per indexer attribution)
+├─    43 bbl_listed
+├─     1 atrium_listed
+├─     4 boost_listed
+└─ ~1,060 user_held — individual wallets, liquid
+```
+
+### The Treasury vs Enterprise confusion (CORRECTED)
+
+**Prior to Rev B**, the nft-inventory cron and the dashboard both used `terra1h8psjg...rp4l7v` and called it "Enterprise." This was wrong:
+- `terra1h8psjg...rp4l7v` is the **DAO Treasury contract** — holds 898 broken NFTs for DAO governance leverage. Not actually Enterprise framework.
+- `terra1e54tcdyulrtslvf79htx4zntqntd4r550cg22sj24r6gfm0anrvq0y8tdv` is the **real Enterprise NFT staking contract** — has 503 NFTs (100 DAO-controlled broken + 403 real user stakes) and exposes per-staker enumeration via `members{}`.
+
+Rev B fixes this. Backward-compat aliases preserve old field names so the existing dashboard JS keeps working during the Rev 2 page migration window. The "Enterprise Staked = 403" tile in the dashboard is CORRECT — it had been filtering down to the right number even though the field name was misleading.
+
+### Daily yield mechanism (decoded 2026-06-07)
+
+The collection is a continuous yield-generating asset via the Alliance staking module:
+
+1. NFT contract continuously stakes its LUNA in the Alliance module across ~49 validators
+2. **Once per day** (~00:50 UTC), Eris's auto-compound bot (`terra1gtuvt6eh4m67tvd2dnfqhgks9ec6ff08c5vlup`) triggers `alliance_claim_rewards` on the NFT contract
+3. The NFT contract claims all Alliance rewards (typically ~1,800 LUNA aggregated across validators)
+4. ALL claimed LUNA is auto-bonded to Eris Staking Hub → ampLUNA minted (~900 ampLUNA at current rate)
+5. **90% of the new ampLUNA stays in NFT contract** for unbroken holder rewards
+6. **10% is sent to the DAO main wallet** as operating funds
+
+Decoded from txn `70757515D0FEBE07DABC2013CAC9217514C16AE252AA54BF5E395A9885215B18` (Eris auto-compound, 2026-04-25): 1,874 LUNA claimed → 899 ampLUNA minted → 809 to holders pool + 89 to DAO main wallet.
+
+### Per-NFT backing math (verified)
+
+```
+Treasury balance (NFT contract's ampLUNA): 785,796.78
+Unbroken NFTs:                             8,907
+Per-NFT share: 785,796.78 / 8,907 =        88.22 ampLUNA  (matches rewards query 88.20 — rounding diff)
+```
+
+The `rewards{token_id}` query MATCHES this collection-wide formula for unbroken NFTs. But it LIES for broken NFTs — see gotcha below. Always use `treasury_balance / unbroken_count` for backing display.
+
+### The boost mechanic
+
+As NFTs break and claim their share:
+- Treasury balance decreases by the per-NFT share (~88 ampLUNA)
+- Unbroken count decreases by 1
+- New per-NFT share = `(treasury - share) / (unbroken - 1)` — approximately the same as before (boost is gradual)
+- BUT all FUTURE daily inflow (~809 ampLUNA/day) is now divided among fewer unbroken NFTs → per-NFT daily yield grows
+
+Verified trajectory:
+- At launch (10,000 unbroken): per-NFT daily yield ~0.081 ampLUNA
+- Today (8,907 unbroken): per-NFT daily yield ~0.091 ampLUNA (+12.3%)
+- If 1,000 more break (7,907): per-NFT daily yield ~0.102 ampLUNA (+12.6% from today)
+
+This is the "break to boost everyone else" mechanic — confirmed working correctly on-chain.
+
+### deving.zone is broken — chain truth is better
+
+Verified bugs in `deving.zone/nfts/alliance_daos.json` (the feed the current explorer page still uses):
+- DAODAO staking contract itself listed as a 384-NFT "staker" → inflates total counts
+- 16 real DAODAO stakers missing entirely
+- 54 DAODAO stakers undercounted (e.g. council member DeFi_Patriot: should be 291, deving.zone shows 238)
+- 1,320 owner mismatches (BBL contract shown as owner instead of resolving seller)
+- No Atrium awareness at all
+- Boost owners not resolved (shows contract instead of seller)
+
+The Rev B cron is better than deving.zone in every dimension. **Rev 2 (page migration) swaps the data source** — tracked in CHANGES_PENDING.md as P1.
+
+### Rewards query gotcha (audit-verified intentional behavior)
+
+The contract's `rewards{token_id}` query returns non-zero amounts for already-broken NFTs that can't actually claim again (verified: three broken NFTs returned 88.20, 27.91, 49.39 ampLUNA — different values). Per `break_nft` docs: "you can only claim once."
+
+The audit (SCV-Security 2023-11-24, 8 findings, no rewards-related bugs) doesn't flag this. The query is informational/historical — computed as a per-NFT share without checking broken state. The actual `break_nft` execute message has separate logic that blocks re-claims.
+
+**Implication for UI:** Don't display raw per-NFT rewards values on the explorer page. Show collection-wide `treasury_balance / unbroken_count` instead (88.20 ampLUNA today). Same value, but reliable.
+
+### Marketplace coverage (3 marketplaces, all chain-of-truth)
+
+| Marketplace | Address | Read query | Active aDAO listings (2026-06-06) |
+|---|---|---|---|
+| BBL Necropolis | `terra1ej4cv98e...gccs9` | `auction_by_contract` | 43 |
+| Atrium | `terra15du229l...0w0kj` | `listings_by_collection` | 1 |
+| Boost | `terra1kj7pasy...spf4at` | `launches` (filter !cancelled && !done) | 4 |
+
+All three expose seller via contract state — no transaction-history walks needed to resolve real owner. Boost's `launches` returns ALL collections + ALL history (active + cancelled + done) so must be client-side filtered.
+
+**BBL royalty insight:** every BBL sale of an aDAO NFT pays a 5% royalty back to the DAO main wallet (`creator_address` field in auction response). Worth surfacing as transparency / revenue stream.
+
+### Other Terra NFT collections (BBL backend discovery)
+
+Off-chain reference from BBL's backend API (`https://warlock.backbonelabs.io/api/v1/dapps/necropolis/collections`, captured via HAR 2026-06-06). 8 Terra phoenix-1 collections total on BBL:
+
+| Collection | Contract | Supply | Floor (bLUNA) |
+|---|---|---|---|
+| AllianceDAO NFT | `terra1phr9fngj...w3apw9` | 10,000 | 1,150 |
+| Skeleton Punks | `terra1x7rf4nqu...sjxrvl7` | 5,064 | 165 |
+| Scandalous Birds | `terra1dad37a4...fsmccv92` | 200 | 0 (no listings) |
+| pixeLions | `terra17z7fpaa...qmxp50g` | 5,000 | 78 |
+| Galactic Punks | `terra16ds898j...szs8kp2` | 5,782 | 4,500 |
+| SoulReapers | `terra1d36lwl0...snrh0te` | 5,064 | 9 |
+| Burning Lion Festival | `terra1cfk54jz...vus95a0q0` | 12 | 30,000 |
+| Origin Enigma | `terra1avg745y...syypdup` | 3,000 | 10 |
+
+Both Lion DAO collections (pixeLions, Burning Lion Festival) identified. pixeLions matches the `terra17z7fpaa...` contract that appeared with 10 active launches in our Boost data. Out of TLA scope but noted for potential ecosystem catalog work (CHANGES_PENDING Rev G).
 
 ---
 
