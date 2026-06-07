@@ -22,6 +22,7 @@ Last cleared: **2026-06-07** (post NFT inventory Rev B deploy). Rev 0.16 catalog
 5. **[ ]** Add backing display tile: collection-wide treasury value ($1.65M today) + per-NFT share (88.20 ampLUNA) + boost-mechanic story ("share grew +12.3% since launch as 1,093 NFTs broke")
 6. **[ ]** Add AbortController timeouts on all `.json()` fetches (deving.zone-hang lesson — same fix applied to `index.html` below)
 7. **[ ]** Add new badges/filters: "DAO Treasury" (898 broken), "Atrium Listed" (1), distinguish "Enterprise Staked" (403 real) vs "Enterprise DAO Broken" (100 gov)
+8. **[ ]** Surface pending claims from `summary.daodao_pending_claim` (cron ships this as of Rev B.3): a global "N NFTs unstaked & pending claim" stat, and a per-wallet "You have N NFTs ready to claim" nudge when a viewed/connected address appears in `claimable[]`. Show `reconciled: false` defensively (render count, treat per-wallet detail as best-effort).
 
 Estimate: 4-6 hrs. Verify cron data has run cleanly for 24+ hours first. Don't ship Rev 2 same-day as Rev B.
 
@@ -150,7 +151,7 @@ Daily inflow ~809 ampLUNA today (90% of 899 ampLUNA produced by Alliance staking
 Rev B's `data/daily/{YYYY-MM-DD}.json` snapshot already captures the substrate — Rev D adds the txn-history parser and surfaces timeline charts on the explorer page.
 
 ### 🟢 P3 — NFT Inventory cron — Rev E: pending-unstake tracking
-**Identified 2026-06-07.** `claims{address}` queries on DAODAO + Enterprise staking contracts. Returns per-user list of pending unstakes with release timestamps. Surface on explorer as "Unstaking — 1 day, 14 hours remaining" countdown badges.
+**Identified 2026-06-07. DAODAO half SHIPPED as Rev B.3 (2026-06-07).** DAODAO pending-claim tracking is live: count is chain-truth (`custody − total_power_at_height`), per-wallet attribution tracked forward via `unstake`/`claim_nfts` tx-search, persisted in `data/v2/pending-claims.json`, self-reconciling. Note the original `claims{address}` idea was superseded — that query is per-address only and misses full-unstakers (zero VP, zero in-wallet), so we use the historical event diff instead. **Remaining:** (a) explorer-side "ready to claim" nudge — see P1 item 8 below; (b) Enterprise NFT staking pending-unstake tracking (if Enterprise exposes a claim queue — not yet investigated; lower value, far fewer unstakes there).
 
 ### 🟢 P3 — NFT Inventory cron — Rev F: marketplace offers + bid history
 **Identified 2026-06-07.** BBL `collection_offers_by_contract` (collection-wide buy offers), Atrium `offers_by_nft` + `collection_offers_for_collection`, BBL `bid_history_by_auction_id` (per-auction bid timeline). Surface buyer demand + live auction bid feed.
@@ -187,6 +188,8 @@ The deving.zone outage exposed how a single third-party JSON endpoint hanging mi
 ---
 
 ## ✅ Recently shipped (last 30 days, summarized — full detail in changelogs)
+
+- **NFT Inventory Rev B.3 (2026-06-07)**: DAODAO pending-claim tracking. Surfaces NFTs unstaked from DAODAO but not yet claimed (7-day queue, or forgotten indefinitely). Count is chain-truth (`daodao_staked` custody − `total_power_at_height` active stake = 1,661 − 1,657 = 4); per-wallet attribution tracked forward via `unstake`/`claim_nfts` tx-search, persisted in `data/v2/pending-claims.json`, reconciled every run (heartbeat `daodao_pending_reconciled`). Seeded once with 4 verified legacy forgotten-claims (tokens 1319, 3605, 6847, 7123); self-maintaining thereafter. Verified end-to-end against full chain history before deploy. Inline in `nft-inventory.js` (+~196 lines, additive). New `summary.daodao_pending_claim` block. Explorer "ready to claim" nudge is the page-side follow-up (P1 item 8).
 
 - **NFT Inventory Rev B (2026-06-07)**: Schema v2 + chain-of-truth replacement for deving.zone. Treasury/Enterprise classification fixed (898 treasury + 403 real Enterprise stakes + 100 DAO-controlled Enterprise broken). All 3 marketplaces (BBL 43 + Atrium 1 + Boost 4) with seller resolution. Backing data (ampLUNA balance + per-NFT share). Sister cron price integration for USD conversion. Daily snapshots for future timeline work. ~250 lines new code in `cron-scripts/nft-inventory/nft-inventory.js`, schema v1→v2 with backward-compat aliases preserved so existing dashboard JS keeps working during Rev 2 migration window. Detail in `cron-scripts/nft-inventory/README.md` "Rev history". Page-side migration (Rev 2) deferred to next session — see P1 above.
 - **Rev 0.16 (2026-06-06)**: Phase 0 lock-in — 5 polish fixes (Eris not labeled DEX, pair_type normalization, definitional failure detection, SS source synthesis, expanded fingerprint)

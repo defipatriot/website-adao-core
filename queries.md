@@ -1095,9 +1095,67 @@ Q-AmpLuna-Balance
 
 ---
 
-# Maintenance log
+## 17. DAODAO Governance NFT Staking
+
+**Address:** `terra1c57ur376szdv8rtes6sa9nst4k536dynunksu8tx5zu4z5u3am6qmvqx47`
+
+**Role:** `dao-voting-cw721-staked` — the governance staking contract where holders stake aDAO NFTs for voting power. Holds **1,661 NFTs in cw721 custody**, of which **1,657 are actively staked** (= voting power = what the DAODAO UI shows) and **4 are unstaked-but-unclaimed** (sitting in the 7-day claim queue or forgotten). Per-staker counts come from the daodao.zone indexer (`topStakers`, Phase 5) — the contract has no enumerable staker list.
+
+### Custom queries
+
+```
+Q-Daodao-TotalPower
+  Human label:   "How many NFTs are ACTIVELY staked (voting power)?"
+  Used by:       nft-inventory cron — pending-claim reconciliation
+  Input shape:   { "total_power_at_height": {} }      // no args = latest
+  Output shape:  { "power": "1657", "height": 21353559 }
+  Powers:        Chain-truth pending-claim count: custody (daodao_staked_count) − power.
+  Notes:         power is a STRING. This equals the DAODAO UI number exactly.
+
+Q-Daodao-NftClaims
+  Human label:   "What unstaked NFTs is this address waiting to claim?"
+  Input shape:   { "nft_claims": { "address": "terra1..." } }   // address REQUIRED
+  Output shape:  per-address pending claims with token_id + release_at
+  Powers:        Per-wallet "ready to claim" lookup; confirms a suspected forgotten-claimer.
+  Notes:         PER-ADDRESS ONLY — there is no global "all claims" query. Don't try to
+                 enumerate claimants by querying current members/holders: a full unstaker
+                 has zero voting power AND zero in-wallet NFTs, so they're invisible from
+                 every current-state angle. The complete claimant universe is "anyone who
+                 ever unstaked and hasn't claimed" — a historical set (see tx-search below).
+
+Q-Daodao-StakedNfts
+  Human label:   "Which token_ids has this address actively staked?"
+  Input shape:   { "staked_nfts": { "address": "terra1...", "start_after": "...", "limit": 30 } }
+  Powers:        Alternative way to pin the pending set: custody token_ids minus the union of
+                 staked_nfts across all members = the unclaimed ones (~157 queries — heavier
+                 than the tx-search diff below).
+```
+
+### Unstake / claim history (forward tracking — LCD tx-search, not a smart query)
+
+```
+Q-Daodao-UnstakeHistory / Q-Daodao-ClaimHistory
+  Used by:       nft-inventory cron Rev B.3 (forward pending-claim tracking)
+  Endpoint:      /cosmos/tx/v1beta1/txs?query=<q>&order_by=ORDER_BY_ASC&pagination.limit=100
+  query (q):     wasm._contract_address='<staking>' AND wasm.action='unstake'    AND tx.height><lastHeight>
+                 wasm._contract_address='<staking>' AND wasm.action='claim_nfts' AND tx.height><lastHeight>
+  CRITICAL:      Use the query= form. The events= form errors "code 13: query cannot be empty"
+                 on current SDK builds.
+  Unstake parse: token_ids are in the execute message: msg.unstake.token_ids[]
+  Claim parse:   claim_nfts message is EMPTY {} — the returned token_ids are in the tx's
+                 transfer_nft EVENTS where sender = staking contract. Parse those.
+```
+
+### Gotchas
+
+- **Custody ≠ active stake.** A cw721 ownership count (custody, 1,661) includes NFTs in the unstaking queue. `total_power_at_height` (1,657) excludes them. The difference is the pending-claim count. Both are correct; they measure different things.
+- **7-day claim queue, no auto-claim.** `unstake` emits `claim_duration: time: 604800`. After 7 days the owner must call `claim_nfts {}` manually; nothing auto-returns. NFTs sit in custody indefinitely if forgotten ("forgotten claims").
+- **claim_nfts claims ALL matured at once** — you can't selectively claim, so a wallet's limbo clears entirely whenever they claim after maturity.
+- **Re-unstake ordering matters.** A token can be unstaked → claimed → unstaked again. Apply unstake/claim events in block order (last event wins); a naive "all unstakes then all claims" pass corrupts such tokens (the token-1319 case).
+- **No backfill.** Public LCDs prune; the cron seeds `data/v2/pending-claims.json` once and tracks forward. Reconciliation (`custody − total_power` vs tracked entries) flags drift but always renders the chain count.
 
 | Date | Change |
 |---|---|
 | 2026-06-02 | Initial document created at the close of catalog audit. All current `tla-registry` cron queries inventoried, plus the wishlist queries for Vote Intelligence, Portfolio Tracker, Pool Detail View, and the future query tool. SS API gotcha documented after empirical deposit test + on-chain pair{} verification on 17 pairs. |
 | 2026-06-06 | Added sections 11-16 for NFT explorer Rev B work: aDAO NFT collection (incl. rewards query gotcha + audit findings + daily yield flow), Enterprise NFT staking, BBL marketplace + bbl backend API, Atrium marketplace, Boost marketplace, ampLUNA CW20. Documents all queries newly added to `nft-inventory` cron in Rev B. |
+| 2026-06-07 | Added section 17 (DAODAO Governance NFT Staking) for Rev B.3 pending-claim tracking: `total_power_at_height` (active stake = chain-truth pending count), `nft_claims` / `staked_nfts` (per-address only — member-query blind spot documented), and unstake/claim tx-search history (forward tracking; query= form required, claim token_ids from transfer_nft events, re-unstake ordering caveat). |

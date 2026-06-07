@@ -545,6 +545,20 @@ That's ~30 minutes to fully reload context. The 2026-06-02 audit night taught us
 └─ ~1,060 user_held — individual wallets, liquid
 ```
 
+### DAODAO: custody vs active stake vs pending claims (Rev B.3, 2026-06-07)
+
+The `daodao_staked` count (1,661) is **cw721 custody** — NFTs the DAODAO staking contract physically owns. That is NOT the same as actively-staked voting power:
+
+```
+1,661  custody (daodao_staked_count, what the cron counts by owner)
+  -  1,657  actively staked  (total_power_at_height = the number DAODAO's UI shows)
+  =      4  pending claims   (unstaked, sitting in the 7-day claim queue or forgotten)
+```
+
+When someone unstakes, voting power is removed immediately but the NFT stays in the contract for a 7-day `claim_duration`; they must call `claim_nfts {}` to get it back. If they never do, it sits there indefinitely — a "forgotten claim." So custody persistently runs a little above active stake. The 4 current ones are verified legacy forgotten-claims: tokens **6847 + 7123** (wallet `terra1...ct4anrc`, unstaked 2026-01-24), **3605** (`terra1...enfnplr`, 2025-10-11), **1319** (`terra1...wy3a6k`, re-unstaked 2026-03-15 — unstaked twice, claimed once).
+
+The cron tracks this forward (`data/v2/pending-claims.json`, `summary.daodao_pending_claim` block, heartbeat `daodao_pending_claim` + `daodao_pending_reconciled`). **Count is always chain-truth** (`custody − total_power`); per-wallet attribution is best-effort from `unstake`/`claim_nfts` event tracking and self-reconciles every run. Key lessons: (a) you can't find claimants by scanning current members/holders — a full unstaker is invisible from current state; the claimant universe is the historical "ever unstaked, never claimed" set; (b) `claim_nfts` messages are empty `{}` — the returned token_ids live in `transfer_nft` events; (c) apply events in block order so re-unstaked tokens (1319) resolve correctly. This powers a future "you have NFTs ready to claim" nudge on the explorer page.
+
 ### The Treasury vs Enterprise confusion (CORRECTED)
 
 **Prior to Rev B**, the nft-inventory cron and the dashboard both used `terra1h8psjg...rp4l7v` and called it "Enterprise." This was wrong:
@@ -1047,6 +1061,9 @@ Otherwise local copy goes out of sync with whatever was pushed since last chat.
 
 ### File handoff caveat
 When the user downloads a file with the same name multiple times in a session, the browser renames them `index (1).html`, `index (2).html`, etc. The user has to know which is the latest and rename appropriately before uploading to GitHub. **When generating multiple iterations in a session, mention which file is the final one to push.**
+
+### Exported files MUST use the exact destination filename (NO path-encoding, NO suffixes)
+Claude exports edited files to `/mnt/user-data/outputs/` for the user to download and upload via the GitHub web UI. The exported file **must have the same name as the file it replaces** — e.g. `nft-inventory.js`, `README.md`, `queries.md` — so the user can match it 1:1 to the file being overwritten without guessing. **Do NOT** rename to path-encoded forms like `cron-scripts__nft-inventory__nft-inventory.js`, and do NOT add `_v2`/`_final` suffixes. If two files in one export would collide on name (e.g. two different `README.md`), export them in separate `present_files` batches or state the destination explicitly for each — do not solve the collision by mangling the filename. State the destination repo/path in the chat text instead.
 
 ### Recap files at start of new chat
 Fetch these raw URLs to load context:

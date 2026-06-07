@@ -37,6 +37,8 @@ Iterative, screenshot-driven UI work. Pattern: user pushes → user screenshots 
 
 The user does NOT have me push directly. I produce updated files in `/mnt/user-data/outputs/`; the user downloads them and uploads via GitHub web UI. When generating multiple iterations of the same file in a session, mention which is the final version to push (browsers rename duplicates with `(1)`, `(2)`).
 
+**Exported files must use the EXACT destination filename** — same name as the file being replaced (`nft-inventory.js`, `README.md`, `queries.md`), so the user can match it 1:1 to what they're overwriting. Never path-encode (`cron-scripts__nft-inventory__nft-inventory.js`) and never add `_v2`/`_final` suffixes. State the destination repo/path in chat text instead. If two same-named files would collide in one export, present them in separate batches.
+
 ## Current phase: Cross-page consistency rollout — Phase 2
 
 Phase 1 (Rev 3.22 / 3.23) brought the 4 core tab pages — NFT Explorer, aDAO Lore, TLA Stats, DAO — into the unified chrome system. Phase 2 covers the remaining pages (info-card destinations, dropdown destinations, tools sub-pages). See `CHANGES_PENDING.md` for the prioritized task list and `PROJECT_KNOWLEDGE.md` "Cross-page consistency requirements" for the spec.
