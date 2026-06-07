@@ -134,14 +134,18 @@ User action: open the file, fill in `label` fields for addresses you recognize, 
 Biggest unnamed wallet: 5.4M VP (`terra13aae4futz6jk...`) — significant council member.
 
 ### 🟢 P3 — NFT Inventory cron — Rev C: tier architecture (hot/warm/cold split)
-**Identified 2026-06-07 during Rev B design.** Rev B ships with single hourly cadence. Rev C splits into:
-- **Hot** (every 15 min): user-held + marketplace + recently-unstaked (~1,200 NFTs, ~115k queries/day)
-- **Warm** (daily): staked + claims/unstaking (~2,064 NFTs, ~2k/day)
-- **Cold** (weekly Sun 02:00): unminted + DAO-broken full reconcile (10k once weekly)
+**Identified 2026-06-07 during Rev B design. Stage 1 SHIPPED as Rev C.1 (2026-06-07).** Rev B ran a single hourly full scan. Rev C splits into:
+- **Hot** (every 15 min): user-held + marketplace + recently-unstaked (~1,100 NFTs)
+- **Warm** (daily): hot ∪ staked (DAODAO + Enterprise, ~3,200 NFTs)
+- **Cold/full** (weekly Mon 02:00): all 10k, full reconcile, rebuilds `hot-set.json`
 
-Achieves 47% query reduction vs current 240k/day, with 4x freshness on hot data. Override file `tla-chain-registry/curated/nft-overrides.json` for manual promotion to hot path when DAO releases NFTs via prop. Weekly cold reconcile is safety net (max 7-day drift before catching missed movements).
+**Stage 1 (Rev C.1) — DONE:** mode infrastructure via `RUN_MODE` env, `hot-set.json` membership file, scoped per-NFT fetch + `mergeRecords` onto the last full base, full-scan fallback. One script / three Render jobs. Default `full` = unchanged behavior. Deploy steps in cron README "Deployment (tiered modes)". Mode only changes per-NFT scope; Phases 3-7 identical, so output is always a complete 10k picture.
 
-**Don't ship before Rev 2 is live** — Rev 2 page should be reading the merged `nfts.json` regardless of which tier path produced each record. Schema is the same.
+**Stage 2 — TODO (activity deltas):** each hot run diffs against the previous hot snapshot and appends what moved (transfers, list/delist, stake/unstake/claim, sales) to the day's activity log. This is what powers traffic/volume charts (net first-vs-last endpoint diffs would miss intra-day churn — must accumulate per-run deltas).
+
+**Stage 3 — TODO (rollups):** finalize each daily file as opening snapshot + closing snapshot + accumulated activity; then aggregate daily→weekly (`weekly/<YYYY-Www>.json`)→monthly (`monthly/<YYYY-MM>.json`)→yearly (`yearly/<YYYY>.json`). Higher periods are rollups of the dailies, NOT fresh endpoint diffs. Forward-only (no backfill — LCDs prune).
+
+Achieves ~50% query reduction vs the old full-every-hour, 4× freshness on hot data. Manual promotion to hot via `tla-chain-registry/curated/nft-overrides.json` when the DAO releases NFTs via prop; weekly cold reconcile is the safety net (max 7-day drift). **Page (Rev 2) reads the merged `nfts.json` regardless of which tier produced each record — schema is identical.**
 
 ### 🟢 P3 — NFT Inventory cron — Rev D: daily yield timeline
 **Identified 2026-06-07.** Parse `update_rewards_callback` events from chain transaction history → exact daily ampLUNA inflows + 7d/30d/all-time rolling averages + annualized APR calculation. Pattern decoded from txn `70757515D0FEBE07DABC2013CAC9217514C16AE252AA54BF5E395A9885215B18` on 2026-04-25.
@@ -189,6 +193,7 @@ The deving.zone outage exposed how a single third-party JSON endpoint hanging mi
 
 ## ✅ Recently shipped (last 30 days, summarized — full detail in changelogs)
 
+- **NFT Inventory Rev C.1 (2026-06-07)**: Tiered run modes, stage 1. `RUN_MODE` env (`full` default / `warm` / `hot`) scopes the per-NFT fetch only; Phases 3-7 run identically so output is always a complete 10k `nfts.json`. Full (weekly) rebuilds `hot-set.json`; warm (daily) re-fetches hot ∪ staked; hot (15 min) re-fetches the hot set — both merge fresh records onto the last full base, with full-scan fallback if base/hot-set unreadable. One script, three Render jobs (deploy steps in cron README). Merge/derive unit-tested; live cadence verified on Render. Stages 2 (activity deltas) + 3 (daily→weekly→monthly→yearly rollups) still to come. Gets 15-min fresh active data + ~50% query reduction.
 - **NFT Inventory Rev B.7 (2026-06-07)**: Atrium listings schema-drift fix. `listings_by_collection` started 500'ing (`unknown field collection` — contract renamed the field). `fetchAtriumListings` now self-resolves the collection field name by probing common CosmWasm conventions (`collection_addr`, `nft_contract`, etc.), memoizes the winner, and logs the contract's full valid-field list if none match. No regression (Atrium NFTs already classified by ownership; this restores price/seller detail). Confirm via the `ℹ Atrium collection field resolved to '…'` log line on the Render run. This was the last known cron-side error — all three marketplaces + pricing + pending-claims now clean.
 - **NFT Inventory Rev B.6 (2026-06-07)**: DAODAO pending-claim tx-search fix. LCD started rejecting the query (`400 "specify tx.height with strict equality"`) because it carried a `tx.height>` range; dropped the height term from the query and moved height filtering client-side in `fetchDaodaoTxs`. Restores forward per-wallet attribution tracking (count was always chain-truth; only the "who" was frozen). Parsers/reducer unchanged; logic re-verified (genesis replay → [1319,3605,6847,7123], incremental no-op, forward claim removal). Confirmed live: `lastScannedHeight` advanced 21353559 → 21355202. Detail in cron README.
 - **NFT Inventory Rev B.5 (2026-06-07)**: USD pricing fix — it had been silently skipping (both sister-cron URLs 404'd, and the parser assumed a schema that didn't match). Corrected URLs (`…/data/network-and-prices.json`, `…/2026/current.json`) and rewrote `fetchPriceData` to the real schema: LUNA from `token_prices.LUNA.final_price_usd`, ampLUNA from `token_prices.ampLUNA.final_price_usd` (fallback `lst_ratios.ampLUNA.ratio × luna`), joining registry catalog (address→symbol+decimals) with `token_prices` (symbol→price). Verified live: LUNA $0.0512, ampLUNA $0.1103 → `treasury_value_usd` ≈ $86.8K, `per_nft_value_usd` ≈ $9.74 (were null). Marketplace listing USD now resolves. Detail in cron README "Rev history".
