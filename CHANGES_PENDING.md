@@ -7,6 +7,42 @@ Last cleared: **2026-06-07** (post NFT inventory Rev B deploy). Rev 0.16 catalog
 
 ---
 
+## 🛡 Systemwide reliability audit (2026-06-09)
+
+Triggered by finding that `nft-inventory.js` had been *silently* dropping DAODAO unstakes for months (a publicnode pagination quirk: `pagination.offset` is ignored, only `page` is honored). That one bug exposed a recurring **failure-class** pattern. Every cron was walked through the checklist below. The common root across all findings: **code that couldn't distinguish "query failed" (null) from "no data" ([]/end-of-list)**, which silently produces incomplete data that can reach permanent archives.
+
+### Failure-class checklist (run this against any new cron)
+- **F1 — Pagination truncation.** `pagination.offset` (ignored by publicnode → use `page`), `page`-cap, or a `start_after` loop that stops early.
+- **F2 — Silent null-coercion.** `r || []` / `Array.isArray(r) ? r : []` right after a query that returns `null` on rate-limit → empty masquerades as "no data."
+- **F3 — Overwrite-with-partial.** A snapshot clobbers last-good with fewer/empty records on a bad run (worst when it reaches a permanent archive).
+- **F4 — Corrupt-vs-absent input.** A `try/catch` that treats a *corrupt* file like a *missing* one → silently drops a whole source.
+- **F5 — Staleness / schema drift.** Static reference data going stale (oracle), or an upstream field rename silently zeroing a parser.
+- **F6 — Required-vs-optional misclassification.** A source that should be fatal treated as optional → partial publishes marked `ok`.
+- **F7 — Heartbeat honesty.** Does `status` actually flip to `partial`/`error` on failure, or always say `ok`? If it lies, the health widget never alerts.
+- **F8 — Epoch/time boundary.** Off-by-one epoch, UTC flip, missed end-of-epoch window → irreversible wrong-epoch capture.
+
+### Fixes shipped this pass
+- **[x] `cron-scripts/nft-inventory/nft-inventory.js`** — F1: `buildTxSearchUrl`/`fetchDaodaoTxs` now page-based `ORDER_BY_DESC` (was ignored `pagination.offset`). Captures all unstakes; `reconciled` flag will read true.
+- **[x] `cron-scripts/tla-snapshot/tla-snapshot.js`** — **F2+F3 (critical):** added a completeness gate after the 9 core chain queries (`gauge_infos × 4`, `total_staked_balances × 4`, `distributions`). A `null` (failure) now aborts the run (exit 2, no publish) instead of `|| []`-coercing a whole bucket to empty and freezing it into the permanent daily archive.
+- **[x] `cron-scripts/chain/tla-registry/tla-registry.js`** — **F2 (high):** `list_stakers` + `all_tokens` enumeration loops now distinguish `null` (failure) from `[]` (genuine end); a mid-walk failure records to a module `ENUMERATION_FAILURES` registry → status `partial` (+ surfaced in snapshot). No more silently-truncated catalog.
+- **[x] `cron-scripts/tla-vp-holders/tla-vp-holders.js`** — F2: same `all_tokens` truncation fix → `ENUM_INCOMPLETE` → status `partial`.
+- **[x] `cron-scripts/bribes-history/bribes-history.js`** — F2+F7: proposal-walk truncation fix; **added a `partial` status it never had** (`PROPOSALS_INCOMPLETE`).
+- **[x] `cron-scripts/adao-positions/adao-positions.js`** — F7: run status now escalates to `partial` when any member portfolio has `_errors` (was only treasury/council), + `members_with_errors` in heartbeat stats.
+- **[x] `nft-inventory-data_2026/{nft-provenance,bbl-sales,atrium-sales}-backfill.js`** — **F3 (critical):** never-shrink publish guard. History is append-only; a sweep producing fewer records than committed = incomplete → abort (exit 1), don't overwrite.
+- **[x] `nft-inventory-data_2026/nft-analytics-builder.js`** — **F1 fix #5 (F4):** boost/atrium/bluna inputs now distinguish corrupt (throw) from absent (skip). **F5:** extends LUNA + bLUNA oracles to "now" via live `network-and-prices` prices, so post-oracle sales price live instead of stale last-known (best-effort; falls back to static oracle).
+
+### Clean bill
+- **`network-and-prices`** — the model cron (per-source `.ok` flags, `stuck/partial/ok` escalation, fingerprint staleness detector). Propagate its fingerprint approach to others over time.
+- **`astroport`, `votion`, `skeletonswap`** — single-fetch / concurrency-worker patterns, no enumeration loop to truncate. (`skeletonswap`'s `while(true)` is a parallel-map worker, not pagination.)
+
+### Remaining (flagged-not-silent — polish, not landmines)
+1. **[ ] F5 follow-up:** the static `luna-usd-daily.json` / `bluna-usd-daily.json` only get *live-extended* at build time now; consider a tiny daily appender so the on-disk oracle itself grows (the in-memory extension covers correctness today).
+2. **[ ] `network-and-prices` carry-forward:** on dual-oracle failure for a token it writes `final_price_usd: null` (overwriting last-good). Already flagged `partial` + dashboard caches, so visible. Fix: add `fetchPreviousSnapshot()` and carry forward last-good with a `stale: true` flag. *Touches the linchpin — test carefully.*
+3. **[ ] `astroport` / `votion` partial status:** both are throw-based all-or-nothing; `astroport` can partially succeed (liq ok, vol fail via `fetchOk`) but status stays `ok`. Minor F7 — add a `partial` branch.
+4. **[ ] `marketplace-stats` (Pixel-Lions, parked):** `fetchBblActivityPages` catch does `warn + break` (silent truncation of the activity feed). Tier 3, daily-refresh, no permanent archive. Fix with the same flag-to-`errors` pattern when Pixel-Lions work resumes.
+
+---
+
 ## 🛠 Active / next round
 
 ### 🔥 P1 — NFT Explorer page migration (Rev 2)
