@@ -45,6 +45,34 @@ Triggered by finding that `nft-inventory.js` had been *silently* dropping DAODAO
 
 ## 🛠 Active / next round
 
+### 🔥 P1 — Dashboard data-source migration (`index.html` `fetchTlaData`) — NEXT CHAT
+**Identified 2026-06-09.** The DAO Unclaimed Rewards + DAO TLA Deposits tiles are stuck (`--` / spinner). Root cause: `fetchTlaData()` (index.html ~line 9836) still reads the **dead** monolithic `tla_json_storage/main/tla-data-epoch-{N}-end.json` (404 for epochs ≥186). That old file bundled pools + DAO treasury + locks + balances + ratios in one blob; the **new architecture split it across 4 crons**, so this is a *routing* migration, not a URL swap.
+
+**Old `tlaData.*` field → new source mapping (confirmed against live data 2026-06-09):**
+| Old field(s) | New source | New path |
+|---|---|---|
+| `tlaData.pools`, `tlaData.vote.pools` | tla-snapshot cron | `tla-snapshot-data_2026/data/tla-snapshot.json` → `pools[]` / `buckets{}` / `totals{}` / `epoch{}` |
+| `tlaData.dao`, `tlaData.locks(.individual_locks)`, `tlaData.totalDeposit`, `tlaData.tokenBalances` | adao-positions cron | `adao-positions-data_2026/data/current.json` → `treasury.{locks, lp_positions, wallet_balances, summary}` |
+| `tlaData.vote` (rewards) | adao-positions + tla-snapshot | `treasury.{pending_rewards, pending_rebase, pending_bribes}` and/or `tla-snapshot totals.rewards` / `buckets[].rewards` |
+| `tlaData.lstRatios`, `tlaData.ampRatios`, `tlaData.tokenPricesAtSnapshot` | network-and-prices cron | `network-and-prices-data_2026/data/network-and-prices.json` → `lst_ratios{}` / `token_prices{}` |
+| `tlaData.snapshotDate` | any | new `capturedAt` |
+| `tlaData.meta` (staleness) | rebuild | from heartbeat `dataFreshness` / `capturedAt` — **date-based now, not epoch-based** |
+| `tlaData.dashboard(.alliances)` | TBD | needs an archived `tla-data-epoch-N-end.json` to confirm exact semantics, or reverse-engineer from consumers |
+
+**Recommended approach (lowest risk):** rewrite `fetchTlaData()` as an **adapter** that fetches the 3 new sources and assembles an object matching the old `tlaData` contract, so the **12 consumer call sites stay unchanged** (lines 7159, 8272, 8546, 9330, 9836, 10065, 10307, 10483, 11134, 11229, 11297, 11385). Field mapping lives in one place.
+
+**Hard requirements (per Camron, 2026-06-09):**
+- **Remove the old fallback entirely** — delete the `tla_json_storage` epoch walk, the `tla-ext_json_storage` reads (`fetchTlaExtData`, ~line 9883), and the `epoch_1-300_date.json` ref (~line 9807).
+- **Work-as-intended-or-error:** if a new source is unavailable, the tile shows an **error state** — never a stale snapshot or a silent default.
+- Also retire the v3-format fallback block (~line 5020-5024).
+
+**Caveats:** untestable from the sandbox (browser code in a 914 KB / 15k-line file). Test in-browser after. Obtain one archived `tla-data-epoch-N-end.json` if possible to nail `dashboard`/`dao` field semantics exactly. Per project rule, `index.html` data-layer changes only — don't touch render logic.
+
+### 🔥 P1 — NFT Explorer repoint (`nft-explorer-app.js`) — NEXT CHAT (separate, ~4-6 hr)
+See the existing P1 below (deving.zone → `nfts.json`). Pairs with the dashboard migration as the two "new-system wiring" jobs. Keep in its own focused chat — 237 KB file, schema-v2 adaptation.
+
+
+
 ### 🔥 P1 — NFT Explorer page migration (Rev 2)
 **Identified 2026-06-06 during deving.zone outage investigation. Rev B cron foundation shipped 2026-06-07.** The `nft-inventory` cron Rev B now produces a full chain-of-truth replacement for `deving.zone/nfts/alliance_daos.json` (which has confirmed bugs: 16 missing DAODAO stakers, 54 undercounted, DAODAO contract itself listed as a 384-NFT user, no Atrium awareness, no Boost seller resolution). The explorer page still reads from deving.zone — Rev 2 swaps the data source.
 

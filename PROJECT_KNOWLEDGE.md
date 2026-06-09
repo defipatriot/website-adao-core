@@ -1045,6 +1045,18 @@ We're competing for "the alliance dao" against `alliance.xyz`, which has 5+ year
 
 ---
 
+## Reliability principles (added 2026-06-09 after systemwide audit)
+
+A publicnode pagination quirk silently dropped data in `nft-inventory` for months before it was caught. The lesson generalized into a failure-class checklist (**F1–F8**) now kept in `cron-scripts/README.md` → "Reliability audit & failure-class checklist." Run it against every new or modified cron.
+
+Core principles:
+- **Distinguish "query failed" (`null`) from "no data" (`[]`).** Collapsing the two (`r || []`) produces silent incomplete data that can reach permanent archives.
+- **Failures must surface in heartbeat `status`** (`partial`/`error`/`stuck`) — never green-light a quiet failure. `network-and-prices` is the model (per-source `.ok` + fingerprint staleness detector).
+- **Append-only data (history, daily/weekly archives) is never overwritten with a smaller result** — guard before publish.
+- **Work-as-intended-or-error:** consumers (incl. the dashboard) must show an error state, never a stale/default fallback, when a source is unavailable.
+
+Full audit record + the 8 shipped fixes: `CHANGES_PENDING.md` → "Systemwide reliability audit."
+
 ## Working conventions for future chats
 
 ### Always start a coding session with
