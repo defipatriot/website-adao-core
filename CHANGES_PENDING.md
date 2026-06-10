@@ -68,27 +68,48 @@ Triggered by finding that `nft-inventory.js` had been *silently* dropping DAODAO
 
 **Caveats:** untestable from the sandbox (browser code in a 914 KB / 15k-line file). Test in-browser after. Obtain one archived `tla-data-epoch-N-end.json` if possible to nail `dashboard`/`dao` field semantics exactly. Per project rule, `index.html` data-layer changes only — don't touch render logic.
 
-### 🔥 P1 — NFT Explorer repoint (`nft-explorer-app.js`) — NEXT CHAT (separate, ~4-6 hr)
-See the existing P1 below (deving.zone → `nfts.json`). Pairs with the dashboard migration as the two "new-system wiring" jobs. Keep in its own focused chat — 237 KB file, schema-v2 adaptation.
+### ✅ DONE — NFT Explorer repoint (`nft-explorer-app.js`) — shipped 2026-06-09/10
+deving.zone fully removed; explorer reads `data/v2/nfts.json` + canonical rarity files only, with hard-fail integrity gates (10,000-record check, owner-resolution check, no fallbacks). Details in the Rev 2 section below and `explorer-log.md`.
 
 
 
 ### 🔥 P1 — NFT Explorer page migration (Rev 2)
-**Identified 2026-06-06 during deving.zone outage investigation. Rev B cron foundation shipped 2026-06-07.** The `nft-inventory` cron Rev B now produces a full chain-of-truth replacement for `deving.zone/nfts/alliance_daos.json` (which has confirmed bugs: 16 missing DAODAO stakers, 54 undercounted, DAODAO contract itself listed as a 384-NFT user, no Atrium awareness, no Boost seller resolution). The explorer page still reads from deving.zone — Rev 2 swaps the data source.
+**Identified 2026-06-06. Rev B cron foundation shipped 2026-06-07. Explorer migration SHIPPED 2026-06-09/10 (items 1–7); item 8 (pending-claims surfacing) remains — per-record flag now carried through the merge, UI not yet built.** The `nft-inventory` cron Rev B now produces a full chain-of-truth replacement for `deving.zone/nfts/alliance_daos.json` (which has confirmed bugs: 16 missing DAODAO stakers, 54 undercounted, DAODAO contract itself listed as a 384-NFT user, no Atrium awareness, no Boost seller resolution). The explorer page still reads from deving.zone — Rev 2 swaps the data source.
 
 **Affected file:** `nft-explorer-app.js` (237 KB main page logic)
 
 **Changes needed:**
-1. **[ ]** Swap `STATUS_DATA_URL` from `deving.zone/nfts/alliance_daos.json` → our cron's `nfts.json` raw URL
-2. **[ ]** Adapt `mergeNftData()` to handle Rev B records[] format (schema v2) with new fields: `real_owner`, `listing{...}`, classification flags
-3. **[ ]** Replace dead `MEMBERS_CSV_URL` (`adao_json_storage/main/members.csv` — repo dead since 2026-05-17) with our cron's `summary.json` (richer data — per-staker counts + voting_power_pct)
-4. **[ ]** Add marketplace badges with prices: "Listed: 2,200 bLUNA ($1,875)" — BBL/Atrium/Boost icons
-5. **[ ]** Add backing display tile: collection-wide treasury value ($1.65M today) + per-NFT share (88.20 ampLUNA) + boost-mechanic story ("share grew +12.3% since launch as 1,093 NFTs broke")
-6. **[ ]** Add AbortController timeouts on all `.json()` fetches (deving.zone-hang lesson — same fix applied to `index.html` below)
-7. **[ ]** Add new badges/filters: "DAO Treasury" (898 broken), "Atrium Listed" (1), distinguish "Enterprise Staked" (403 real) vs "Enterprise DAO Broken" (100 gov)
+1. **[x]** Swap `STATUS_DATA_URL` from `deving.zone/nfts/alliance_daos.json` → our cron's `nfts.json` raw URL
+2. **[x]** Adapt `mergeNftData()` to handle Rev B records[] format (schema v2) with new fields: `real_owner`, `listing{...}`, classification flags
+3. **[x]** Replace dead `MEMBERS_CSV_URL` (`adao_json_storage/main/members.csv` — repo dead since 2026-05-17) with our cron's `summary.json` (richer data — per-staker counts + voting_power_pct)
+4. **[x]** Add marketplace badges with prices: "Listed: 2,200 bLUNA ($1,875)" — BBL/Atrium/Boost icons
+5. **[x]** Add backing display tile: collection-wide treasury value ($1.65M today) + per-NFT share (88.20 ampLUNA) + boost-mechanic story ("share grew +12.3% since launch as 1,093 NFTs broke")
+6. **[x]** Add AbortController timeouts on all `.json()` fetches (deving.zone-hang lesson — same fix applied to `index.html` below)
+7. **[x]** Add new badges/filters: "DAO Treasury" (898 broken), "Atrium Listed" (1), distinguish "Enterprise Staked" (403 real) vs "Enterprise DAO Broken" (100 gov)
 8. **[ ]** Surface pending claims from `summary.daodao_pending_claim` (cron ships this as of Rev B.3): a global "N NFTs unstaked & pending claim" stat, and a per-wallet "You have N NFTs ready to claim" nudge when a viewed/connected address appears in `claimable[]`. Show `reconciled: false` defensively (render count, treat per-wallet detail as best-effort).
 
 Estimate: 4-6 hrs. Verify cron data has run cleanly for 24+ hours first. Don't ship Rev 2 same-day as Rev B.
+
+### 🟢 P2 — NFT Explorer Analytics tab: investor-grade expansion (spec'd 2026-06-10)
+**Context.** Goal: stats an investor in a stock/token would expect, applied to the collection. The wishlist originally lived only in chat — this section is now canonical.
+
+**Shipped 2026-06-10 (client-side, live data only):**
+- **Supply screener** — the collection read like a token: Max 10,000 · Circulating (minted) 4,172 · Staked/DAO-controlled 3,049 (1,632 DAODAO + 14 pending + 403 Enterprise + 1,000 DAO broken) · Free float 1,054 + 48 listed; stacked supply bar.
+- **Governance concentration** — Nakamoto coefficient (currently **4** wallets > 50% of staked VP), top-1/5/10 VP shares (19.9% / 57.9% / 68.1%), 157 stakers. VP = DAODAO-staked NFTs; broken keep VP.
+- **Floor by tier** — Broken / Unbroken (base) / Phoenix rows: listed count, **listing floor** vs **sales floor** (median of recent tier sales, USD-at-sale) and the **spread** between them. Backing reference shown. Caveat noted in-UI: sales classified by *current* broken state. NOTE: the panel surfaced an apparent −84% base spread on day one, which turned out to be a cron-side ghost listing (see brief item 5) — real base floor ≈ $101 / spread ≈ −6%. Panel self-corrects when the resolver fix lands; the panel catching this is the point.
+- **Floor-history chart** — sales-derived, selectors for 12 weeks / 12 months x Broken / Base / Phoenix; per period a low->high bar of actual sales (USD-at-sale) with median dash; empty periods shown as gray ticks; dashed reference line at today's listing floor per tier; Broken view carries an explicit warning until `broken-at.json` lands (sales classified by current state). Listing-floor overlay (incl. USD drift of standing listings) is the cron-side follow-up (listing backfill, brief item 0).
+- Earlier this pass: matching-traits tooltip; analytics thumbnails moved to CDN-primary + IPFS-fallback (ipfs.io rate-limiting fix).
+
+**Floor methodology — SETTLED:** sales floor = median of recent sales within the tier (Phoenix segmented out so trait skew can't pollute base), displayed *against* the listing floor as a spread rather than picking one "true" number. This unblocks per-wallet cost-basis P&L.
+
+**Remaining (explorer-side, data already live):**
+1. **[ ]** Pending-claims surfacing (migration item 8): global "N unstaked & pending claim" stat + per-wallet "ready to claim" nudge (`pending-claims.json` + per-record flag shipped; flag now carried through merge).
+2. **[ ]** Per-wallet cost-basis P&L in Wallet tab: paid (from `sales-enriched` buys) vs backing vs tier sales-floor; "no basis" for non-marketplace acquisitions. Unblocked by floor methodology above.
+3. **[ ]** Per-NFT provenance drill-down on card/modal (`nft-provenance.json` is 13 MB — fetch per-token on demand, never wholesale).
+4. **[ ]** Backing growth story on the backing tile ("per-NFT share grew +X% since launch as 1,093 NFTs broke").
+
+**Remaining (cron-side — see brief below):** floor-history chart, days-on-market, bid/ask spread.
+
 
 ### 🔥 P1 — Rarity system overhaul: explorer wiring + DAO proposal (spec'd 2026-06-10)
 **Context.** Full investigation done 2026-06-10 in the NFT *Inventory* chat (this section is the handoff to the explorer chat). Rarity worked out from `all_nfts_metadata.json` + the HashLips design and reconciled against BBL's live marketplace API (HAR capture). Page + data files are shipped; what remains is the explorer wiring, an explorer bug fix, and the proposal.
@@ -107,16 +128,16 @@ Estimate: 4-6 hrs. Verify cron data has run cleanly for 24+ hours first. Don't s
 
 **🐛 Explorer bug found while reviewing the rarity wiring (must fix before/with the wiring):** `nft-explorer-app.js` lines 166 and 180 (`PLANET_INHABITANT_MAP` and `PLANET_OBJECTS_MAP`) use the key `'Pampa'`. The metadata's Planet base name is `'Pampas'` (Pampas North / Pampas South). The strip-North/South regex returns `'Pampas'`, the lookup misses, and ~1,000 Pampas-planet NFTs are silently excluded from every matching-trait check. Symptom: explorer shows P+I=**864** instead of **967** and P+I+O=**74** instead of **80**. Two-character fix in two places — change both `'Pampa'` keys to `'Pampas'`. Verified by re-running both maps against the metadata; this is the *only* discrepancy — every other planet base, all 10 inhabitant species, and all object spellings reconcile exactly.
 
-**Explorer changes — stage on `test.html` first:**
-1. **[ ]** Load both rarity files (`raw.githubusercontent.com/defipatriot/nft-metadata/main/adao-rarity-{intended,bbl}.json`); join to records by `token_id`.
-2. **[ ]** **Rank-system toggle** `BBL Rank / Intended Rank`, switching every rank shown. Display style: `Rarity 40, Rank 24` for Intended; `Rarity 40, Rank 68` for BBL — the grade stays visible in both; the *rank* is what switches. BBL + broken (`bbl_rank:null`) → render "Unranked," not 0 / blank.
-3. **[ ]** Small disclaimer line near the toggle when BBL is active: *"BBL ranks mirrored from BackBone Labs · last changed {file `built` date} · BBL leaves most broken NFTs unranked."*
-4. **[ ]** Display-option toggles — defaults ON: **Rank, Planet, Inhabitant, Object**; defaults OFF/hidden: **Weather, Light, Rarity** (the old `40/1`-style line is retired from the default card view).
-5. **[ ]** Filter dropdowns: still 4; **replace the Rarity dropdown with Rank** — filters by the 1–40 grade under the hood (a 10,000-option exact-rank dropdown is impractical; user-confirmed intent).
-6. **[ ]** **Sort By**: `Ranking, Rarity, ID`, default **Ranking High→Low** (best rank first, honoring the active toggle).
-7. **[ ]** Footer: **remove "Sorting Explained" and "Snapshot Tool" entirely.** Remaining: **Rarity Explained** (now a link to `rarity-explained.html`, not a modal) + **Badges Explained**.
-8. **[ ]** The explorer's internal sub-rank computation (rarityClass + Weather/Light tie-break, source of the old `40/1` display) is superseded — ranks come only from the canonical JSONs.
-9. **[ ]** Fix the `Pampa`→`Pampas` typo above (lines 166 + 180).
+**Explorer changes — ✅ SHIPPED 2026-06-10** (staged on `nft-explorer-test.html`, promoted same day; verified live: Pampa fix bumped P+I 864→967 / P+I+O 74→80; #9068 = Rank 24 Intended / 68 BBL; 1,069 BBL-unranked render "Unranked"):
+1. **[x]** Load both rarity files (`raw.githubusercontent.com/defipatriot/nft-metadata/main/adao-rarity-{intended,bbl}.json`); join to records by `token_id`.
+2. **[x]** **Rank-system toggle** `BBL Rank / Intended Rank`, switching every rank shown. Display style: `Rarity 40, Rank 24` for Intended; `Rarity 40, Rank 68` for BBL — the grade stays visible in both; the *rank* is what switches. BBL + broken (`bbl_rank:null`) → render "Unranked," not 0 / blank.
+3. **[x]** Small disclaimer line near the toggle when BBL is active: *"BBL ranks mirrored from BackBone Labs · last changed {file `built` date} · BBL leaves most broken NFTs unranked."*
+4. **[x]** Display-option toggles — defaults ON: **Rank, Planet, Inhabitant, Object**; defaults OFF/hidden: **Weather, Light, Rarity** (the old `40/1`-style line is retired from the default card view).
+5. **[x]** Filter dropdowns: still 4; **replace the Rarity dropdown with Rank** — filters by the 1–40 grade under the hood (a 10,000-option exact-rank dropdown is impractical; user-confirmed intent).
+6. **[x]** **Sort By**: `Ranking, Rarity, ID`, default **Ranking High→Low** (best rank first, honoring the active toggle).
+7. **[x]** Footer: **remove "Sorting Explained" and "Snapshot Tool" entirely.** Remaining: **Rarity Explained** (now a link to `rarity-explained.html`, not a modal) + **Badges Explained**.
+8. **[x]** The explorer's internal sub-rank computation (rarityClass + Weather/Light tie-break, source of the old `40/1` display) is superseded — ranks come only from the canonical JSONs.
+9. **[x]** Fix the `Pampa`→`Pampas` typo above (lines 166 + 180).
 
 **DAO proposal (separate task, evidence-ready):** adopt Intended as the collection's official grading; ask Atrium to grade by it (file is open + verifiable at `raw.githubusercontent.com/defipatriot/nft-metadata/main/adao-rarity-intended.json`). Evidence ready: HashLips design intent (Object-only, planned weights, Phoenix apex), three named BBL divergences (apex inversion, weather leakage, inconsistent broken handling), the explorer toggle as the both-worlds bridge, full per-trait scoreboards already on the rarity page.
 
