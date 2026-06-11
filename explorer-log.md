@@ -5,6 +5,19 @@ Newest revisions on top. Times are UTC.
 
 ---
 
+## Rev 5.9 — 2026-06-11
+### What changed
+- Buyers/sellers trajectory charts moved into a fixed-width center column (badge stacked below); column hidden on mobile so rows stay clean on phones.
+- Right-edge chart labels (today's listing floor / LUNA price) de-collided — sorted, min 11px apart, clamped in-plot, dark halo stroke for legibility over lines.
+- Floor-history legend made readable: larger representative swatches, lighter text, wider spacing.
+- Cache-busting versioned asset URLs introduced (`?v=5.x` on app JS + CSS), bumped each release — fixes "committed but page didn't change."
+
+## Rev 5.8 — 2026-06-11
+### What changed
+- **Floor-history chart completed:** historical listing floor upgraded from a mid-line to a translucent **USD-range band** per period (cheapest listing sampled at overlap start/mid/end via daily oracles — a LUNA-denominated ask swings in USD, a SOLID-denominated ask stays flat, both render honestly); **legend row** added (sales range / median / listing band+mid / today's floor / LUNA / no-sales tick); stale "overlay arrives later" footnote removed; **LUNA price overlay** (own scale, right-edge label, toggleable) so floor moves read against the token's USD move.
+- **Top buyers/sellers:** sparkline replaced with a 12-month **ownership-trajectory line** (holdings level reconstructed as current holdings minus later net marketplace trades; green/amber/red by year net; hover any point for the month's estimated holdings).
+- **Click-to-explain:** Market cap, Mark price, All-time volume, Backing/NFT, Total backing, Supply, and Nakamoto coefficient are now clickable (ⓘ) — each opens a methodology modal with the live numbers substituted into the formula (e.g. mcap = Σ tier mark × circulating; volume = token amount × USD price on sale date from daily oracles).
+
 ## Rev 5.7 — 2026-06-11
 ### What changed
 - **Wired the new cron deliverables:** `broken-at.json` (exact sale-time tier classification — Broken-view warning replaced with "tiers exact via on-chain break timestamps"; mid-2025 pre-break sales reclassified to base), `listing-history.json` + daily LUNA/bLUNA oracles (historical listing-floor step-line on the floor-history chart, valued at period-midpoint token prices; SOLID treated as $1).
