@@ -5,6 +5,15 @@ Newest revisions on top. Times are UTC.
 
 ---
 
+## Rev 5.7 — 2026-06-11
+### What changed
+- **Wired the new cron deliverables:** `broken-at.json` (exact sale-time tier classification — Broken-view warning replaced with "tiers exact via on-chain break timestamps"; mid-2025 pre-break sales reclassified to base), `listing-history.json` + daily LUNA/bLUNA oracles (historical listing-floor step-line on the floor-history chart, valued at period-midpoint token prices; SOLID treated as $1).
+- **Floor-history chart paging:** ‹ older / newer › buttons step 12-period windows through the full Dec-2023→now history (monthly + weekly).
+- **Mark price & market cap:** per-tier mark = midpoint of sales floor & listing floor (market-maker mid); Mark column added to Floor-by-tier; hero rebuilt — Market cap (Σ tier mark × circulating supply) headline with FDV subline, Mark (base), all-time volume, highest sale. "Value today" stat removed.
+- Total backing tile now whole-number USD; Nakamoto coefficient shows a zone scale (1–3 highly concentrated / 4–7 concentrated / 8–15 moderate / 16+ distributed) with marker + label; top buyers/sellers rows carry a 12-month net-position sparkline (green/amber/red by year net, marketplace trades only); Biggest sales is now a top-10 thumbnail grid.
+- View toggle (Collection | Analytics | Wallet) restyled from a centered pill block to left-aligned underline page-tabs so it no longer reads as a second nav bar.
+- Defensive liveness filter: open-ended listing-history segments only count if the token is currently listed (guards the band against the residual ghost 14765 in the backfill — flagged to cron).
+
 ## Rev 5.6 — 2026-06-10
 ### What changed
 - **Investor panels on Analytics tab**: Supply screener (Max 10,000 / Circulating 4,172 / Staked+DAO-controlled 3,049 / free float, stacked supply bar); Governance concentration (Nakamoto coefficient — currently 4 — top-1/5/10 VP shares from `summary.daodao_stakers`); Floor by tier (Broken / Base / Phoenix: listing floor vs sales floor with spread, backing reference).
