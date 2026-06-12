@@ -5,6 +5,12 @@ Newest revisions on top. Times are UTC.
 
 ---
 
+## Rev 6.0 — 2026-06-11
+### What changed
+- **Deep-linkable tabs:** `?view=analytics|wallet` opens that tab directly (collection = clean URL); tab switches pushState so back/forward navigates tabs; filter changes preserve the active tab in the URL. Enables direct links from the dashboard and external posts.
+- **Per-tab analytics:** tab switches register as SPA navigations with Vercel Web Analytics and fire an `explorer_tab` custom event (visible in the Events panel on plans that include custom events; if pageview rows don't split by query string, the upgrade path is a vercel.json rewrite to real paths).
+- **Cache-busted assets:** app JS + CSS loaded with `?v=6.0`, bumped each release — fixes the "committed but the page didn't change" class of problem permanently.
+
 ## Rev 5.9 — 2026-06-11
 ### What changed
 - Buyers/sellers trajectory charts moved into a fixed-width center column (badge stacked below); column hidden on mobile so rows stay clean on phones.
