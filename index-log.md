@@ -7,31 +7,55 @@ This file also covers cross-cutting site changes that affect multiple pages — 
 
 ---
 
+## Rev 3.54 — 2026-06-12
+
+Deep-dive page migration + chart history revival + cron-first instant paint. Closes the "everything frozen at epoch 185" era and cuts cold-load from ~9s to ~3-5s.
+
+### Cron-first instant paint (the load-time fix)
+The dashboard's live path (`fetchLiveOnChainData`) fires dozens of LCD queries on every open — the ~9s cold load. The v2 NFT pipeline + `network-and-prices` cron carry chain-truth copies of nearly every headline number (15-min / hourly fresh), so a new `paintFromCron()` runs FIRST: two fast static fetches fill the mint/broken sliders + counts, backing-per-NFT (all 3 denominations), unminted backing, DAODAO/Enterprise staked, DAO members, and the supply screener — page readable in <1s, then the live pass lands on top. Safety: a freshness gate (skip paint if pipeline >2h stale) and every fill is spinner-guarded, so cron paint can never overwrite live data regardless of race order. Also seeds the gecko-shaped price cache so price-dependent components work before CoinGecko answers. Status line shows "Data as of HH:MM (pipeline) — refreshing live…" until live completes. Marketplace cards pre-fill too (counts + per-venue floors from `summary.json`'s marketplaces block).
+
+### deving.zone eliminated
+The dead `deving.zone/nfts/alliance_daos.json` feed (stale since the explorer migration, and it *hard-failed the whole load* if it didn't respond) is gone from both fetch sites — replaced by v2 `nfts.json` through thin adapters mapping `records[]` into the legacy `{collection_stats, nfts}` shape (resolving staked NFTs to real stakers, normalizing id types). Correctness fix as much as speed.
+
+### Charts: post-185 history revived
+The chart engine (`fetchAllSnapshots`) walked legacy per-epoch files that stopped at epoch 185, so every tile chart froze there. Now augments missing post-185 epochs from three live archive families: v2 NFT dailies (DAODAO staked, Enterprise, DAO-held, circulating — since 2026-06-07), TLA-snapshot dailies (canonical Total TLA VP = max bucket VP — since 2026-05-13), and dao-dashboard dailies (TLA deposits / vote / deposit / rebase USD + LUNA price — since 2026-06-12). One synthetic point per epoch (latest day in the epoch week); metrics a source can't supply stay null (honest gaps). Legacy reads 161–185 preserved — only that history has those points. Verified live: Total TLA VP continues 24.42M → 24.70M → 24.85M across epochs 186-188; DAODAO staked shows real destaking (1,661 → 1,632). Two honest caveats documented: Enterprise Staked steps down at the 185→186 boundary (legacy counted 100 enterprise-DAO broken as stakes; v2 counts 403 real users — the step is the correction), and DAO Members has no post-185 source until the stake-event sweep lands.
+
+### Heartbeat monitor: NFT inventory false "5d stale" fixed
+The cron-status monitor read the old v1 `data/heartbeat.json` (frozen 2026-06-07 when the cron moved to `data/v2/`), showing a false 5-day-stale alarm while the pipeline was green every 15 min. Repointed to `data/v2/heartbeat.json` with hot-mode cadence (15-min).
+
+### Deep-dive pages onto the live layer
+`dao_treasury.html` and `dao_tla_deposits.html` both read `dao-dashboard.json` first (fresh-gated 26h, legacy epoch walk-back as fallback) and continue their history past epoch 185 via the dao-dashboard daily archives. `dao_treasury.html` gains a fresh compare baseline (today's epoch alongside legacy 185); `dao_tla_deposits.html` reconstructs its per-pool `active_pools` view from the cron's new `tla_deposits.positions` field via an adapter. (No `dao_tla_vp.html` exists — VP lives in `tla-stats.html`, untouched.)
+
+## Rev 3.53 — 2026-06-12
+
+dao-dashboard cron repoint — ends the rewards-card-frozen-at-185 problem.
+
+`fetchTlaData` now tries `tla-snapshot-data_2026/data/dao-dashboard.json` (new dao-dashboard cron, hourly live chain aggregates in a legacy-v3-compatible `{meta, dashboard}` shape) FIRST, accepted only when `meta.generated_at` < 26h fresh; the legacy epoch walk-back with its staleness pill remains the fallback. So the Unclaimed Rewards (Deposit/Vote/Rebase), TLA Deposits, and Lion alliance tiles go from "honest but frozen at epoch 185" to hourly-fresh. See the cron's own README and the cron-scripts README for the producer side. Single `tlaDataMeta.isStale` flag drives the pill; cron-primary path sets it false correctly.
+
 ## Rev 3.52 — 2026-06-12
 
-Marketplace v2 tie-in + dao-dashboard cron repoint. One `index.html` release; `ally.html` fixed in the same batch.
+Marketplace v2 tie-in (chain-of-truth pipeline) + `ally.html` live-data fix in the same batch.
 
-**index.html — marketplace v2 (chain-of-truth pipeline):**
-- **All Current Listings**: Atrium listings included (from `listing-history.json` active records, USD via live prices, broken status via `broken-at.json`, pink ATRIUM badge); filter row now **All / BBL / Atrium / Boost** ("Both" removed, All default). Total ~53 listings (35 BBL + 14 Atrium + 4 Boost).
-- **Live Activity**: BBL stays on its live API; v2 pipeline adds Atrium + Boost lists, **delists**, sales, and on-chain **BREAK** events (red badge, venue tags, no cross-source duplicates). ~25 events/week vs 7 before. Stake/Destake pending cron event capture (see brief).
-- **Top 10 All-Time Sales**: computed live from `sales-enriched.json` on modal open (all venues, USD-at-sale, min-qualify updates); legacy static file is the fallback.
-- **Marketplace overview**: third **Atrium card** (floor / volume / sales / listed, "Chain-of-truth pipeline" source line), grid now 3-up on desktop.
-- **Analytics strip**: moved between the Treasury row and the Backing row, restyled to mirror the DAO Total Value strip; stats = Market cap · Volume · Sales · Listed. **Market cap matches the explorer to the dollar ($345,541)** — circulating split derived from the page's per-token array (5 unminted Phoenixes excluded); shows "--" rather than a near-miss number if that array is unavailable.
-- **Activity rows**: price/USD in a right-aligned desktop column next to the timestamp (mobile keeps the stacked layout).
-- **fetchTlaData repointed**: tries the new `dao-dashboard.json` (dao-dashboard cron, hourly live chain aggregates) first, accepted only when < 26h fresh; legacy epoch walk-back with its staleness pill remains the fallback. Ends the frozen-at-epoch-185 era for the rewards card / TLA deposits / Lion alliance.
+**index.html — marketplace v2:**
+- **All Current Listings**: Atrium listings included (from `listing-history.json` active records, USD via live prices, broken status via `broken-at.json`, pink ATRIUM badge); filter row now **All / BBL / Atrium / Boost** (All default). ~53 listings.
+- **Live Activity**: BBL live API + v2 pipeline (Atrium + Boost list/**delist**/sale + on-chain **BREAK**, venue tags, no cross-source dupes). ~25 events/wk vs 7. Stake/Destake pending cron event capture.
+- **Top 10 All-Time Sales**: computed live from `sales-enriched.json` on modal open (all venues, USD-at-sale); legacy static file is fallback.
+- **Marketplace overview**: third **Atrium card** (floor/volume/sales/listed, "Chain-of-truth pipeline" source), grid 3-up on desktop. **Per-tier floor rows** (Broken / Unbroken base / Phoenix, as floor × count, "N/A" when empty) added to all three tiles — surfaces that a venue's headline floor may be a broken NFT (verified: Atrium's "$10 floor" is broken; real base floor $77). Tier from broken-at + grade-40 Phoenix set. (Race fix: tier fill is idempotent, triggered from both the v2 module and the marketplace-cache completion, since the activity feed kicks the module off before the BBL/Boost caches populate.)
+- **Analytics strip**: between Treasury and Backing rows, styled like the DAO Total Value strip; Market cap matches the explorer to the dollar ($345,541, circulating split from the page's per-token array, 5 unminted Phoenixes excluded; "--" rather than a near-miss if the array is unavailable). (Same idempotent-race fix as tier floors — mcap recomputes from the v2 module, the caches, AND the NFT-array stash.)
+- **Live-feed rows** sized up on desktop (40px imgs, base-size ids, pink venue chips, roomier padding); mobile compact override untouched.
 
 **ally.html — live data fix:**
-- Hardcoded `0.21` avg daily gain replaced with live computation from `backing-data_2026` daily history (same source as the dashboard tile) — flows through per-NFT gain, contract total, and the slider projection; status line shows the live window dates, fallback labeled honestly.
-- **Dead deving.zone feed removed** — unbroken count now from v2 `summary.json` (8,907).
-- "~0.72% of staking rewards" tile computes live (contract LUNA ÷ bonded LUNA from the chain staking pool).
+- Hardcoded `0.21` avg daily gain → live from `backing-data_2026` daily history (dashboard's source). Flows through per-NFT gain, contract total, slider projection; status line shows live window dates, fallback labeled honestly. Now shows ~+0.31 LUNA/day, contract ~+2,800/day (vs understated +1,870).
+- Dead deving.zone feed → v2 `summary.json` (unbroken 8,907).
+- "~0.72% of staking rewards" tile computes live (contract LUNA ÷ bonded LUNA from chain staking pool).
 
 ## Rev 3.51 — 2026-06-11
 
 TLA data restoration + NFT analytics banner.
 
-- **fetchTlaData walk-back extended 5 → 12 epochs**: the legacy epoch cron died after epoch 185 while the 5-epoch window only reached 186 — every dependent tile (Deposit/Vote/Rebase rewards, TLA Deposits, TLA LPs, Lion alliance) went blank. Walk-back finds 185; the existing staleness pill flags it honestly.
-- **fetchTlaExtData fixed**: hardcoded epoch-163 fallback (files that never existed) replaced with real current epoch + 14-epoch walk-back across the sparse ext set (…177, 178, 181, 182, 185).
-- **NFT Collection Analytics banner** added with live preview stats from the v2 pipeline, deep-linking to `nft-explorer-index.html?view=analytics`.
+- **fetchTlaData walk-back 5 → 12 epochs**: the legacy epoch cron died after 185 while the 5-epoch window only reached 186 — every dependent tile (Deposit/Vote/Rebase, TLA Deposits, TLA LPs, Lion) went blank. Walk-back finds 185; staleness pill flags it honestly. (Superseded by Rev 3.53's cron-primary path, kept as fallback.)
+- **fetchTlaExtData fixed**: hardcoded epoch-163 fallback (files that never existed) → real current epoch + 14-epoch walk-back across the sparse ext set.
+- **NFT Collection Analytics banner** with live v2 preview stats, deep-linking to `nft-explorer-index.html?view=analytics`.
 
 ## Rev 3.50 — 2026-05-29
 

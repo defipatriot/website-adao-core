@@ -43,9 +43,38 @@ Triggered by finding that `nft-inventory.js` had been *silently* dropping DAODAO
 
 ---
 
+## 🎯 TLA Stats expansion — clean next steps (planned 2026-06-12, build pending)
+
+Discovery is complete for the whole TLA-Stats data-capture expansion. Nothing below is built yet; all of it is documented in `cron-scripts/README.md` "Project status & roadmap" and `PROJECT_KNOWLEDGE.md` "TLA Stats — product pillars & planned capture expansion." Recommended build order:
+
+### 🔥 P0 — One-field Render fix (do anytime, unblocks Portfolio Tracker history)
+- **[ ] Switch `adao-positions` Render schedule `0 1 * * 1` → `0 1 * * *`.** The code already expects daily; the schedule was never changed, so no daily P&L history accumulates. Every week unswitched is permanently lost forward-history. (No code change — Render dashboard only.)
+
+### 🔥 P1 — Extract the shared capture engine (keystone, do before ally crons)
+- **[ ] Extract `lib/capture-engine.js`** from `adao-positions.js` — the per-address position-capture logic (LP positions, rewards, voting, locks, bribes, balances, summary). All planned member crons import it, so "fix once, all benefit." Tradeoff accepted: the new crons depend on it, but independent discovery/output/scheduling keep them isolated otherwise.
+
+### 🟢 P2 — Member-expansion crons (separate cron per source; build after the engine)
+Each its own repo + heartbeat + schedule so allies can't break aDAO and can be paused independently. Membership always live-queried (never a hardcoded CSV).
+- **[ ] `tla-participants`** (highest value — catches non-governance liquidity providers): all TLA-lock holders (CW721 enumeration of veLUNA `terra1uqhj8…`, confirmed enumerable, 431 locks) ∪ all bribe providers (read from `bribes-data_2026`).
+- **[ ] `pixellions-positions`**: Pixel Lions registered members. DAO core `terra1c690mdrwdetnr09zfk3tf9xz9jhrgd9wpjyf3tuccj74ql09eqmq6sh7en`.
+- **[ ] `liondao-positions`**: Lion DAO registered members. DAO core `terra1tkersa2mqwy2h8exj799qx2xrhdu0dkymk9psp6v0k4kz4tkxucssgluec`.
+- **[ ] Widen `adao-positions`** to include unknown (unnamed) members (one-line filter change — currently named-only).
+
+### 🟢 P2 — `tla-locks` cron (its own big cron; full schema mapped, see PROJECT_KNOWLEDGE)
+The highest-value *new* capture — stale-VP-gap + unlock-cliff metrics exist nowhere else in the ecosystem. Forward-tracking, so clock-start has urgency. Captures per-lock asset/underlying/stamped-ratio/VP/slope/coefficient/window/permanent-flag/owner; system totals in one `total_vamp` call; derives auto-max status, weeks-to-unlock, stale-VP upside (via config oracles), participation order, per-member rollups, Boost-listing cross-ref, and voter-behavior metrics (churn + votes-on-dead-LPs from the gauge controller).
+
+### 🔲 P3 — TLA Stats page (`tla-stats.html`) — the four pillars UI
+Once the capture above accumulates: **Portfolio Tracker**, **LP Performance & Health Scoring**, **Bribes Tracking**, **Vote Intelligence**. Bribes/Vote-Intelligence are buildable soonest (multi-epoch bribes + snapshot data already has depth); Portfolio Tracker needs the accumulation runway. `tla-stats.html` is ~7,000 lines of polished rendering — data-layer changes only, never restructure the render code.
+
+---
+
 ## 🛠 Active / next round
 
-### 🔥 P1 — Dashboard data-source migration (`index.html` `fetchTlaData`) — NEXT CHAT
+### ✅ DONE — Dashboard data-source migration (`index.html` `fetchTlaData`) — shipped Rev 3.51–3.54 (2026-06-11/12)
+**Resolved via the dao-dashboard cron** (a cleaner solution than the per-source adapter originally specced below). The new `dao-dashboard` cron assembles the DAO aggregates server-side into a legacy-compatible `{meta, dashboard}` shape, so `fetchTlaData` simply reads that one file (live-primary, 26h fresh-gated) with the legacy epoch walk-back as fallback. The Unclaimed Rewards / TLA Deposits / Lion tiles are now hourly-fresh instead of frozen at epoch 185. Deep-dive pages (`dao_treasury.html`, `dao_tla_deposits.html`) migrated the same way. Also shipped in this arc: cron-first instant paint (~9s→3-5s load), deving.zone fully eliminated from index, chart history revived past 185, heartbeat false-stale fix. Full detail in `index-log.md` Revs 3.51–3.54 and `cron-scripts/dao-dashboard/README.md`. The original per-source adapter plan is retained below for reference but is superseded.
+
+<details><summary>(superseded) original per-source adapter plan</summary>
+
 **Identified 2026-06-09.** The DAO Unclaimed Rewards + DAO TLA Deposits tiles are stuck (`--` / spinner). Root cause: `fetchTlaData()` (index.html ~line 9836) still reads the **dead** monolithic `tla_json_storage/main/tla-data-epoch-{N}-end.json` (404 for epochs ≥186). That old file bundled pools + DAO treasury + locks + balances + ratios in one blob; the **new architecture split it across 4 crons**, so this is a *routing* migration, not a URL swap.
 
 **Old `tlaData.*` field → new source mapping (confirmed against live data 2026-06-09):**
@@ -67,6 +96,8 @@ Triggered by finding that `nft-inventory.js` had been *silently* dropping DAODAO
 - Also retire the v3-format fallback block (~line 5020-5024).
 
 **Caveats:** untestable from the sandbox (browser code in a 914 KB / 15k-line file). Test in-browser after. Obtain one archived `tla-data-epoch-N-end.json` if possible to nail `dashboard`/`dao` field semantics exactly. Per project rule, `index.html` data-layer changes only — don't touch render logic.
+
+</details>
 
 ### ✅ DONE — NFT Explorer repoint (`nft-explorer-app.js`) — shipped 2026-06-09/10
 deving.zone fully removed; explorer reads `data/v2/nfts.json` + canonical rarity files only, with hard-fail integrity gates (10,000-record check, owner-resolution check, no fallbacks). Details in the Rev 2 section below and `explorer-log.md`.

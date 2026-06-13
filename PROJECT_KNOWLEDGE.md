@@ -324,6 +324,44 @@ Each cron has its own `README.md` in its folder. Recent changes are tracked in a
 
 ---
 
+## TLA Stats — product pillars & planned capture expansion (discovery complete 2026-06-12, build pending)
+
+This is the "what makes TLA Stats different from the official Eris UI" work. Four pillars: **Portfolio Tracker** (member position time-series + P&L), **LP Performance & Health Scoring**, **Bribes Tracking**, **Vote Intelligence**. History is **forward-only chain capture** (public LCDs prune ~100 blocks; Tendermint RPC disabled; no archive node) — the accumulation clock matters, every un-captured week is permanently lost.
+
+### ⚠ adao-positions still runs weekly (blocks Portfolio Tracker history)
+The cron's code constant expects daily (`0 1 * * *`) but the **Render schedule was never switched from weekly (`0 1 * * 1`)**. No daily P&L history accumulates until that one-field change is made. It currently tracks 45 *named* members (DAODAO stakers with a registered PFPK name). Per member it already captures a rich set: LP positions (per-pool share %, shares, USD, APR, **underlying-token decomposition**), pending rewards, voting allocations, pending rebase, vAMP locks, pending bribes, wallet balances, and a computed summary (total portfolio USD, amp/non-amp LP split, locked LUNA-eq, rank, potential VP gain). The metrics layer is close to the Portfolio-Tracker vision — the missing piece is the *time-series*, which is purely the accumulation runway.
+
+### Member-expansion architecture (decided, not built)
+**Separate cron per source, each its own repo + heartbeat + schedule** — so allies can never break aDAO capture and can be paused independently. All share a **to-be-extracted `lib/capture-engine.js`** (the per-address position logic currently living inside `adao-positions.js`). This is the keystone refactor; build it before the ally crons. Membership is ALWAYS live-queried — never a hardcoded member list (the explicit anti-pattern: a static CSV rots silently and you don't notice for 6 months).
+
+Sources & their live discovery:
+- **aDAO** (existing cron) — DAODAO `topStakers` + PFPK; widen to include *unknown* (unnamed) members (one-line filter change).
+- **TLA participants** (new `tla-participants`) — all TLA-lock holders (CW721 enumeration, see below) ∪ all bribe providers (read from `bribes-data_2026`). Catches liquidity providers who never staked an NFT into governance — currently invisible.
+- **Pixel Lions** (new) — DAO core `terra1c690mdrwdetnr09zfk3tf9xz9jhrgd9wpjyf3tuccj74ql09eqmq6sh7en`.
+- **Lion DAO** (new) — DAO core `terra1tkersa2mqwy2h8exj799qx2xrhdu0dkymk9psp6v0k4kz4tkxucssgluec`.
+
+For the two ally DAOs: from the core address, resolve the voting module via the DAODAO indexer's `dumpState`, then `topStakers` → PFPK filter to `name != null` (registered only).
+
+**PFPK name registry (how "registered names" stays a live feed):** `pfpk.daodao.zone/bech32/{hexAddress}` (per-address GET → `{name}`, non-null = registered). The bech32→hex conversion is in `adao-positions.js` (`bech32AddressToHex`). Registrations/removals reflect on the next run — no memo-scanning, no snapshot.
+
+### TLA Locks (veLUNA) — full schema mapped, highest-value capture
+Planned as its OWN cron (`tla-locks`), separate from the membership work — big enough to stand alone and the stale-VP-gap + unlock-cliff metrics don't exist anywhere else in the ecosystem.
+
+**Contract:** `terra1uqhj8agyeaz8fu6mdggfuwr3lp32jlrx5hqag4jxexde92rzkamq3l62zg` (name "Vote Escrowed LUNA" / veLUNA). It's a standard CW721, **enumerable** (verified: `num_tokens` → 431; `all_tokens{limit,start_after}` works; token_ids sort lexicographically as strings — follow the cursor, don't assume numeric sequence).
+
+**`lock_info{token_id, time}` returns everything in one call:** `owner`, `asset.info` (LST contract — ampLUNA/bLUNA/arbLUNA-ibc/native LUNA), `asset.amount`, `underlying_amount` (**ratio frozen at lock time**), `coefficient` (VP multiplier tier), `start`/`end` periods, `slope` (exact VP decay per week), `voting_power`, `fixed_amount`. `time` accepts `current`/`next`/`last`/`period`.
+
+**Derivations confirmed against live data:**
+- **System totals = ONE call:** `total_vamp` → `{fixed (non-decaying floor), voting_power (decaying part), vp (total)}`. Decay *projection* via `total_vamp{time:{period:N}}` (NOT `at_period` — rejected variant).
+- **Auto-max-lock (no extra query):** `end=="permanent"` && `slope==0` = auto-max ON; `end=={period:N}` && `slope>0` = decaying, N = unlock period.
+- **Stale-VP gap (the unique metric):** VP is stamped at lock-time ratio; if the LST ratio rose since, the holder's true VP is higher than stamped until they touch the lock. Compute "VP if re-stamped today" = `amount × current_ratio × coefficient` vs frozen `underlying`. Asset oracles are in the lock contract's `config.deposit_assets[].config.exchange_rate.contract`.
+- **Participation order = free:** ascending `token_id` is the lock order (NFT #1 = first participant); `start` period dates it.
+- **Per-member rollups:** group by owner → total VP, stale-VP upside, personal unlock cliff, first-participation date.
+- **Marketplace cross-ref:** locks are listable on Boost (already in the marketplace pipeline) → discounted-VP-for-sale flagging.
+- **Voter behavior (rides along, from gauge controller `user_info.gauge_votes`):** vote-change frequency (diff between runs) + voting-on-inactive/abandoned-LPs.
+
+---
+
 ## TLA Chain Registry catalog system — the data foundation
 
 **Started 2026-05-XX. Audited heavily 2026-06-02 (Rev 0.10) and locked in 2026-06-06 (Rev 0.16, Phase 0 complete).** This is the 10th cron, named `tla-registry`. Unlike the other 9 crons which collect different aspects of TLA activity for the dashboards, this cron's job is to produce a **canonical registry** of every TLA-relevant token, LP, amplp, and contract — with cross-source reconciliation, on-chain verification, and explicit trust signals.
@@ -851,6 +889,10 @@ If we ever need to change one of the structural fields, plan to communicate to u
 - **Where to look first:** the export-builder code that writes the JSON should be reading `store.liveEpochInfo?.currentEpoch` like the rest of the tool does. If it's reading a stale or non-populated field, the export gets `"unknown"`.
 - **Until fixed:** rename downloaded files manually before push (`astroport-epoch-184-2026-05-09.json` not `epoch-unknown`), and the Skeleton 4-epoch-avg numbers should be considered suspect for any epoch where `historicalEpochsLoaded` doesn't include the actual current epoch.
 
+### Critical data-capture gotcha — A recorded address that yields zero is suspect, not empty (Jun 12 2026)
+
+The legacy dashboard recorded the Lion DAO validator as `terravaloper1dce…`. Every delegation lookup against it returned nothing, so the Lion alliance tile showed 0 LUNA staked — looking like an honest "no stake." It was wrong: the DAO main wallet HAS a 10,000 LUNA delegation, to `terravaloper1pet430t7ykswxuyhh56d4gk6rt7qgu9as6a5r0` ("🦁 The Lion DAO"). The recorded address was simply wrong (rotated or mistranscribed). **Lesson: when a hardcoded contract/validator address produces a zero/empty result, suspect the address before concluding "no data." Resolve dynamically (by moniker, by enumeration) and emit a diagnostic scan so a zero is one-glance diagnosable.** The dao-dashboard cron now finds Lion by moniker (`/lion/i`) across candidate wallets and emits `delegation_scan`. (HAR from DAODAO's own treasury page — which read the stake fine via RPC ABCI — was how we proved the stake existed.)
+
 ### Critical data-capture gotcha — Silent coercion hides cron query failures (May 26 2026)
 
 **Root cause of "adao-positions cron dropped 6 of DAO's 16 LP positions for weeks before anyone noticed."**
@@ -961,6 +1003,22 @@ Introduced in Rev 3.47 (2026-05-28). Single source of truth for live TLA / treas
 **Architecture rule:** dashboard tiles should be LIVE feeds (RPC primary), cron is fallback + historical capture only. Never tie tile freshness to cron's hourly cadence. New tile work goes through `aDAOLive`. The cron is correctly positioned as historical capture + resilience, not the data source for current state.
 
 **Migration status:** `index.html` and `dao_treasury.html` still have inline live-data code that should migrate to `aDAOLive` incrementally. New work uses the library; legacy paths get migrated when touched. Tracked in `CHANGES_PENDING.md`.
+
+### dao-dashboard cron — the rewards/treasury/deposits aggregate layer (Rev 3.53, 2026-06-12)
+
+The legacy "TLA Admin Core v3" epoch cron died after epoch 185 (last file 2026-05-17). It fed `index.html`'s Unclaimed Rewards (Deposit/Vote/Rebase), TLA Deposits, and Lion alliance tiles — which then froze at epoch-185 values. The **`dao-dashboard` cron** (in `cron-scripts/`, chained into the tla-snapshot Render job) is its successor: it ports the `aDAOLive` query logic server-side and writes `tla-snapshot-data_2026/data/dao-dashboard.json` in a **legacy-v3-compatible `{meta, dashboard}` shape** so every consumer works unchanged.
+
+- Consumers read it **live-primary, 26h fresh-gated**: `index.html` `fetchTlaData`, `dao_treasury.html` `fetchCurrentTlaData`, `dao_tla_deposits.html` `loadData` all try it first, fall back to the legacy epoch walk-back (with its staleness pill) if absent/stale. A stuck emitter degrades gracefully — never hand-edit `generated_at` to "fix" a run.
+- Emits: `treasury` (main-wallet balances, legacy `[{token,amount,price,usd}]`), `unclaimed_rewards`, `vote_rewards{by_token,periods}`, `rebase`, `tla_deposits{total_usd,tokens,positions[]}`, `alliances.lion_dao`, plus `token_prices`. Amounts are the durable fields; consumers recompute USD live.
+- **Self-archives** the first run each UTC day to `data/daily/dao-dashboard-YYYY-MM-DD.json` — this is what gives the dashboard chart modals + deep-dive pages TLA-metric history past the epoch-185 cliff.
+
+### Cron-first instant paint (Rev 3.54, 2026-06-12) — the load-time pattern
+
+`index.html` opens with `paintFromCron()` BEFORE the live path: two fast static fetches (v2 `summary.json` + `network-and-prices.json`) fill headline tiles in <1s, then `fetchLiveOnChainData` lands real-time values on top. Cut cold load ~9s → 3-5s. **The pattern, reusable for any page:** (1) freshness-gate the cron data (skip paint if >2h stale, let spinners wait for live); (2) every paint setter is **spinner-guarded** (only writes if the tile still shows a spinner) so cron paint can never clobber live data regardless of race order; (3) seed the gecko-shaped price cache from the cron so price-dependent components work before CoinGecko answers; (4) stamp "Data as of HH:MM (pipeline) — refreshing live…". Note even the "stale" first paint is ≤15 min old (v2 hot cron) — fresher than most dashboards' live data.
+
+### Idempotent-fill pattern for race-prone async sections (Rev 3.52/3.54)
+
+Several `index.html` sections (marketplace tier floors, analytics-strip market cap) compute from data that arrives via *multiple* independent async paths (the v2 module, the BBL/Boost caches, the 10k-NFT array stash) finishing in any order. The activity feed kicks the v2 module off before the caches populate, so a one-shot fill runs against empty data and never retries. **Fix pattern:** extract the computation into an idempotent function called from *every* completion point, guarding to skip inputs not yet ready. Two instances of this bug were found and fixed this way — audit the v2 module for a third when next touched.
 
 ### Cross-page consistency requirements
 **Every user-facing page should look and feel like `index.html`.** This is a hard requirement — pages should be visually indistinguishable from each other except for body content. Specifically:
