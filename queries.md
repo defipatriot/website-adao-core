@@ -155,12 +155,37 @@ GET /cosmos/bank/v1beta1/balances/{address}/by_denom?denom={url-encoded}
 - **Output shape:** `{ vp_voting_for_pool, current_rate, take_rate, ... }`
 - **Powers:** Per-pool VP attribution; "who's voting for this pool" panel.
 
+#### Q-AssetGauge-UserFirstParticipation ⭐ tenure
+- **Human label:** "What's the first epoch this wallet ever voted in?"
+- **Used by:** Not in cron today; **wanted by Portfolio Tracker / member tenure.** *(This query was missing from the catalog until 2026-06-13 — it exists on-chain and is exposed in `tla-chain-queries.html`. It corrected an earlier assumption that first-participation had to be forward-accumulated; it does NOT — the gauge contract tracks it natively.)*
+- **Input shape:** `{ "user_first_participation": { "user": "terra1..." } }`
+- **Inputs:** `user` (wallet)
+- **Output shape:** `{ period }` — the epoch number; map to a date via `epoch_1-300_date.json` (canonical epoch↔date schedule, epochs 1–300, in `website-adao-core`).
+- **Powers:** Address-level tenure / early-user signal. **Important:** this is "first epoch *voted*," not "first held an NFT" or "first locked" — so it's the meaningful participation date, not a token-ownership artifact. Edge case: a pure lock-holder who never cast a vote may return empty/none — fall back to the lock's `start` period (Q-VotingEscrow-LockInfo) for those.
+- **Verified:** DAO main wallet (`terra1sffd4…m5vzm`) → `{period:120}` = week of 2025-02-10 (~16 months tenure as of epoch 189).
+
+#### Q-AssetGauge-UserShares
+- **Human label:** "What's this wallet's share of each pool's voting power?"
+- **Used by:** Not in cron today; **wanted for member % influence** (use THIS for live per-pool member %, not user_info).
+- **Input shape:** `{ "user_shares": { "user": "terra1..." } }`
+- **Inputs:** `user` (wallet)
+- **Output shape:** Array per-gauge: `{ asset, period, user_vp, total_vp }`
+- **Powers:** Live percentage influence in each pool per member.
+
+#### Q-AssetGauge-UserPendingRebase
+- **Human label:** "How much unclaimed rebase (ampLUNA) does this wallet have?"
+- **Used by:** `adao-positions` cron (portfolio `pending_rebase`).
+- **Input shape:** `{ "user_pending_rebase": { "user": "terra1..." } }`
+- **Inputs:** `user` (wallet)
+- **Output shape:** `{ rebase }` (ampLUNA micro-units)
+- **Powers:** The rebase line in member/DAO unclaimed rewards.
+
 ---
 
 ## 3. TLA Voting Escrow (vAMP / TLA Locks)
 
 **Address:** `terra1uqhj8agyeaz8fu6mdggfuwr3lp32jlrx5hqag4jxexde92rzkamq3l62zg`
-**Role:** CW721 NFT contract — every TLA lock is one NFT. Each token has a voting power amount, a lock start period, a lock end period, and an owner. **Total locks today: ~46 named members + treasury.**
+**Role:** CW721 NFT contract — every TLA lock is one NFT. Each token has a voting power amount, a lock start period, a lock end period, and an owner. **Total locks today: 431 (verified 2026-06-13 via `num_tokens`).** Note: lock count ≠ holder count — some wallets hold multiple locks. The contract is CW721-enumerable (`all_tokens`), name "Vote Escrowed LUNA" / veLUNA.
 
 ### Default queries (Chainscope)
 
