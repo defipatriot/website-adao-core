@@ -43,30 +43,28 @@ Triggered by finding that `nft-inventory.js` had been *silently* dropping DAODAO
 
 ---
 
-## 🎯 TLA Stats expansion — capture layer ✅ BUILT (2026-06-13), page UI next
+## 🎯 TLA Stats expansion — clean next steps (planned 2026-06-12, build pending)
 
-**The entire data-capture layer is built and live.** All four pillars now have their feeds. Full detail in `cron-scripts/README.md` and `PROJECT_KNOWLEDGE.md`.
+Discovery is complete for the whole TLA-Stats data-capture expansion. Nothing below is built yet; all of it is documented in `cron-scripts/README.md` "Project status & roadmap" and `PROJECT_KNOWLEDGE.md` "TLA Stats — product pillars & planned capture expansion." Recommended build order:
 
-### ✅ DONE — capture layer (2026-06-13)
-- **[x] adao-positions → daily** (`0 1 * * *`) — P&L history accumulating.
-- **[x] `lib/capture-engine.js` extracted** from adao-positions (verified identical output) + **v1.1 enrichments**: first-participation tenure (chain-native `user_first_participation`), lock end_period/auto-max/weeks-to-unlock, inactive-take exposure, VP spread. `lib/ally-capture.js` for ally discovery.
-- **[x] adao-positions widened** to all 156 members (named + unknown; current=all, archives=registered-only). Surfaced ~510K VP (21%) previously invisible.
-- **[x] `tla-participants`** — lock holders ∪ bribe providers, ~203 participants, 26.8M VP (full electorate). Live-only.
-- **[x] `adao-allies`** — Pixel Lions + Lion DAO bundled in ONE cron, per-ally isolation, registered-only. (Lion DAO is **cw20-staked** → `daoVotingCw20Staked`, not token — gotcha.)
-- **[x] `tla-locks`** — system + per-holder lock intelligence. Stale-VP gap **3.49M VP unclaimed**, unlock cliffs, decay projection, per-asset VP, auto-max split.
+### 🔥 P0 — One-field Render fix (do anytime, unblocks Portfolio Tracker history)
+- **[ ] Switch `adao-positions` Render schedule `0 1 * * 1` → `0 1 * * *`.** The code already expects daily; the schedule was never changed, so no daily P&L history accumulates. Every week unswitched is permanently lost forward-history. (No code change — Render dashboard only.)
 
-**Gotchas captured (cost real time):** (1) `GITHUB_REPO` env var needs `defipatriot/` prefix or 404 on publish — bit us 3×. (2) DAODAO formula depends on voting-module type (cw721/cw20/token) — confirm via `{info:{}}`. (3) tla-locks stale-VP math keys LST ratio off symbol — raw-address symbols undercount (269K→3.49M); hardcoded symbol map. (4) GitHub web-UI partial commits — edit in place, verify via codeload not raw CDN.
+### 🔥 P1 — Extract the shared capture engine (keystone, do before ally crons)
+- **[ ] Extract `lib/capture-engine.js`** from `adao-positions.js` — the per-address position-capture logic (LP positions, rewards, voting, locks, bribes, balances, summary). All planned member crons import it, so "fix once, all benefit." Tradeoff accepted: the new crons depend on it, but independent discovery/output/scheduling keep them isolated otherwise.
 
-### 🔥 P1 — Vote/lock history backfill (spec'd 2026-06-13, NOT built) — `SPEC-tla-history-backfill.md`
-The NFT-provenance-pipeline move applied to TLA: EVENTS (votes, lock create/relock/merge) ARE backfillable via `tx_search` to genesis (they're permanent transactions); VALUATIONS (position USD over time) are NOT (pruned state, forward-only). New repo `tla-history-data_2026`. Feeds Vote Intelligence (vote churn, votes-on-dead-LPs). Own cron, mirror the NFT backfill pattern (DESC paging, seed-once, never-shrink, F2 guards). Probe the exact `wasm.action` values first.
+### 🟢 P2 — Member-expansion crons (separate cron per source; build after the engine)
+Each its own repo + heartbeat + schedule so allies can't break aDAO and can be paused independently. Membership always live-queried (never a hardcoded CSV).
+- **[ ] `tla-participants`** (highest value — catches non-governance liquidity providers): all TLA-lock holders (CW721 enumeration of veLUNA `terra1uqhj8…`, confirmed enumerable, 431 locks) ∪ all bribe providers (read from `bribes-data_2026`).
+- **[ ] `pixellions-positions`**: Pixel Lions registered members. DAO core `terra1c690mdrwdetnr09zfk3tf9xz9jhrgd9wpjyf3tuccj74ql09eqmq6sh7en`.
+- **[ ] `liondao-positions`**: Lion DAO registered members. DAO core `terra1tkersa2mqwy2h8exj799qx2xrhdu0dkymk9psp6v0k4kz4tkxucssgluec`.
+- **[ ] Widen `adao-positions`** to include unknown (unnamed) members (one-line filter change — currently named-only).
 
-### 🔲 P2 — TLA Stats page (`tla-stats.html`) — the four pillars UI
-All raw data feeds now EXIST. **Portfolio Tracker**, **LP Performance & Health Scoring**, **Bribes Tracking**, **Vote Intelligence**. Bribes/Vote-Intelligence buildable soonest; Portfolio Tracker P&L needs the daily-archive runway (clock started 2026-06-13). `tla-stats.html` is ~7,000 lines of polished rendering — **data-layer changes only, never restructure the render code.**
+### 🟢 P2 — `tla-locks` cron (its own big cron; full schema mapped, see PROJECT_KNOWLEDGE)
+The highest-value *new* capture — stale-VP-gap + unlock-cliff metrics exist nowhere else in the ecosystem. Forward-tracking, so clock-start has urgency. Captures per-lock asset/underlying/stamped-ratio/VP/slope/coefficient/window/permanent-flag/owner; system totals in one `total_vamp` call; derives auto-max status, weeks-to-unlock, stale-VP upside (via config oracles), participation order, per-member rollups, Boost-listing cross-ref, and voter-behavior metrics (churn + votes-on-dead-LPs from the gauge controller).
 
-### 🟢 P3 — capture-layer polish (deferred, non-blocking)
-- **[ ] Label contract-holders** in tla-participants (the 63-char top holders, possibly Votion) via a known-contract map.
-- **[ ] Lion DAO ROAR stake USD** — currently `stake_raw` only (ROAR ≈ $0.000000229, 6 decimals, balances in billions); value via network-and-prices when wanted.
-- **[ ] Tenure fallback** to lock `start_period` for holders who never voted (first_participation null).
+### 🔲 P3 — TLA Stats page (`tla-stats.html`) — the four pillars UI
+Once the capture above accumulates: **Portfolio Tracker**, **LP Performance & Health Scoring**, **Bribes Tracking**, **Vote Intelligence**. Bribes/Vote-Intelligence are buildable soonest (multi-epoch bribes + snapshot data already has depth); Portfolio Tracker needs the accumulation runway. `tla-stats.html` is ~7,000 lines of polished rendering — data-layer changes only, never restructure the render code.
 
 ---
 
@@ -180,11 +178,19 @@ Estimate: 4-6 hrs. Verify cron data has run cleanly for 24+ hours first. Don't s
 
 ---
 
-### 🔥 P1 — Vote/lock history backfill → now spec'd as `SPEC-tla-history-backfill.md` (2026-06-13)
-Superseded/expanded: the lock-NFT backfill is now part of a broader **TLA history backfill** spec covering both lock events AND vote events (the differentiated Vote-Intelligence data). Same playbook as the NFT-provenance backfill. Lock contract `terra1uqhj8…` (create/merge/unlock + Boost activity) + gauge controller (vote changes). Key finding: EVENTS are backfillable via tx_search (permanent txs); VALUATIONS are not (pruned, forward-only). New repo `tla-history-data_2026`. First step: probe exact `wasm.action` names. See the spec doc for the full build plan. Start in a FRESH chat.
+### 🔥 P1 — TLA Lock NFT backfill (queued 2026-06-11 — NEXT major data project)
+Same playbook as the aDAO events backfill, new subject: **TLA Lock NFTs** (vAMP Minter CW721 `terra1uqhj8agyeaz8fu6mdggfuwr3lp32jlrx5hqag4jxexde92rzkamq3l62zg`). Lifecycle to reconstruct: member **lock creation, merges, unlock starts, unlock completions**, plus **Boost marketplace activity for lock NFTs** (the Boost sweep machinery already exists). First step is browser-probe the lock contract's event/action names (create/merge/unlock) exactly like the `break_nft`/`create_auction` probes — then the sweep script reuses `bbl-sales-backfill.js`'s pager + the events-backfill patterns. Start this in a FRESH chat with: fetch CHANGES_PENDING + cron-scripts/README.md registry section first.
 
-### ✅ DONE — adao-positions switched to daily (2026-06-13)
-Render schedule `0 1 * * 1` → `0 1 * * *`. Daily P&L history now accumulating (`data/daily/{YYYY-MM-DD}.json`). (Also widened to all 156 members same day — see TLA Stats expansion section above.)
+### 🔥 P1 — Switch adao-positions Render schedule from weekly to daily
+**Identified 2026-05-17. Confirmed still pending 2026-06-06.** The cron is currently scheduled `0 1 * * 1` (Mondays only). For the Portfolio Tracker dashboard to accumulate meaningful position history, it needs to run **daily**. The cron code now produces a `data/daily/{YYYY-MM-DD}.json` archive on every run — that file overwrites within a day, so daily cadence gives one snapshot per calendar day.
+
+Two changes required:
+1. **[ ] Update Render cron expression**: `0 1 * * 1` → `0 1 * * *` (manual click in Render dashboard)
+2. **[x] Update `next_expected_run_at` constant in `adao-positions.js`** — done 2026-05-17, now `25 * 60 * 60 * 1000` (25 hours)
+
+Ship both together. If only the Render click happens, the heartbeat is wrong; if only the code change is deployed, the dashboard flags the cron stale every 25 hours.
+
+Without the Render change, letting things run for weeks produces 0 weeks of Portfolio Tracker history. **Top priority — should ship before any other accumulated-data work.**
 
 ---
 
@@ -318,6 +324,39 @@ Out of scope for current TLA work — note for future direction. Lion DAO collec
 ---
 
 ## 🆕 New ideas / not yet prioritized
+
+### 🔍 PRICE AUDIT — hub-ratio vs market pricing for "calculated-eris" LSTs (flagged 2026-06-14)
+Discovered while validating the Votion cron against Votion's own UI: our
+`network-and-prices` cron prices 5 LSTs by **hub-ratio** ("calculated-eris"):
+**ampLUNA, arbLUNA, bLUNA, ampCAPA, ampROAR**. Everything else is market-priced
+(Astroport/CoinGecko) and fine. Hub-ratio pricing is only accurate for CLEAN
+staking derivatives; it breaks for STRATEGY tokens whose market value lags their
+theoretical backing.
+- **ampLUNA** — clean staking. Validated vs Votion: ~1.5% match. ✅ OK
+- **bLUNA** — clean liquid-staking (Backbone). Likely OK, spot-check recommended.
+- **arbLUNA** — arbitrage strategy. **CONFIRMED ~14% HIGH** (hub $0.1516 vs market
+  ~$0.133). Biggest TLA lock asset (~15M VP), so this matters. Has a LUNA-arbLUNA
+  Astroport pool for a market reference.
+- **ampCAPA** — amp strategy on CAPA. **UNVERIFIED** — could have the same gap.
+  ampCAPA single pool / LUNA-CAPA refs available to check.
+- **ampROAR** — amp strategy on ROAR. **UNVERIFIED** — could have the same gap.
+  ampROAR-ROAR pool available to check.
+
+**Audit task:** for each of the 5, compare hub-ratio price vs its Astroport
+market price. Where they diverge (strategy tokens), `network-and-prices` should
+**prefer the market price** as `final_price_usd` (it already does market pricing
+for most tokens — these 5 just fall back to hub-ratio). Fixing at the SOURCE
+corrects everywhere downstream at once: tla-locks stale-VP, member portfolios,
+treasury, Votion. **Until fixed, any USD figure including arbLUNA/ampCAPA/ampROAR
+may be overstated.** Interim: Votion tags `underlying_usd_price_source` so the UI
+can show our feed + a market feed side-by-side. Full detail in
+`NOTE-arbLUNA-pricing-gap.md`.
+
+**Standing canary idea:** periodically cross-check our prices against an
+independent feed (CoinGecko / Astroport market) — mismatched prices are how users
+get misled, and we only caught arbLUNA by validating against an external UI.
+
+
 
 ### Phase 1+ direction (post Phase 0 lock-in)
 
