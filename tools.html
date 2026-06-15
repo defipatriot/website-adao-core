@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tools | Alliance DAO Dashboard</title>
+    <link rel="icon" type="image/x-icon" href="https://raw.githubusercontent.com/defipatriot/aDAO-Image-Files/main/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="https://raw.githubusercontent.com/defipatriot/aDAO-Image-Files/main/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="https://raw.githubusercontent.com/defipatriot/aDAO-Image-Files/main/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/defipatriot/aDAO-Image-Files/main/apple-touch-icon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0b0f; color: #EAEAEA; }
+
+        .bg-mesh { position: fixed; inset: 0; z-index: -1; background: radial-gradient(ellipse 80% 50% at 20% 40%, rgba(6,182,212,0.08), transparent), radial-gradient(ellipse 60% 40% at 80% 60%, rgba(45,212,191,0.05), transparent); pointer-events: none; }
+
+        /* Nav dropdown — exact copy from index.html */
+        .nav-dropdown { position: relative; display: inline-block; }
+        .nav-dropdown-btn { display: flex; align-items: center; gap: 6px; }
+        .nav-dropdown-content { display: none; position: absolute; top: 100%; left: 0; min-width: 160px; background: rgba(31,41,55,0.98); border: 1px solid #374151; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 100; margin-top: 4px; overflow: hidden; }
+        .nav-dropdown:hover .nav-dropdown-content { display: block; }
+        .nav-dropdown-content a { display: block; padding: 10px 16px; color: #e5e7eb; font-size: 14px; font-weight: 500; transition: all 0.2s; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .nav-dropdown-content a:last-child { border-bottom: none; }
+        .nav-dropdown-content a:hover { background: rgba(45,212,191,0.15); color: #2dd4bf; }
+        .nav-dropdown-content a i { margin-right: 8px; width: 16px; text-align: center; }
+
+        /* Tool tiles */
+        .tool-tile { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 1rem; padding: 1.5rem; cursor: pointer; transition: all 0.25s ease; display: flex; flex-direction: column; align-items: flex-start; gap: 1rem; text-align: left; width: 100%; }
+        .tool-tile:hover { transform: translateY(-3px); }
+        .tool-tile-teal:hover   { border-color: rgba(45,212,191,0.4);  box-shadow: 0 12px 40px rgba(45,212,191,0.1); }
+        .tool-tile-purple:hover { border-color: rgba(168,85,247,0.4);  box-shadow: 0 12px 40px rgba(168,85,247,0.1); }
+        .tool-tile-blue:hover   { border-color: rgba(56,189,248,0.4);  box-shadow: 0 12px 40px rgba(56,189,248,0.1); }
+        .tool-tile-amber:hover  { border-color: rgba(245,158,11,0.4);  box-shadow: 0 12px 40px rgba(245,158,11,0.1); }
+        .tool-tile-cyan:hover   { border-color: rgba(34,211,238,0.4);  box-shadow: 0 12px 40px rgba(34,211,238,0.1); }
+        .tool-tile-green:hover  { border-color: rgba(74,222,128,0.4);  box-shadow: 0 12px 40px rgba(74,222,128,0.1); }
+        .tool-tile-rose:hover   { border-color: rgba(244,114,182,0.4); box-shadow: 0 12px 40px rgba(244,114,182,0.1); }
+
+        .tile-icon-wrap { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.375rem; flex-shrink: 0; }
+        .icon-teal   { background: rgba(45,212,191,0.12);  border: 1px solid rgba(45,212,191,0.3);  color: #2dd4bf; }
+        .icon-purple { background: rgba(168,85,247,0.12); border: 1px solid rgba(168,85,247,0.3); color: #c084fc; }
+        .icon-blue   { background: rgba(56,189,248,0.12);  border: 1px solid rgba(56,189,248,0.3);  color: #38bdf8; }
+        .icon-amber  { background: rgba(245,158,11,0.12);  border: 1px solid rgba(245,158,11,0.3);  color: #f59e0b; }
+        .icon-cyan   { background: rgba(34,211,238,0.12);  border: 1px solid rgba(34,211,238,0.3);  color: #22d3ee; }
+        .icon-green  { background: rgba(74,222,128,0.12);  border: 1px solid rgba(74,222,128,0.3);  color: #4ade80; }
+        .icon-rose   { background: rgba(244,114,182,0.12); border: 1px solid rgba(244,114,182,0.3); color: #f472b6; }
+
+        .tile-label  { font-size: 0.65rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+        .label-teal   { color: #2dd4bf; }
+        .label-purple { color: #c084fc; }
+        .label-blue   { color: #38bdf8; }
+        .label-amber  { color: #f59e0b; }
+        .label-cyan   { color: #22d3ee; }
+        .label-green  { color: #4ade80; }
+        .label-rose   { color: #f472b6; }
+        .tile-title { font-size: 1.125rem; font-weight: 800; color: #fff; margin-bottom: 0.25rem; }
+        .tile-desc  { font-size: 0.8rem; color: #9ca3af; line-height: 1.55; }
+        .tile-cta   { margin-top: auto; font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 0.375rem; opacity: 0.7; transition: opacity 0.2s; }
+        .tool-tile:hover .tile-cta { opacity: 1; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.82); display: flex; align-items: center; justify-content: center; padding: 1rem; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
+        .modal-overlay.open { opacity: 1; pointer-events: all; }
+        .modal-box { background: #0f1117; border: 1px solid rgba(255,255,255,0.1); border-radius: 1rem; width: 100%; max-width: 800px; max-height: 90vh; display: flex; flex-direction: column; transform: scale(0.95) translateY(20px); transition: transform 0.25s ease; box-shadow: 0 40px 100px rgba(0,0,0,0.7); overflow: hidden; }
+        .modal-box.wide { max-width: 1000px; }
+        .modal-overlay.open .modal-box { transform: scale(1) translateY(0); }
+        .modal-head { display: flex; align-items: center; gap: 1rem; padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.07); flex-shrink: 0; }
+        .modal-head-icon { width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+        .modal-close { margin-left: auto; color: #6b7280; cursor: pointer; font-size: 1.25rem; transition: color 0.2s; background: none; border: none; padding: 0.25rem; }
+        .modal-close:hover { color: #fff; }
+
+        /* Tabs */
+        .modal-tabs { display: flex; padding: 0.75rem 1.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.07); flex-shrink: 0; gap: 2px; }
+        .mtab { padding: 0.5rem 1.125rem; font-size: 0.7rem; font-weight: 700; color: #6b7280; cursor: pointer; border-radius: 6px 6px 0 0; border: 1px solid transparent; border-bottom: none; transition: all 0.15s; background: none; letter-spacing: 0.5px; text-transform: uppercase; }
+        .mtab.act-purple { color: #c084fc; border-color: rgba(168,85,247,0.3); background: rgba(168,85,247,0.07); }
+        .modal-body { overflow-y: auto; padding: 1.5rem; flex: 1; }
+        .mpanel { display: none; } .mpanel.active { display: block; }
+        .tool-iframe { width: 100%; height: 72vh; border: none; border-radius: 0.5rem; background: #0a0b0f; }
+
+        /* ampCAPA (purple) */
+        .rate-g2  { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+        .rc-p     { background: rgba(168,85,247,0.06); border: 1px solid rgba(168,85,247,0.18); border-radius: 0.625rem; padding: 0.875rem 1rem; }
+        .rcl      { font-size: 0.6rem; color: #9ca3af; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 0.25rem; }
+        .rcv      { font-size: 0.9rem; color: #c084fc; font-weight: 700; font-family: monospace; }
+        .rcs      { font-size: 0.6rem; color: #6b7280; margin-top: 0.2rem; }
+        .lpb      { background: rgba(168,85,247,0.04); border: 1px solid rgba(168,85,247,0.15); border-radius: 0.625rem; padding: 1rem; margin-bottom: 1rem; }
+        .lpl      { font-size: 0.6rem; color: #9ca3af; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 0.5rem; display: block; }
+        .lpr      { display: flex; gap: 0.625rem; }
+        .lpi      { flex: 1; background: #0a0b0f; border: 1px solid rgba(168,85,247,0.25); border-radius: 0.5rem; color: #e5e7eb; font-family: monospace; font-size: 0.9rem; padding: 0.625rem 0.875rem; outline: none; transition: border-color 0.2s; }
+        .lpi:focus { border-color: rgba(168,85,247,0.6); }
+        .lpi::placeholder { color: #4b5563; }
+        .btn-pp   { background: rgba(168,85,247,0.2); border: 1px solid rgba(168,85,247,0.4); color: #c084fc; font-weight: 700; font-size: 0.75rem; padding: 0.625rem 1rem; border-radius: 0.5rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; letter-spacing: 0.5px; }
+        .btn-pp:hover { background: rgba(168,85,247,0.35); }
+        .res-p    { background: rgba(88,28,135,0.12); border: 1px solid rgba(168,85,247,0.2); border-radius: 0.625rem; padding: 1.125rem; display: none; }
+        .res-p.show { display: block; }
+        .rp-lbl   { font-size: 0.6rem; color: #9ca3af; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 0.4rem; }
+        .rp-val   { font-size: 1.875rem; font-weight: 800; color: #e879f9; letter-spacing: -0.5px; margin-bottom: 0.25rem; }
+        .rp-sub   { font-size: 0.75rem; color: #a855f7; }
+        .rp-steps { font-size: 0.68rem; color: #6b7280; line-height: 2; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.06); }
+        .sv-p     { color: #a78bfa; }
+        .err-p    { background: rgba(127,29,29,0.3); border: 1px solid rgba(239,68,68,0.3); border-radius: 0.375rem; color: #f87171; font-size: 0.75rem; padding: 0.625rem; margin-top: 0.5rem; display: none; }
+        .err-p.show { display: block; }
+
+        /* Fuel (light blue) */
+
+        /* Dots */
+        .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+        .dot-live  { background: #4ade80; animation: pdot 2s infinite; }
+        .dot-ld-p  { background: #c084fc; animation: pdot 0.8s infinite; }
+        .dot-ld-b  { background: #38bdf8; animation: pdot 0.8s infinite; }
+        .dot-error { background: #ef4444; }
+        @keyframes pdot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    
+  @media (max-width: 600px) {
+    .tools-grid, [style*="grid-template-columns"] {
+      grid-template-columns: 1fr !important;
+    }
+    .container, .page-wrapper, main, [class*="container"] {
+      padding: 12px !important;
+    }
+    h1, .page-title { font-size: 22px !important; }
+    .tool-card, [class*="card"] { padding: 16px !important; }
+  }
+</style>
+    <script src="/_vercel/insights/script.js" defer></script>
+
+    <!-- ============================================================
+         SHARED CHROME CSS (header/nav/footer/changelog modal)
+         Keep in sync with index.html. Eventually move to shared file.
+         ============================================================ -->
+    <style id="shared-chrome-css">
+        /* Top Nav Tab */
+        .top-nav-tab {
+            min-width: 110px;
+        }
+        @media (min-width: 768px) {
+            .top-nav-tab { min-width: 140px; }
+        }
+        .top-nav-tab.active {
+            background: rgba(34, 211, 238, 0.15) !important;
+            color: #67e8f9 !important;
+            border-color: rgba(34, 211, 238, 0.6) !important;
+        }
+        .top-nav-tab.active:hover { background: rgba(34, 211, 238, 0.2) !important; }
+        
+        /* Mobile bottom tab bar */
+        .mobile-bottom-nav { display: none; }
+        @media (max-width: 767px) {
+            .mobile-bottom-nav {
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                z-index: 50;
+                background: rgba(10, 11, 15, 0.92);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                border-top: 1px solid rgba(34, 211, 238, 0.2);
+                padding: 0.4rem 0.25rem calc(0.4rem + env(safe-area-inset-bottom)) 0.25rem;
+                gap: 0.15rem;
+            }
+            .mobile-bottom-nav-tab {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 0.15rem;
+                padding: 0.4rem 0.2rem;
+                color: #9ca3af;
+                text-decoration: none;
+                font-size: 0.65rem;
+                font-weight: 600;
+                line-height: 1;
+                border-radius: 0.5rem;
+                transition: all 0.15s ease;
+                min-height: 48px;
+            }
+            .mobile-bottom-nav-tab i { font-size: 1.1rem; color: #6b7280; transition: color 0.15s; }
+            .mobile-bottom-nav-tab:hover, .mobile-bottom-nav-tab:active { color: #d1d5db; }
+            .mobile-bottom-nav-tab:hover i, .mobile-bottom-nav-tab:active i { color: #9ca3af; }
+            .mobile-bottom-nav-tab.active { color: #67e8f9; }
+            .mobile-bottom-nav-tab.active i { color: #22d3ee; }
+            body { padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important; }
+        }
+        
+        /* Changelog modal */
+        .changelog-body h2 {
+            font-size: 1.05rem; font-weight: 700; color: #67e8f9;
+            margin-top: 1.5rem; margin-bottom: 0.5rem;
+            padding-bottom: 0.35rem;
+            border-bottom: 1px solid rgba(34, 211, 238, 0.2);
+        }
+        .changelog-body h2:first-child { margin-top: 0; }
+        .changelog-body h3 { font-size: 0.9rem; font-weight: 600; color: #d1d5db; margin-top: 1rem; margin-bottom: 0.4rem; }
+        .changelog-body h4 { font-size: 0.85rem; font-weight: 600; color: #9ca3af; margin-top: 0.75rem; margin-bottom: 0.25rem; }
+        .changelog-body p { color: #d1d5db; margin-bottom: 0.65rem; line-height: 1.5; }
+        .changelog-body ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.75rem; }
+        .changelog-body li { color: #d1d5db; margin-bottom: 0.3rem; line-height: 1.5; }
+        .changelog-body strong { color: #fff; font-weight: 600; }
+        .changelog-body em { color: #a5f3fc; font-style: italic; }
+        .changelog-body code {
+            background: rgba(34, 211, 238, 0.1); color: #67e8f9;
+            padding: 0.1rem 0.35rem; border-radius: 0.25rem;
+            font-size: 0.85em; font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+        }
+        .changelog-body .rev-date { color: #6b7280; font-size: 0.8rem; font-weight: 400; margin-left: 0.5rem; }
+        
+        /* Generic modal styles (in case page doesn't already have them) */
+        #changelogModal.modal {
+            transition: opacity 0.2s;
+        }
+        #changelogModal .modal-content {
+            transition: opacity 0.2s, transform 0.2s;
+        }
+    </style>
+</head>
+<body class="antialiased">
+<div class="bg-mesh"></div>
+
+<!-- Header — matches current index.html exactly -->
+    <!-- ============================================================
+         SHARED HEADER (logo + 5-tab nav + Terra logo)
+         Keep in sync with index.html
+         ============================================================ -->
+    <header class="py-4">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap md:flex-nowrap justify-between items-center">
+            <div class="flex-shrink-0 w-1/2 md:w-32 order-1">
+                <a href="index.html"><img src="https://raw.githubusercontent.com/defipatriot/aDAO-Image-Files/main/Alliance%20DAO%20Logo.png" alt="Alliance DAO Logo" class="h-12 md:h-16 w-auto" onerror="this.src='https://placehold.co/128x64/0D0D0D/EAEAEA?text=Logo'; this.onerror=null;"></a>
+            </div>
+            <nav class="hidden md:flex flex-1 w-full md:w-auto justify-center items-center gap-2 sm:gap-3 order-3 md:order-2 mt-4 md:mt-0">
+                <a href="index.html" data-page="index" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">
+                    Home
+                </a>
+                <a href="nft-explorer-index.html" data-page="nft-explorer-index" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">
+                    <span class="md:hidden">Explorer</span>
+                    <span class="hidden md:inline">NFT Explorer</span>
+                </a>
+                <a href="adao-lore.html" data-page="adao-lore" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">
+                    <span class="md:hidden">Lore</span>
+                    <span class="hidden md:inline">aDAO Lore</span>
+                </a>
+                <a href="tla-stats.html" data-page="tla-stats" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">
+                    <span class="md:hidden">TLA</span>
+                    <span class="hidden md:inline">TLA Stats</span>
+                </a>
+                <a href="dao.html" data-page="dao" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">
+                    DAO
+                </a>
+            </nav>
+            <div class="w-1/2 md:w-32 flex-shrink-0 flex justify-end order-2 md:order-3">
+                <img src="https://raw.githubusercontent.com/defipatriot/aDAO-Image-Planets-Empty/main/Terra.PNG" alt="Terra Logo" class="h-12 md:h-16 w-auto" onerror="this.src='https://placehold.co/128x64/0D0D0D/EAEAEA?text=Logo'; this.onerror=null;">
+            </div>
+        </div>
+    </header>
+
+<!-- Price ticker — same widget as index.html -->
+<div class="py-2 border-b border-gray-800">
+    <script src="https://widgets.coingecko.com/gecko-coin-price-marquee-widget.js"></script>
+    <gecko-coin-price-marquee-widget locale="en" dark-mode="true" outlined="true" coin-ids="terra-luna-2,eris-amplified-luna,eris-arbitrage-luna,backbone-labs-staked-luna,lion-dao,capapult,solid-2,astroport-fi,eureka-bridged-wbtc-terra,cosmos,ethereum" initial-currency="usd"></gecko-coin-price-marquee-widget>
+</div>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <div class="mb-8">
+        <div class="flex items-center gap-3 mb-1">
+            <i class="fas fa-wrench text-teal-400 text-xl"></i>
+            <h1 class="text-2xl font-bold text-white">Community Tools</h1>
+        </div>
+        <p class="text-gray-500 text-sm ml-9">Click any tile to open the full tool.</p>
+    </div>
+
+    <!-- Tiles -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+        <!-- 1. ampCAPA -->
+        <a href="ampcapa-tool.html" class="tool-tile tool-tile-purple" style="text-decoration:none">
+            <div class="flex items-center gap-3 w-full">
+                <div class="tile-icon-wrap icon-purple"><i class="fas fa-exchange-alt"></i></div>
+                <div>
+                    <div class="tile-label label-purple">ampCAPA DAO</div>
+                    <div class="tile-title">ampCAPA Dashboard</div>
+                </div>
+            </div>
+            <div class="tile-desc">Convert your DAODAO ampLP balance to underlying CAPA using live on-chain rates. Track DAO member positions and voting power over time.</div>
+            <div class="tile-cta" style="color:#c084fc"><i class="fas fa-arrow-right text-xs"></i> Open Tool</div>
+        </a>
+
+        <!-- 2. FUEL -->
+        <a href="fuel-tool.html" class="tool-tile tool-tile-blue" style="text-decoration:none">
+            <div class="flex items-center gap-3 w-full">
+                <div class="tile-icon-wrap icon-blue"><i class="fas fa-gas-pump"></i></div>
+                <div>
+                    <div class="tile-label label-blue">Boost DAO · Terra</div>
+                    <div class="tile-title">FUEL Price Tracker</div>
+                </div>
+            </div>
+            <div class="tile-desc">Live FUEL token price, pool liquidity and volume from Astroport. Historical price chart built from epoch snapshots and hourly cron data.</div>
+            <div class="tile-cta" style="color:#38bdf8"><i class="fas fa-arrow-right text-xs"></i> Open Tool</div>
+        </a>
+
+        <!-- 3. TLA Tool (admin) -->
+        <a href="tla_tool.html" class="tool-tile tool-tile-teal" style="text-decoration:none">
+            <div class="flex items-center gap-3 w-full">
+                <div class="tile-icon-wrap icon-teal"><i class="fas fa-lock"></i></div>
+                <div>
+                    <div class="tile-label label-teal">Alliance DAO</div>
+                    <div class="tile-title">TLA Tool</div>
+                </div>
+            </div>
+            <div class="tile-desc">Calculate TLA deposit positions, lock status and estimated rewards. <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(45,212,191,0.08);border:1px solid rgba(45,212,191,0.25);border-radius:4px;padding:1px 7px;font-size:10px;color:#2dd4bf;font-weight:700;letter-spacing:0.5px;margin-top:6px"><i class="fas fa-shield-alt" style="font-size:9px"></i> Admin use · weekly snapshots</span></div>
+            <div class="tile-cta" style="color:#2dd4bf"><i class="fas fa-arrow-right text-xs"></i> Open Tool</div>
+        </a>
+
+        <!-- 5. TLA Catalog (browser) -->
+        <a href="tla-catalog.html" class="tool-tile tool-tile-cyan" style="text-decoration:none">
+            <div class="flex items-center gap-3 w-full">
+                <div class="tile-icon-wrap icon-cyan"><i class="fas fa-book"></i></div>
+                <div>
+                    <div class="tile-label label-cyan">Alliance DAO · Catalog</div>
+                    <div class="tile-title">TLA Catalog</div>
+                </div>
+            </div>
+            <div class="tile-desc">Browse every catalogued token, contract, wallet, and LP in the Terra ecosystem. Search by name or address. See cross-source naming, bridge metadata, CoinGecko mappings, and variant warnings (e.g. wBTC.atom vs wBTC.axl).</div>
+            <div class="tile-cta" style="color:#22d3ee"><i class="fas fa-arrow-right text-xs"></i> Open Tool</div>
+        </a>
+
+        <!-- 6. TLA Chain Queries -->
+        <a href="tla-chain-queries.html" class="tool-tile tool-tile-green" style="text-decoration:none">
+            <div class="flex items-center gap-3 w-full">
+                <div class="tile-icon-wrap icon-green"><i class="fas fa-terminal"></i></div>
+                <div>
+                    <div class="tile-label label-green">Alliance DAO · Power User</div>
+                    <div class="tile-title">TLA Chain Queries</div>
+                </div>
+            </div>
+            <div class="tile-desc">Pre-built smart-contract queries against the Eris ve3 stack. Pick a query, fill in an address from the catalog, get a one-click chainscope.io permalink or copy the JSON message. ~30 queries across global-config, asset-gauge, voting-escrow, bribe-manager, and asset-compounder.</div>
+            <div class="tile-cta" style="color:#4ade80"><i class="fas fa-arrow-right text-xs"></i> Open Tool</div>
+        </a>
+
+        <!-- 7. TLA Catalog Edit -->
+        <a href="tla-catalog-edit.html" class="tool-tile tool-tile-rose" style="text-decoration:none">
+            <div class="flex items-center gap-3 w-full">
+                <div class="tile-icon-wrap icon-rose"><i class="fas fa-pen-to-square"></i></div>
+                <div>
+                    <div class="tile-label label-rose">Alliance DAO · Curator</div>
+                    <div class="tile-title">TLA Catalog Edit</div>
+                </div>
+            </div>
+            <div class="tile-desc">Add labels for unknown addresses. Write acquisition guides. Flag suspicious tokens. Exports updated JSON for one-click GitHub commit to the catalog data repo. <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(244,114,182,0.08);border:1px solid rgba(244,114,182,0.25);border-radius:4px;padding:1px 7px;font-size:10px;color:#f472b6;font-weight:700;letter-spacing:0.5px;margin-top:6px"><i class="fas fa-shield-alt" style="font-size:9px"></i> Admin / curator use</span></div>
+            <div class="tile-cta" style="color:#f472b6"><i class="fas fa-arrow-right text-xs"></i> Open Tool</div>
+        </a>
+
+        <!-- Dynamic Test Page tiles — test.html … test-5.html.
+             A tile appears ONLY if that file exists in the repo. Each test file's
+             description is read from a <meta name="test-desc"> tag inside it (or a
+             default). Populated by the script at the bottom of this page. -->
+        <div id="test-tiles" style="display:contents"></div>
+
+    </div>
+</main>
+
+<script>
+// Dynamic test-page tiles: probe test.html, test-2.html … test-5.html.
+// Show a tile only for files that exist. Title format: "Test-N (description)".
+(function(){
+  const slots = [
+    { file: 'test.html',   label: 'Test 1' },
+    { file: 'test-2.html', label: 'Test 2' },
+    { file: 'test-3.html', label: 'Test 3' },
+    { file: 'test-4.html', label: 'Test 4' },
+    { file: 'test-5.html', label: 'Test 5' },
+  ];
+  const container = document.getElementById('test-tiles');
+
+  function tile(file, label, desc){
+    const a = document.createElement('a');
+    a.href = file; a.className = 'tool-tile tool-tile-amber'; a.style.textDecoration = 'none';
+    a.innerHTML = `
+      <div class="flex items-center gap-3 w-full">
+        <div class="tile-icon-wrap icon-amber"><i class="fas fa-flask"></i></div>
+        <div>
+          <div class="tile-label label-amber">Admin · Scratch</div>
+          <div class="tile-title">${label}${desc ? ' <span style="font-weight:400;opacity:0.7;font-size:0.85em">('+desc+')</span>' : ''}</div>
+        </div>
+      </div>
+      <div class="tile-desc">WIP test slot. Whatever's committed at <code>${file}</code> opens here.
+        <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:4px;padding:1px 7px;font-size:10px;color:#f59e0b;font-weight:700;letter-spacing:0.5px;margin-top:6px"><i class="fas fa-flask" style="font-size:9px"></i> Admin use · ephemeral</span></div>
+      <div class="tile-cta" style="color:#f59e0b"><i class="fas fa-arrow-right text-xs"></i> Open Test</div>`;
+    return a;
+  }
+
+  // Read a short description from the test file's <meta name="test-desc" content="…">.
+  function descFrom(html){
+    const m = html.match(/<meta\s+name=["']test-desc["']\s+content=["']([^"']+)["']/i);
+    return m ? m[1].slice(0, 40) : '';
+  }
+
+  slots.forEach(s => {
+    fetch(s.file, { method: 'GET' })
+      .then(r => r.ok ? r.text() : null)
+      .then(html => { if (html && !/Cannot GET|404/.test(html.slice(0,200))) container.appendChild(tile(s.file, s.label, descFrom(html))); })
+      .catch(() => {});
+  });
+})();
+</script>
+
+
+
+<!-- Footer — exact copy from current index.html -->
+<footer class="border-t border-gray-800 mt-12 py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-500 text-sm">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div><h4 class="font-bold text-gray-300 mb-2">Disclaimer</h4><p>This website is for informational purposes only and does not constitute financial advice. All data is provided "as is" without warranty. Please do your own research.</p></div>
+            <div><h4 class="font-bold text-gray-300 mb-2">Project Origin</h4><p>This site is built and maintained by a council member, not at the direction of the council, but as a passionate community member looking to improve the optics of the collection.</p></div>
+            <div><h4 class="font-bold text-gray-300 mb-2">Data Source</h4><p>Data on this site is a mix of live on-chain data and static snapshots. See the banner at the top for details.</p></div>
+            <div><h4 class="font-bold text-gray-300 mb-2">Transparency</h4><p>The plan is for the script used to retrieve on-chain data to be open-source. You will be able to view the public repository to see how information is retrieved.</p><a href="https://github.com/defipatriot" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline mt-2 inline-block">View on GitHub</a></div>
+        </div>
+    </div>
+</footer>
+
+    <!-- ============================================================
+         SHARED FOOTER (links + rev + changelog trigger)
+         Keep in sync with index.html
+         ============================================================ -->
+    <footer class="py-6 mt-12 border-t border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-400">
+            <div class="flex justify-center items-center space-x-6 mb-4">
+                <a href="https://t.me/The_AllianceDAO" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors"><i class="fab fa-telegram-plane text-3xl"></i></a>
+                <a href="https://x.com/The_AllianceDAO" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors"><i class="fab fa-twitter text-3xl"></i></a>
+            </div>
+            <div class="flex flex-wrap justify-center items-center space-x-6 text-sm">
+                <a href="tutorials.html" class="hover:text-white hover:underline transition-colors">Tutorials</a>
+                <a href="links.html" class="hover:text-white hover:underline transition-colors">Official Links</a>
+                <a href="https://chainsco.pe/terra2/address/terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9" target="_blank" rel="noopener noreferrer" class="hover:text-white hover:underline transition-colors">NFT Contract</a>
+                <a href="https://github.com/SCV-Security/PublicReports/blob/b819ec669f81e603caca261931e2a4aaca1cddf7/Alliance/Alliance%20DAO%20-%20NFT%20Collection%20Contract%20-%20Audit%20Report%20v1.0.pdf" target="_blank" rel="noopener noreferrer" class="hover:text-white hover:underline transition-colors">Contract Audit</a>
+            </div>
+            <div class="mt-4 text-xs text-gray-500">
+                <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
+                    <span class="font-mono">Rev 1.4</span>
+                    <span class="opacity-60 mx-1">·</span>
+                    <span>Changelog</span>
+                </button>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Changelog Modal -->
+    <div id="changelogModal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden opacity-0">
+        <div class="modal-content bg-[#0f1117] border border-cyan-700/40 rounded-xl shadow-xl w-full max-w-2xl relative text-white opacity-0 scale-95 p-6 max-h-[85vh] overflow-y-auto">
+            <button class="modal-close absolute top-4 right-4 text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+            <h3 class="text-2xl font-bold text-cyan-400 mb-1 flex items-center gap-3">
+                <i class="fas fa-clock-rotate-left"></i>
+                Changelog
+            </h3>
+            <p class="text-gray-500 text-xs mb-5">Page revisions, newest first</p>
+            <div id="changelog-content" class="changelog-body text-sm">
+                <div class="text-gray-500 text-center py-8">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Loading changelog...
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+<script>
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function openModal(name) {
+    document.getElementById('modal-'+name).classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+    document.body.style.overflow = '';
+}
+function handleOverlay(e, id) {
+    if (e.target === document.getElementById(id)) closeModal(id);
+}
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => { m.classList.remove('open'); document.body.style.overflow = ''; });
+});
+
+// ── ampCAPA Converter ─────────────────────────────────────────────────────────
+const LCD   = 'https://terra-lcd.publicnode.com';
+const SC    = 'terra186rpfczl7l2kugdsqqedegl4es4hp624phfc7ddy8my02a4e8lgq5rlx7y';
+const VE3   = 'terra1zly98gvcec54m3caxlqexce7rus6rzgplz7eketsdz7nh750h2rqvu8uzx';
+const DENOM = 'factory/terra186rpfczl7l2kugdsqqedegl4es4hp624phfc7ddy8my02a4e8lgq5rlx7y/ampCAPA';
+let acRS = null, acRV = null;
+
+function b64(o) { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))); }
+async function qc(addr, q) {
+    const r = await fetch(`${LCD}/cosmwasm/wasm/v1/contract/${addr}/smart/${b64(q)}`, { headers: { Accept: 'application/json' } });
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json(); return j.data ?? j;
+}
+
+async function acFetch() {
+    try {
+        const d = await qc(SC, { state: {} });
+        acRS = parseFloat(d.exchange_rate);
+        document.getElementById('ac-r1').textContent  = acRS.toFixed(6);
+        document.getElementById('ac-r1s').textContent = acRS.toFixed(6) + ' CAPA per ampCAPA';
+        document.getElementById('ac-d1').className    = 'dot dot-live';
+    } catch { document.getElementById('ac-r1').textContent = 'ERROR'; document.getElementById('ac-d1').className = 'dot dot-error'; }
+
+    try {
+        const d = await qc(VE3, { exchange_rates: { assets: [["single", { native: DENOM }]], limit: 1 } });
+        const rates = d[0]?.exchange_rates;
+        if (!rates?.length) throw new Error();
+        const lat = rates.sort((a, b) => b[0] - a[0])[0];
+        acRV = parseFloat(lat[1].exchange_rate);
+        document.getElementById('ac-r2').textContent  = acRV.toFixed(6);
+        document.getElementById('ac-r2s').textContent = acRV.toFixed(6) + ' ampCAPA per ampLP';
+        document.getElementById('ac-d2').className    = 'dot dot-live';
+    } catch { document.getElementById('ac-r2').textContent = 'ERROR'; document.getElementById('ac-d2').className = 'dot dot-error'; }
+
+    document.getElementById('ac-ft').textContent = 'Live rates · terra-lcd.publicnode.com · refreshes every 60s';
+}
+setInterval(() => { if (acRS) acFetch(); }, 60000);
+
+function fmt(n, d = 2) { return (n || 0).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }); }
+
+function acCalc() {
+    const err = document.getElementById('ac-err'), res = document.getElementById('ac-res');
+    err.classList.remove('show');
+    const raw = document.getElementById('ac-inp').value.replace(/,/g, '').trim();
+    if (!raw)              { err.textContent = 'Enter your ampLP balance.'; err.classList.add('show'); return; }
+    const lp = parseFloat(raw);
+    if (isNaN(lp) || lp <= 0) { err.textContent = 'Invalid number.'; err.classList.add('show'); return; }
+    if (!acRS || !acRV)   { err.textContent = 'Rates still loading — try again in a moment.'; err.classList.add('show'); return; }
+    const micro = lp / 1e6, ampCapa = micro * acRV, capa = ampCapa * acRS;
+    document.getElementById('ac-rv').textContent  = fmt(capa, 2) + ' CAPA';
+    document.getElementById('ac-rs').textContent  = '≈ ' + fmt(ampCapa, 4) + ' ampCAPA underlying';
+    document.getElementById('ac-rst').innerHTML   = `
+        <span style="color:#7c3aed">① Micro → ampLP</span>&nbsp;
+        ${fmt(lp,0)} ÷ 1,000,000 = <span class="sv-p">${fmt(micro,4)} ampLP</span><br>
+        <span style="color:#7c3aed">② ampLP → ampCAPA</span> (${acRV.toFixed(6)})&nbsp;
+        ${fmt(micro,4)} × ${acRV.toFixed(6)} = <span class="sv-p">${fmt(ampCapa,4)} ampCAPA</span><br>
+        <span style="color:#7c3aed">③ ampCAPA → CAPA</span> (${acRS.toFixed(6)})&nbsp;
+        ${fmt(ampCapa,4)} × ${acRS.toFixed(6)} = <span class="sv-p">${fmt(capa,4)} CAPA</span>
+    `;
+    res.classList.add('show');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('ac-inp').addEventListener('keydown', e => { if (e.key === 'Enter') acCalc(); });
+});
+
+function switchAcTab(name) {
+    ['conv','hist'].forEach(t => {
+        document.getElementById('tab-'+t).className  = 'mtab' + (t === name ? ' act-purple' : '');
+        document.getElementById('panel-'+t).className = 'mpanel' + (t === name ? ' active' : '');
+    });
+}
+
+// ── Fuel Price Tracker ────────────────────────────────────────────────────────
+
+</script>
+    <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
+    <nav class="mobile-bottom-nav" aria-label="Main navigation">
+        <a href="index.html" class="mobile-bottom-nav-tab" data-page="index">
+            <i class="fas fa-house"></i>
+            <span>Home</span>
+        </a>
+        <a href="nft-explorer-index.html" class="mobile-bottom-nav-tab" data-page="nft-explorer-index">
+            <i class="fas fa-images"></i>
+            <span>NFTs</span>
+        </a>
+        <a href="adao-lore.html" class="mobile-bottom-nav-tab" data-page="adao-lore">
+            <i class="fas fa-globe"></i>
+            <span>Lore</span>
+        </a>
+        <a href="tla-stats.html" class="mobile-bottom-nav-tab" data-page="tla-stats">
+            <i class="fas fa-chart-line"></i>
+            <span>TLA</span>
+        </a>
+        <a href="dao.html" class="mobile-bottom-nav-tab" data-page="dao">
+            <i class="fas fa-landmark"></i>
+            <span>DAO</span>
+        </a>
+    </nav>
+
+    <script>
+        // ============================================================
+        // SHARED CHROME SCRIPT — active tab highlight + changelog modal
+        // Keep in sync with index.html
+        // ============================================================
+        (function() {
+            // Active tab in both navs
+            var path = window.location.pathname.split('/').pop().replace('.html', '');
+            if (!path || path === '') path = 'index';
+            var topActive = document.querySelector('.top-nav-tab[data-page="' + path + '"]');
+            if (topActive) topActive.classList.add('active');
+            var bottomActive = document.querySelector('.mobile-bottom-nav-tab[data-page="' + path + '"]');
+            if (bottomActive) bottomActive.classList.add('active');
+            
+            // Changelog modal
+            var changelogModal = document.getElementById('changelogModal');
+            var changelogTrigger = document.getElementById('changelog-trigger');
+            var changelogContent = document.getElementById('changelog-content');
+            var changelogClose = changelogModal ? changelogModal.querySelector('.modal-close') : null;
+            var changelogLoaded = false;
+            
+            function parseMarkdown(md) {
+                var escapeHtml = function(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+                var lines = md.split(/\r?\n/);
+                var out = [];
+                var inList = false;
+                function applyInline(s) {
+                    return s
+                        .replace(/`([^`]+)`/g, '<code>$1</code>')
+                        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                        .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<em>$2</em>');
+                }
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i];
+                    if (line.trim() === '') {
+                        if (inList) { out.push('</ul>'); inList = false; }
+                        continue;
+                    }
+                    var hm = line.match(/^(#{1,4})\s+(.+)$/);
+                    if (hm) {
+                        if (inList) { out.push('</ul>'); inList = false; }
+                        var level = hm[1].length;
+                        var tag = level <= 2 ? 'h2' : (level === 3 ? 'h3' : 'h4');
+                        var ht = hm[2];
+                        var rd = ht.match(/^(.+?)\s+[—–-]\s+(.+)$/);
+                        if (rd && tag === 'h2') {
+                            out.push('<' + tag + '>' + escapeHtml(rd[1]) + '<span class="rev-date">' + escapeHtml(rd[2]) + '</span></' + tag + '>');
+                        } else {
+                            out.push('<' + tag + '>' + escapeHtml(ht) + '</' + tag + '>');
+                        }
+                        continue;
+                    }
+                    var lm = line.match(/^\s*-\s+(.+)$/);
+                    if (lm) {
+                        if (!inList) { out.push('<ul>'); inList = true; }
+                        out.push('<li>' + applyInline(escapeHtml(lm[1])) + '</li>');
+                        continue;
+                    }
+                    if (inList) { out.push('</ul>'); inList = false; }
+                    out.push('<p>' + applyInline(escapeHtml(line)) + '</p>');
+                }
+                if (inList) out.push('</ul>');
+                return out.join('\n');
+            }
+            
+            if (changelogModal && changelogTrigger) {
+                var openCl = function() {
+                    changelogModal.classList.remove('hidden');
+                    requestAnimationFrame(function() {
+                        changelogModal.style.opacity = '1';
+                        var c = changelogModal.querySelector('.modal-content');
+                        if (c) { c.style.opacity = '1'; c.style.transform = 'scale(1)'; }
+                    });
+                    if (!changelogLoaded && changelogContent) {
+                        var url = 'https://raw.githubusercontent.com/defipatriot/website-adao-core/main/index-log.md';
+                        fetch(url, { cache: 'no-cache' })
+                            .then(function(r) { if (!r.ok) throw new Error('Network response not ok: ' + r.status); return r.text(); })
+                            .then(function(md) { changelogContent.innerHTML = parseMarkdown(md); changelogLoaded = true; })
+                            .catch(function(err) {
+                                console.error('Changelog fetch failed:', err);
+                                changelogContent.innerHTML = '<p class="text-gray-400">Could not load changelog. <a href="' + url + '" target="_blank" rel="noopener" class="text-cyan-400 hover:underline">View raw on GitHub</a></p>';
+                            });
+                    }
+                };
+                var closeCl = function() {
+                    changelogModal.style.opacity = '0';
+                    var c = changelogModal.querySelector('.modal-content');
+                    if (c) { c.style.opacity = '0'; c.style.transform = 'scale(0.95)'; }
+                    setTimeout(function() { changelogModal.classList.add('hidden'); }, 200);
+                };
+                changelogTrigger.addEventListener('click', openCl);
+                if (changelogClose) changelogClose.addEventListener('click', closeCl);
+                changelogModal.addEventListener('click', function(e) { if (e.target === changelogModal) closeCl(); });
+                document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && !changelogModal.classList.contains('hidden')) closeCl(); });
+            }
+        })();
+    </script>
+
+</body>
+</html>
