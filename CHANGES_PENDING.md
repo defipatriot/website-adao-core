@@ -178,7 +178,17 @@ Estimate: 4-6 hrs. Verify cron data has run cleanly for 24+ hours first. Don't s
 
 ---
 
-### 🔥 P1 — TLA Lock NFT backfill (queued 2026-06-11 — NEXT major data project)
+### ✅ DONE (2026-06-15) — TLA history backfill (votes + locks) + price + ratio layers
+Completed in one session. The lock-lifecycle target below (vAMP Minter / voting-escrow CW721) was folded into a combined **gauge-vote + escrow-lock** backfill.
+- **`tla-history-data_2026`** — `tla-history-backfill.js` (Action, one-time + forward-maintain) seeded **5,858 votes / 11,520 locks** to genesis, both `clean-end`. Lock lifecycle captured: create / extend_amount / extend_time / merge / split / migrate / withdraw / (un)lock_permanent / transfer, incl. cw20 send-hook locks + Votion/arb/launch-nft wrapper events. Events carry **`canonical`** (filter wrapper dupes for VP math). `tla-history-annotate.js` retro-tagged the seed (schema v2). Resilient ASC pager ported from the nft backfills. Per-cron README is current.
+- **`price-history-data_2026`** — `price-history-backfill.js` (Action, one-time) → 23 tokens × ~365d CoinGecko USD. DONE + validated. **Orphan cleanup pending:** the dead archive-node `ratio-history-backfill.*` + `ratio-history-probe.*` were committed here during exploration — safe to delete (ratio history lives in network-and-prices, not here).
+- **`network-and-prices`** — ratio-history forward-capture folded in (end-of-day append) + `ratio-history-consolidate.js` (in network-and-prices-data_2026) recovered ~34 days. 6 LSTs. Closes ampCAPA/ampROAR USD.
+
+See PROJECT_KNOWLEDGE.md "Backfill data layers" for the full status. **Next: wire the Portfolio P&L + Vote Intelligence UIs to these feeds.**
+
+---
+
+### ~~🔥 P1 — TLA Lock NFT backfill~~ ✅ DONE 2026-06-15 (see above)
 Same playbook as the aDAO events backfill, new subject: **TLA Lock NFTs** (vAMP Minter CW721 `terra1uqhj8agyeaz8fu6mdggfuwr3lp32jlrx5hqag4jxexde92rzkamq3l62zg`). Lifecycle to reconstruct: member **lock creation, merges, unlock starts, unlock completions**, plus **Boost marketplace activity for lock NFTs** (the Boost sweep machinery already exists). First step is browser-probe the lock contract's event/action names (create/merge/unlock) exactly like the `break_nft`/`create_auction` probes — then the sweep script reuses `bbl-sales-backfill.js`'s pager + the events-backfill patterns. Start this in a FRESH chat with: fetch CHANGES_PENDING + cron-scripts/README.md registry section first.
 
 ### 🔥 P1 — Switch adao-positions Render schedule from weekly to daily
