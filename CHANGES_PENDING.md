@@ -335,6 +335,18 @@ Out of scope for current TLA work — note for future direction. Lion DAO collec
 
 ## 🆕 New ideas / not yet prioritized
 
+### 🔥 P1 — Deploy `tla-flows` (LP-flow event capture) to Render
+Built + locally verified 2026-06-24 (parser 42/42 on real data; `tx_search` + cost capture confirmed live on the free LCD). Code `cron-scripts/tla-flows/`; writes the **new `tla-core` repo, `flows/` module**. Wire a 15-min Render cron (`node tla-flows.js`, `TLA_OUT_DIR`→tla-core checkout `flows/`, commit step as fuel). Once running it accumulates exact claim timing + entry/exit slippage/fees forward. Backfill = the same loop from a genesis start height (deep history needs an archive node — public LCDs prune). See `tla-flows/README.md` + PROJECT_KNOWLEDGE "TLA LP-flow event capture".
+
+### 🟢 P2 — Tools spec'd on the flow data (build after capture is accumulating)
+Specs to be fleshed out from real captured data:
+- **Net-P&L waterfall (per position):** deposits − withdrawals + claimed yield − entry slippage − exit slippage ± IL ± price. The "what did I actually make, after all costs" number — closes out the realized-APR work. Runs off `tla-flows` + `adao-positions` daily + ratio/price history.
+- **Realized-APR audit:** advertised (`approx_apr_pct`) vs realized per pool; the per-pool delta = the compounder's reward fee. Band tightens once `tla-flows` exact claim timing replaces daily-snapshot granularity. (See the realized-APR correction in PROJECT_KNOWLEDGE — APR-vs-APY, bribes-are-separate.)
+- **DAO slippage/fee ledger:** total zap slippage + swap fees members have paid entering/exiting — a transparency number from `cost.swaps` / `cost.provide_slippage_pct`.
+- **Zap-Out Optimizer (live, prospective — distinct from the capture):** for a position, simulate exit to each withdraw-token (LUNA/ampLUNA/bLUNA/ASTRO/USDC/SOLID/CAPA/WHALEs/ROAR) via Astroport `simulate`/`reverse_simulation` at current reserves; rank by total slippage → cheapest exit + arb signal (a non-pool exit is multi-hop, much costlier — proven: LUNA 0.05% vs USDC 0.43%). `tla-flows` realized costs calibrate the simulator's predictions.
+
+**Boundary marker:** bribes/votes are a SEPARATE stream (`tla-history` + `pending_bribes`), to VOTERS not LP depositors — deliberately out of LP-flow scope. Don't "find" a phantom gap there.
+
 ### 🔍 PRICE AUDIT — hub-ratio vs market pricing for "calculated-eris" LSTs (flagged 2026-06-14)
 Discovered while validating the Votion cron against Votion's own UI: our
 `network-and-prices` cron prices 5 LSTs by **hub-ratio** ("calculated-eris"):
