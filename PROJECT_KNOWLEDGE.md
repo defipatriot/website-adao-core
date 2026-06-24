@@ -189,6 +189,27 @@ PWA shortcuts, install prompts, default-page selectors — all are bonus feature
 - **All other epoch-named cron outputs use CURRENT-epoch convention** — `astroport-epoch-185.json` was captured during epoch 185.
 - **Epoch off-by-one fix shipped** (resolved 2026-05-15). All crons now compute `epochIndex + 1` to match the canonical 1-indexed `epoch_1-300_date.json`. Verified live: today (2026-05-17) the crons correctly report epoch 185. Note: epoch-184 archive files exist but no epoch-185 archive files until the next nightly run — one-epoch gap accepted, not back-filled.
 
+#### ⭐ Unified repo migration — `tla-core` (started 2026-06-24)
+
+The `*-data_2026` one-repo-per-cron model is being superseded by a single unified
+**`defipatriot/tla-core`** repo, structured **module → product → files**. Full
+convention in `website-adao-core/TLA-CORE-STORAGE-DESIGN.md`. In brief:
+- **module** = the cron/domain (mirrors `cron-scripts/{module}/`): `fuel`, `flows`, …
+- **product** = the data shape: `snapshots/` (state-at-a-time) or `events/`
+  (append-only stream). A module may have more than one.
+- **files:** `heartbeat.json` + `index.json` always; `cursor.json` for event
+  products; `current.json`/`daily/`/`hourly/` for snapshots; year/month partitions
+  (`{YYYY}/{MM}/{DD}.jsonl` for events, `{YYYY}/{rollup}/{YYYY}.csv` for snapshots).
+- **Year rollover = a new folder, never a new repo** — the whole point. 2027 is
+  `{module}/{product}/2027/`, no new repo, no token juggling.
+- **Pilot modules:** `fuel/snapshots/` (live, hourly — the snapshot reference) and
+  `flows/events/` (tla-flows, deploy pending — the event reference).
+- **Migration is opportunistic + by value** — fold a `*-data_2026` repo in only
+  when its cron is being touched anyway or the year-folder benefit is worth it; run
+  parallel, prove, freeze-then-delete the legacy repo. Order + checklist in the
+  storage-design doc. When a module lands here, repoint its `system-health.js`
+  `MONITORED` entry to the `tla-core/{module}/{product}/heartbeat.json` path.
+
 ### Key on-chain contract addresses (Terra phoenix-1)
 Originally discovered May 10 2026 via HAR capture of the Eris liquidity-hub UI for the on-chain Vote tab fetcher. Now used by the live `tla-snapshot`, `adao-positions`, and `bribes-history` crons.
 

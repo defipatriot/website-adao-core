@@ -338,6 +338,12 @@ Out of scope for current TLA work — note for future direction. Lion DAO collec
 ### 🔥 P1 — Deploy `tla-flows` (LP-flow event capture) to Render
 Built + locally verified 2026-06-24 (parser 42/42 on real data; `tx_search` + cost capture confirmed live on the free LCD). Code `cron-scripts/tla-flows/`; writes the **new `tla-core` repo, `flows/` module**. Wire a 15-min Render cron (`node tla-flows.js`, `TLA_OUT_DIR`→tla-core checkout `flows/`, commit step as fuel). Once running it accumulates exact claim timing + entry/exit slippage/fees forward. Backfill = the same loop from a genesis start height (deep history needs an archive node — public LCDs prune). See `tla-flows/README.md` + PROJECT_KNOWLEDGE "TLA LP-flow event capture".
 
+> ✅ **Storage layout SETTLED (2026-06-24) — deploy unblocked.** The `tla-core`
+> module→product→files convention is finalized in
+> `website-adao-core/TLA-CORE-STORAGE-DESIGN.md`. Decision: the paths `tla-flows`
+> already writes — `flows/events/{heartbeat,index,cursor}.json` + `2026/MM/DD.jsonl`
+> — are **correct as-is; no cron output-path change needed.** Deploy the current code.
+
 ### 🟢 P2 — Tools spec'd on the flow data (build after capture is accumulating)
 Specs to be fleshed out from real captured data:
 - **Net-P&L waterfall (per position):** deposits − withdrawals + claimed yield − entry slippage − exit slippage ± IL ± price. The "what did I actually make, after all costs" number — closes out the realized-APR work. Runs off `tla-flows` + `adao-positions` daily + ratio/price history.
