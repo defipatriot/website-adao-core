@@ -1,4 +1,4 @@
-# PROJECT STATUS — TLA Stats (as of 2026-06-15)
+# PROJECT STATUS — TLA Stats (as of 2026-06-25)
 
 The single snapshot of where everything stands. Read this first when picking up
 work. Pairs with PROJECT-DIRECTION.md (the roadmap) and CHANGELOG.md (the history).
@@ -6,6 +6,15 @@ work. Pairs with PROJECT-DIRECTION.md (the roadmap) and CHANGELOG.md (the histor
 ---
 
 ## 🟢 LIVE & VERIFIED (committed, running, confirmed in production)
+
+### tla-core unified migration — foundation crons (2026-06-25)
+First who/what/price modules live in the unified `tla-core` repo (+ `fuel/` pilot):
+**address-catalog** (WHO, 389 addresses), **contract-token-catalog** (WHAT),
+**price cron** (token prices, clean), plus **tier-builder** (history engine) and
+docs centralized in `tla-core/docs/`. Audit + handoff: **`TLA-CORE-STATUS.md`**.
+Known defect: the 3 new crons need realigning to the `module/product/files` +
+`index.json` layout (fuel is the reference). Next: realign → land `tla-flows` →
+build self-contained `token-catalog` + `DEX-Data` (lift code, run parallel, retire old).
 
 ### Data capture (18 crons → 18 data repos)
 All core crons live and publishing. Daily archives accumulating on votion-positions,
@@ -75,6 +84,8 @@ issues (heartbeat-path mismatches, since fixed). Error-reporter sanitizes errors
 
 - **Pricing:** Tier-1 (LUNA/wBTC/USDC/ATOM) → CoinGecko direct. Tier-2 (LSTs,
   small tokens) → base price × on-chain ratio. Thin pools flag, never override.
+- **LP/ampLP valuation:** by SHARE FRACTION (`staked/total × pool_usd`), never a
+  per-unit price. Token prices in the price layer; positions valued in the positions module.
 - **Cron timing:** foundation (prices, registry) first; bribes before participants;
   most data is continuous (snapshot anytime); only epoch-bound data needs boundary
   timing. Camron sets schedules in Render.

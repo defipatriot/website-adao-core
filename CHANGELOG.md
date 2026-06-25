@@ -14,6 +14,36 @@ Entry tags for the feed: [MILESTONE] surfaces prominently; [STEP] is detail;
 
 ---
 
+## tla-core Foundation Crons — Rev 1 (2026-06-25) [MILESTONE] [LIVE]
+The first foundation modules of the unified `tla-core` migration — who / what /
+price + the history engine. Took tla-core from "fuel only" to a working data
+foundation. Includes a major pricing correction (LP/ampLP cannot be per-unit priced).
+
+- **1.1 — tier-builder** [STEP] Built `lib/tier-builder.js`, the boundary-based
+  history cascade (raw→hourly→daily→epoch→monthly→yearly + epoch-end freeze).
+  Pure logic, unit-proven vs a simulated clock. Not a cron.
+- **1.2 — address-catalog** [STEP] [LIVE] The WHO registry: config-driven `TRACKED`
+  array, discovers members by stakeType, resolves PFPK names, applies retention.
+  [VERIFIED] 389 addresses (adao 156, tla_locks 203, pixellions 77, liondao 69).
+  Writes `tla-core/catalog/`. Self-contained (queries chain directly).
+- **1.3 — contract-token-catalog** [STEP] [LIVE] The WHAT/HOW registry (pools,
+  tokens, ratio hubs, contracts w/ verified queries). [FIX] [VERIFIED] ampLP denom
+  matching corrected from bucket-keyed to per-pool via `asset_configs` address
+  overlap — 59 distinct denoms across 61 pools. (Reads tla-snapshot — NOT yet
+  self-contained; slated to dissolve into token-catalog + DEX-Data.)
+- **1.4 — price cron** [STEP] [LIVE] Consolidates network-and-prices into one
+  token→price table + tier-builder history. 27 tokens, 6 ratios. `tla-core/prices/`.
+- **1.5 — pricing correction** [FIX] [VERIFIED] Briefly added LP/ampLP per-unit
+  prices, then REMOVED them: the TLA UI ground-truth ($7,593.66 treasury deposit)
+  proved per-unit pricing is the WRONG model — LP/ampLP value by SHARE FRACTION
+  (`staked/total × pool_usd`), not amount×price. `amp_lp.shares` is inconsistent
+  across pools and unusable as a divisor. Price layer is token-only (correct);
+  LP/ampLP position valuation belongs in the positions module. Honest data over
+  false positives.
+- **1.6 — docs centralized** [STEP] Moved epoch schedule (`epoch_1-300_date.json`)
+  + `Staking APR.csv` into `tla-core/docs/`. Wrote `tla-core/docs/TLA-CORE-STATUS.md`
+  — the migration audit/handoff (single grounded reference for the pipeline).
+
 ## System Health Monitor — Rev 1 (2026-06-15) [MILESTONE] [LIVE]
 The operational face of the platform: reads every cron's heartbeat, evaluates
 freshness/status/errors, surfaces it on a page. Went from "no visibility" to a

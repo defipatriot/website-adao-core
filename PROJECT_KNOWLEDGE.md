@@ -616,6 +616,65 @@ That's ~30 minutes to fully reload context. The 2026-06-02 audit night taught us
 
 ---
 
+## tla-core unified migration — foundation crons & doctrines (2026-06-25)
+
+The migration from ~18 crons + `*-data_2026` repos into ONE `tla-core` repo with
+module folders. **Canonical layout + migration philosophy live in
+`TLA-CORE-STORAGE-DESIGN.md`; current state + handoff in `TLA-CORE-STATUS.md`.**
+
+### Storage layout is `module / product / files` (don't forget the product level)
+`tla-core/{module}/{product}/` with `heartbeat.json` + `index.json` ALWAYS, plus
+`current.json`/`daily/`/`hourly/`/year-rollups (snapshot) or `cursor.json` +
+`{YYYY}/{MM}/{DD}.jsonl` (event). `fuel/` = reference snapshot module, `flows/` =
+reference event module. **Known defect (2026-06-25):** address-catalog / contract-
+token-catalog / price-cron were built FLAT (`catalog/current.json`) — missing the
+product level + index.json. Realign to match fuel before treating them as final.
+
+### Migrate by LIFTING CODE into self-contained domain crons — not repointing
+The goal is to DELETE old crons + repos, so the new cron must query the chain
+ITSELF (no reading old output). Target foundation set:
+- **address-catalog** = WHO (members/entities + contracts/wallets/protocols/directory).
+- **token-catalog** = WHAT each token is + worth (network-and-prices pricing/ratios
+  + tla-registry token identity: logos, decimals, categories).
+- **DEX-Data** = pools/reserves/LP-ampLP/slippage/position-valuation (tla-snapshot +
+  astroport + skeletonswap).
+Then delete network-and-prices, tla-snapshot, tla-registry, astroport, skeletonswap,
+the interim contract-token-catalog. Build ONE at a time, run parallel with the old,
+prove identical, then unplug. (Repointing output keeps the old cron alive — only
+kills the data repo; lifting code is what actually consolidates.)
+
+### tla-chain-registry is a LIVE comprehensive registry (overlaps the catalog)
+Cron `tla-registry` → `defipatriot/tla-chain-registry/2026/current.json`, updated
+daily. 173 tokens with logos + decimals + categories + coingecko_id, plus
+pools/contracts/directory/buckets and curated overrides. Its token identity +
+logos are what `token-catalog` should absorb (logo source priority: curated →
+cosmos-chain-registry → skeletonswap; 36/173 have logos, rest letter-circle;
+pairs = the two underlyings' logos overlapped). DON'T duplicate or repoint it — lift it.
+
+### LP / ampLP value by SHARE FRACTION — never a per-unit price (hard rule)
+Proven 2026-06-25 against TLA UI ground-truth ($7,593.66 treasury deposit): a
+per-unit ampLP price is the WRONG model (was 1.7×–3.9× low, varying per pool).
+The platform (verified `adao-positions`, matches Eris) values every LP/ampLP
+position as `staked_shares / total_shares × pool_usd`, read from the staking
+contract's `all_staked_balances`. `tla-snapshot.amp_lp.shares` is inconsistent
+across pools (80 quadrillion for ampROAR vs 717 for SOLID) and CANNOT be a divisor.
+→ Token prices are clean and live in the price layer; LP/ampLP valuation belongs
+in the positions module, per wallet.
+
+### ampLP denoms are per-pool; match by asset_configs address overlap
+`factory/<compounder>/<N>/<bucket>/amplp` — the `<N>` is a per-pool config index
+(multiple per bucket), NOT bucket-keyed. `asset_configs` lists every amplified
+pool; each entry references its pool's Astroport pair address. Match each pool to
+its own amplified denom by address overlap (compounder
+`terra1zly98gvcec54m3caxlqexce7rus6rzgplz7eketsdz7nh750h2rqvu8uzx`). 65 configs /
+67 pools — nearly all pools ARE amplified-capable; `amp_lp.ratio_type:'non-amplified'`
+describes the displayed ratio basis, NOT "no amplified vault."
+
+### Token rollover — SOLVED for tla-core
+Camron made one no-expiration commit token, plugged into ALL tla-core crons. No
+Nov-2026 rollover needed for tla-core crons (the old `*-data_2026` ones still have
+the end-2026 expiry until retired).
+
 ## NFT Collection economic model — the chain-of-truth picture
 
 **Built up 2026-06-06/07 during NFT inventory Rev B work.** This section consolidates everything we know about how the aDAO NFT collection actually works on-chain — distinguishing what's true from what the previous data feed (deving.zone) claimed.

@@ -7,6 +7,49 @@ Last cleared: **2026-06-07** (post NFT inventory Rev B deploy). Rev 0.16 catalog
 
 ---
 
+## 🏗 tla-core migration — foundation crons (active, 2026-06-25)
+
+The unified-repo migration is underway. `fuel/` was the pilot; this session added
+the first who/what/price modules + the history engine. **Full audit + handoff:
+`TLA-CORE-STATUS.md` (read it first for tla-core work).**
+
+### ✅ Done this session
+- **tier-builder** (`lib/tier-builder.js`) — history cascade engine, unit-proven.
+- **address-catalog** — WHO registry, LIVE (`tla-core/catalog/`), 389 addresses, self-contained.
+- **contract-token-catalog** — WHAT registry, LIVE (`tla-core/contracts/`); ampLP denom
+  per-pool matching fixed. (Reads tla-snapshot — interim; dissolves later.)
+- **price cron** — token prices, LIVE (`tla-core/prices/`), token-only after the
+  LP/ampLP correction (see below).
+- **docs centralized** — epoch schedule + Staking APR.csv → `tla-core/docs/`.
+
+### 🔥 P1 — Realign the 3 new crons to the settled storage layout
+They write `catalog/current.json` (module/files) — **missing the `product` level
+and `index.json`** that `TLA-CORE-STORAGE-DESIGN.md` requires (see `fuel/` as the
+reference: `fuel/snapshots/…`). Fix: `{module}/{product}/` + `index.json` + full
+heartbeat schema. Update `system-health.js` MONITORED paths to match. Low-risk, mechanical.
+
+### 🔥 P1 — Build the self-contained domain crons (lift code, don't repoint)
+The goal is to DELETE old crons + repos, not feed off them. Build, run parallel
+with the old, prove identical, then retire. One at a time. **Sandbox can't reach
+Terra RPC — lift the proven functions, Camron verifies on Render.**
+- **[ ] `token-catalog`** (rename of price-cron) — absorb network-and-prices
+  (pricing + ratios, Pricing-Doctrine intact) + tla-registry token identity
+  (logos 1/token + 2/pair, decimals, categories). Retire network-and-prices repo.
+- **[ ] `DEX-Data`** — absorb tla-snapshot (lp_health/amp_lp/buckets) + astroport +
+  skeletonswap; pools, reserves, **share-based LP/ampLP position valuation**, the
+  slippage-simulator data. Retire those repos.
+- **[ ] address-catalog** — absorb tla-registry's address side (known_contracts,
+  wallets, protocols, directory). Then retire tla-registry + interim contract-token-catalog.
+
+### ⚠ Correction logged — LP/ampLP are NOT per-unit priced
+The platform values LP/ampLP positions by SHARE FRACTION (`staked/total × pool_usd`,
+the adao-positions method that matches Eris's $7,593.66), NOT amount × price.
+`tla-snapshot.amp_lp.shares` is inconsistent across pools and cannot be a divisor.
+→ token prices live in `token-catalog`; LP/ampLP valuation lives in the positions module.
+
+
+---
+
 ## 🛡 Systemwide reliability audit (2026-06-09)
 
 Triggered by finding that `nft-inventory.js` had been *silently* dropping DAODAO unstakes for months (a publicnode pagination quirk: `pagination.offset` is ignored, only `page` is honored). That one bug exposed a recurring **failure-class** pattern. Every cron was walked through the checklist below. The common root across all findings: **code that couldn't distinguish "query failed" (null) from "no data" ([]/end-of-list)**, which silently produces incomplete data that can reach permanent archives.
@@ -335,7 +378,12 @@ Out of scope for current TLA work — note for future direction. Lion DAO collec
 
 ## 🆕 New ideas / not yet prioritized
 
-### 🔥 P1 — Deploy `tla-flows` (LP-flow event capture) to Render
+### 🔥 P1 — Deploy `tla-flows` (LP-flow event capture) to Render  ⚠ STILL NOT DEPLOYED (2026-06-25)
+**Confirmed 2026-06-25: no `flows/` data exists in tla-core (all paths 404).** The
+cron was built + locally verified but the Render deploy never landed data. This
+**blocks verifying 24hr position change from the test txs** (the `terra1n28…` zap
+test) — there's no captured event data to compare against. Next: confirm the Render
+service exists, points at tla-core with the flows output path, runs, and commits.
 Built + locally verified 2026-06-24 (parser 42/42 on real data; `tx_search` + cost capture confirmed live on the free LCD). Code `cron-scripts/tla-flows/`; writes the **new `tla-core` repo, `flows/` module**. Wire a 15-min Render cron (`node tla-flows.js`, `TLA_OUT_DIR`→tla-core checkout `flows/`, commit step as fuel). Once running it accumulates exact claim timing + entry/exit slippage/fees forward. Backfill = the same loop from a genesis start height (deep history needs an archive node — public LCDs prune). See `tla-flows/README.md` + PROJECT_KNOWLEDGE "TLA LP-flow event capture".
 
 > ✅ **Storage layout SETTLED (2026-06-24) — deploy unblocked.** The `tla-core`
