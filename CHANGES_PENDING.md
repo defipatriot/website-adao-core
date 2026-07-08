@@ -49,6 +49,24 @@ FCD section in PROJECT_KNOWLEDGE. Summary + resulting queue:
 6. Docs/wiring: health monitor → tla-voting heartbeat; read the fcd-fill
    Actions log for the FCD↔legacy overlap verdict (UNREAD).
 
+### 🧭 Storage-conformance queue (added 2026-07-08 — from the settled-convention audit)
+Canonical convention + full Deviation Register: `TLA-CORE-STORAGE-DESIGN.md`
+(corrected 2026-07-08: events = monthly `{YYYY}/{MM}.json` JSON arrays; the
+daily-jsonl plan is superseded). Ratified in-session with Camron.
+- ✅ DONE 2026-07-08: `nfts/adao/provenance/tokens/` re-derived `.jsonl` →
+  `part-NN.json` JSON arrays (delete the 10 old `.jsonl` files on commit).
+- **[ ] tla-voting events restructure** — per-stream single files
+  (`reward-events.json` already 16.6 MB, growing) → monthly `{YYYY}/{MM}.json`
+  per stream. **MUST land before Batch-3 site wiring** — zero consumers today
+  makes this the cheapest it will ever be. Touches: org-tla-voting cron + seed
+  + fcd-fill (shared `<<CLASSIFIER v3>>` block — diff-verify after).
+- **[ ] index.json conformance sweep** — add the standard manifest to:
+  `price-history/`, `nfts/adao/flows/`, `nfts/adao/snapshots/`,
+  `dex-data/{astroport,skeletonswap}/snapshots/`. Each owning cron writes its
+  own; one small PR-sized change per cron, batchable.
+- Process rule (binding, all sessions): any new deviation discovered gets a
+  Deviation Register row + an item here THE SAME DAY. No silent drift.
+
 ### ⚠ Org→personal dependency audit (2026-07-08) — cut before ANY personal-repo deletion
 Verified: NO org cron writes to personal repos. Four org READS exist:
 - ✅ Acceptable (one-time seed bridges, inert): tla-voting-seed legacy bootstrap

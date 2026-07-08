@@ -198,8 +198,12 @@ convention in `website-adao-core/TLA-CORE-STORAGE-DESIGN.md`. In brief:
 - **product** = the data shape: `snapshots/` (state-at-a-time) or `events/`
   (append-only stream). A module may have more than one.
 - **files:** `heartbeat.json` + `index.json` always; `cursor.json` for event
-  products; `current.json`/`daily/`/`hourly/` for snapshots; year/month partitions
-  (`{YYYY}/{MM}/{DD}.jsonl` for events, `{YYYY}/{rollup}/{YYYY}.csv` for snapshots).
+  products; `current.json`/`daily/`/`hourly/` for snapshots; year partitions
+  (**`{YYYY}/{MM}.json` monthly JSON arrays for events** — corrected 2026-07-08
+  to the settled org practice of nfts/adao/flows + price-history;
+  `{YYYY}/{rollup}/{YYYY}.csv` for snapshots). Anything still saying daily
+  jsonl predates this correction; TLA-CORE-STORAGE-DESIGN.md (incl. its new
+  Deviation Register) is canonical.
 - **Year rollover = a new folder, never a new repo** — the whole point. 2027 is
   `{module}/{product}/2027/`, no new repo, no token juggling.
 - **Pilot modules:** `fuel/snapshots/` (live, hourly — the snapshot reference) and
@@ -411,7 +415,7 @@ Its own cron — the highest-value capture; stale-VP-gap + unlock-cliff metrics 
 
 ### TLA LP-flow event capture — `tla-flows` (BUILT + locally verified 2026-06-24; Render deploy pending)
 
-The **LP-flow sibling to `tla-history`**. Where `tla-history` backfills *votes + locks* events to genesis, `tla-flows` captures the **LP deposit / withdraw / claim** event stream — the two things neither the daily `adao-positions` snapshots nor the vote/lock backfill can recover after the fact: the **exact intra-day moment of each claim** and each deposit/withdraw's **zap slippage + swap fees**. Code: `cron-scripts/tla-flows/`. Output: the **new unified `tla-core` repo**, `flows` module (`flows/events/{heartbeat,index,cursor}.json` + `2026/MM/DD.jsonl`), mirroring the `fuel` skeleton. (tla-core storage design is documented separately.)
+The **LP-flow sibling to `tla-history`**. Where `tla-history` backfills *votes + locks* events to genesis, `tla-flows` captures the **LP deposit / withdraw / claim** event stream — the two things neither the daily `adao-positions` snapshots nor the vote/lock backfill can recover after the fact: the **exact intra-day moment of each claim** and each deposit/withdraw's **zap slippage + swap fees**. Code: `cron-scripts/tla-flows/`. Output: the unified `tla-core` repo — **corrected 2026-07-08: `tla-flows/events/{heartbeat,index,cursor}.json` + monthly `{YYYY}/{MM}.json` JSON arrays** (module renamed `flows`→`tla-flows` resolving the nfts/adao collision; the daily-jsonl plan is superseded — TLA-CORE-STORAGE-DESIGN.md is canonical).
 
 **Why event-capture, not snapshot-diff:** a daily snapshot says a position changed between days, not *when* or at what cost. Realized-APR needs the claim *timestamp* to close the accrual band; cost analysis needs the *receipt* (slippage lives in-receipt, no external price needed). Both are gone by the next snapshot.
 
@@ -713,8 +717,9 @@ module folders. **Canonical layout + migration philosophy live in
 ### Storage layout is `module / product / files` (don't forget the product level)
 `tla-core/{module}/{product}/` with `heartbeat.json` + `index.json` ALWAYS, plus
 `current.json`/`daily/`/`hourly/`/year-rollups (snapshot) or `cursor.json` +
-`{YYYY}/{MM}/{DD}.jsonl` (event). `fuel/` = reference snapshot module, `flows/` =
-reference event module. **Known defect (2026-06-25):** address-catalog / contract-
+monthly `{YYYY}/{MM}.json` JSON arrays (event — corrected 2026-07-08; daily
+jsonl superseded). `fuel/` = reference snapshot module, `nfts/adao/flows/` =
+reference event layout (org-tla-voting = reliability reference). **Known defect (2026-06-25):** address-catalog / contract-
 token-catalog / price-cron were built FLAT (`catalog/current.json`) — missing the
 product level + index.json. Realign to match fuel before treating them as final.
 
