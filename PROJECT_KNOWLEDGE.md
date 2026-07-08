@@ -204,6 +204,22 @@ convention in `website-adao-core/TLA-CORE-STORAGE-DESIGN.md`. In brief:
   `{module}/{product}/2027/`, no new repo, no token juggling.
 - **Pilot modules:** `fuel/snapshots/` (live, hourly — the snapshot reference) and
   `flows/events/` (tla-flows, deploy pending — the event reference).
+- **⭐ UPDATE 2026-07-08 — the migration moved to the GitHub ORG.** Canonical
+  repos are now **`thealliancedao/tla-core`** (data) and
+  **`thealliancedao/platform-crons`** (cron code). The personal
+  **`defipatriot/tla-core`** is the June-25 INTERIM build and is still being
+  written by four legacy Render crons — `fuel` (fuel/snapshots), the price cron
+  (prices/), address-catalog v1 (catalog/), contract-token-catalog
+  (contracts/) — all since superseded by org rebuilds (org address-catalog,
+  org token-catalog which absorbed network-and-prices). **They are on the
+  retire board (CHANGES_PENDING); two repos named `tla-core` is a
+  deletion-by-accident hazard — always check the owner before destructive ops.**
+- **First event module fully migrated: `tla-voting`** (2026-07-07/08) — votes,
+  locks, bribes, rewards at `thealliancedao/tla-core/tla-voting/events/`;
+  Render cron `org-tla-voting` 6-hourly; backfilled to contract genesis
+  2024-08-27 (see the FCD section below). Spec:
+  `tla-core/docs/pending-changes/SPEC-tla-voting.md`; changelog:
+  `tla-core/docs/changelogs/cron-tla-voting-log.md`.
 - **Migration is opportunistic + by value** — fold a `*-data_2026` repo in only
   when its cron is being touched anyway or the year-folder benefit is worth it; run
   parallel, prove, freeze-then-delete the legacy repo. Order + checklist in the
@@ -412,6 +428,78 @@ The **LP-flow sibling to `tla-history`**. Where `tla-history` backfills *votes +
 **Wallet universe = a label, not a gate.** `tla-flows` captures *every* depositor automatically (it watches contracts, not a wallet list). Tracked-cohort tagging — decided **aDAO NFT stakers** — is applied downstream as a label on the flow data (join to `nft-inventory` / the registry), not as a capture filter. Cheaper and complete vs enumerating wallets.
 
 **Backfill horizon (honest):** flows recover as far back as nodes retain; public LCDs prune, so deep history needs an archive endpoint — mark the horizon, don't fake it. Exact intra-day *timing* exists only forward from when `tla-flows` starts (old daily snapshots hold end-of-day state only). Going forward, timing + costs + fees are all captured cleanly.
+
+**⭐ UPDATE 2026-07-08 — deploy urgency ELEVATED + deep history BANKED.** Public
+nodes pruned the tx index to ~1 week (see FCD section below), so the permanent
+LP-events hole is *Jan-2025 → whenever tla-flows starts capturing* — its right
+edge grows a week for every week undeployed. The left side is done: the FCD
+harvest captured all five custody contracts genesis→Jan-2025 (55,199 txs, in
+`thealliancedao/tla-core/archive/fcd/lp-*`); a `flows-fill` derive (same
+pattern as tla-voting's fcd-fill: trimmed-tx adapter → the flows classifier)
+merges them once the cron is deployed. Deploy review must check Rev A.3
+against the org conventions (heartbeat standard, module naming — note
+`nfts/adao/flows.js` is the *NFT-marketplace* flows, a different thing;
+resolve the name collision, likely `tla-flows/`).
+
+---
+
+## 🏛 FCD frozen archive + deep-history harvests (discovered 2026-07-08)
+
+**The single biggest data unlock of the project.** Terra's FCD indexer at
+**`phoenix-fcd.terra.dev`** is a frozen archive: its tx index covers **chain
+genesis → ~2025-01-07 (height ~13,736,494)** and stopped there (TFL wind-down).
+Found via a Mintscan HAR while chasing aDAO mint history. This mostly replaced
+the "wait for a dev's archive node" plan.
+
+**Mechanics (hard-won):** `/v1/txs?account=<addr>&limit=100&offset=<next>`,
+newest→oldest, `next` = the offset cursor. Behind Cloudflare — **429 / error
+1015** rate limits: ~1.1s/page pacing + 65s+ cooldowns required. Returns
+FAILED txs too (`code≠0`) — every consumer must filter. Msgs arrive
+pre-decoded; shape is drop-in compatible with the tla-voting classifier via a
+thin adapter.
+
+**Harvester:** `thealliancedao/tla-core/.github/scripts/fcd-harvest/` +
+`fcd-harvest.yml` (presets incl. `lp-batch`). Trimmed txs → `archive/fcd/
+<label>/part-NNNNN.json` + `state.json`; resumable checkpoints, 409-retry
+publishing, pause-not-fail. **10 harvests COMPLETE (~84k txs):** adao-minter
+1,644 · adao-collection 12,730 · tla-escrow 2,652 · tla-gauge 5,559 ·
+tla-incentive 1,870 · lp-compounder 6,055 · lp-stable 9,866 · lp-project
+14,562 · lp-bluechip 11,647 · lp-single 13,069.
+
+**What it settled:**
+- **TLA governance genesis = launch (2024-08-27):** all three governance
+  contracts deployed within ~160 blocks (11,558,887–11,559,045). No
+  pre-launch era exists. `fcd-fill` extended tla-voting to true genesis
+  (votes 8,270 · locks 13,585 · bribes 172 · rewards 6,038).
+- **The aDAO mint story, chain-verified:** minter
+  `terra1m3ye6dl6s25el4xd8adg9lnquz88az9lur2ujztj9pfmzdyfz3xsm699r3` (confirmed
+  via cw721 `minter` query). **Phase 0 (GoA) = 1,191 FREE claims** (zero
+  funds, 1/wallet, 2023-12-14→2024-01-12), **8,809 → DAO treasury**
+  (count from `try_send_to_dao_treasury` events — msgs say `send_to_dao:50`
+  but often sent fewer; trust events). **1,191 + 8,809 = 10,000 exact.**
+  Paid phases went via candy machines (~1,952 paid mint msgs vs
+  release-history's est. 1,981; the 681-NFT 1b/2a split resolves by
+  time-windowing paid mints + LUNA funds). First release-history correction:
+  **break_nft = 1,010** (page says 1,000). Full template + template history:
+  `tla-core/.github/scripts/mint-probe/MINT-TEMPLATE.md`. (The Feb-2024
+  50-LUNA mint tx that started this chase was **Galactic Mining Club**, not
+  aDAO — collection `terra1q2hjgq5…skk7shc`.)
+- **LP deposit history banked** for the flows-fill (see tla-flows update).
+
+**⚠ Public-node retention collapse (same day):** public LCD tx indexes now
+retain **~1 week** (were reaching Aug-2024 on 6/15). Cron outages > a few
+days = permanent loss; the health monitor is load-bearing; every hole is
+recorded in `known_gaps` with precise resume heights.
+
+**Archive-node residue (ALL that still needs a true archive node):**
+votes/locks 2026-06-15→22 · bribes/rewards Jan-2025→Jun-2026 · LP-flow events
+Jan-2025→tla-flows-start · possibly NFT marketplace events Jan-2025→nft-flows
+start (UNVERIFIED — check org nft-flows coverage vs the collection harvest).
+
+**Attribution law (reaffirmed 2026-07-08):** strictly factual — treasury
+address = aDAO, protocol multisigs = their protocols, **personal member
+wallets = the individual** (e.g. Camron's 203.198978-SOLID bribe, epochs
+193–200, is HIS, never aDAO's). No affiliation-based folding, ever.
 
 ---
 

@@ -7,7 +7,62 @@ Last cleared: **2026-06-07** (post NFT inventory Rev B deploy). Rev 0.16 catalog
 
 ---
 
+## 🏛 tla-voting migration + FCD archive breakthrough (2026-07-07/08)
+
+Full story: `tla-core/docs/changelogs/cron-tla-voting-log.md` (Rev 1–2) and the
+FCD section in PROJECT_KNOWLEDGE. Summary + resulting queue:
+
+### ✅ Done (2026-07-07/08)
+- **tla-voting migrated end-to-end** — seed + `org-tla-voting` Render cron
+  (6-hourly) live at `thealliancedao/tla-core/tla-voting/events/`; old
+  history/voting names purged from both org repos.
+- **FCD frozen archive discovered** (genesis→~2025-01-07) + harvester built;
+  **10 harvests complete (~84k txs)**: minter, collection, 3× governance,
+  5× LP custody.
+- **fcd-fill executed** — tla-voting streams at TRUE genesis (2024-08-27):
+  votes 8,270 · locks 13,585 · bribes 172 · rewards 6,038. Residual gaps
+  recorded honestly (votes/locks Jun-15→22; bribes/rewards Jan-25→Jun-26).
+- **aDAO mint story chain-verified** (1,191 free GoA + 8,809→treasury =
+  10,000 exact; break_nft = 1,010 not 1,000) — see MINT-TEMPLATE.md.
+
+### 🔥 P1 — the queue (in build order, one at a time)
+1. **Provenance ledger derive** → `tla-core/nfts/adao/provenance/` (script
+   `.github/scripts/adao-provenance/`): per-token mint→transfers→state,
+   per-wallet cost basis, the exact 1b/2a split, release-history verification
+   (then correct `release-history.html` from chain-exact numbers).
+2. **tla-flows deploy review + deploy** — code `cron-scripts/tla-flows/`
+   Rev A.3; check vs org conventions + resolve nfts-flows name collision.
+   RETENTION CLOCK: the permanent LP hole grows weekly until deployed.
+3. **flows-fill derive** — LP harvests (55,199 txs, `archive/fcd/lp-*`)
+   through the flows classifier (fcd-fill pattern).
+4. **SPEC-tla-stats-restructure.md** — agreed design: global member LENS
+   (selector currently Overview-only), hook landing (epoch clock, money
+   board, activity ticker, leaderboard teaser, wallet-lookup CTA), tab remap
+   (Member Stats → My Portfolio; Docs → Trust & Data w/ coverage map),
+   slippage 3 surfaces (pool grades / on-off-ramp tool = Zap-Out Optimizer /
+   personal exit-cost via lens). Rides the Batch-3 source re-pointing —
+   **tla-stats.html currently consumes 23 personal-repo sources, zero org data.**
+5. **votion-positions migration** (Votion users' portfolios incomplete
+   without it) · **reconciliation section in org-tla-voting** (events ≟ live
+   escrow state, match-rate in heartbeat) · **address-catalog rider**
+   (bribers — 172 events give the real list — + wrapper namespaces).
+6. Docs/wiring: health monitor → tla-voting heartbeat; read the fcd-fill
+   Actions log for the FCD↔legacy overlap verdict (UNREAD).
+
+### 🗑 Retire board addition — personal `defipatriot/tla-core` writers
+Four legacy Render crons still write to the June-interim personal tla-core:
+`fuel` (fuel/snapshots), price cron (prices/), address-catalog v1 (catalog/),
+contract-token-catalog (contracts/) — all superseded by org rebuilds. Retire
+after verifying nothing still reads them (system-health MONITORED paths,
+site fetches). ⚠ Two repos named `tla-core` — always check the OWNER before
+destructive ops.
+
+---
+
 ## 🏗 tla-core migration — foundation crons (active, 2026-06-25)
+
+> ⭐ 2026-07-08 note: the P1s below concern the PERSONAL-repo interim crons —
+> since superseded by org rebuilds (see retire board above). Kept for context.
 
 The unified-repo migration is underway. `fuel/` was the pilot; this session added
 the first who/what/price modules + the history engine. **Full audit + handoff:
