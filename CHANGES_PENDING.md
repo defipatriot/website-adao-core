@@ -49,6 +49,29 @@ FCD section in PROJECT_KNOWLEDGE. Summary + resulting queue:
 6. Docs/wiring: health monitor → tla-voting heartbeat; read the fcd-fill
    Actions log for the FCD↔legacy overlap verdict (UNREAD).
 
+### ⚠ Org→personal dependency audit (2026-07-08) — cut before ANY personal-repo deletion
+Verified: NO org cron writes to personal repos. Four org READS exist:
+- ✅ Acceptable (one-time seed bridges, inert): tla-voting-seed legacy bootstrap
+  (self-disabled) · price-history backfill Actions (executed).
+- 🔥 **capture-engine.js** (required by org address-catalog + token-catalog)
+  hardcodes fetches of `tla-snapshot-data_2026` + `network-and-prices-data_2026`
+  — known June interim ("dissolves later"). TRACE whether the org crons still
+  exercise those paths; dissolve or repoint. Until then those two repos are
+  NOT deletable.
+- 🟢 org nfts/adao reads `defipatriot/nft-metadata/adao-rarity-intended.json`
+  (static curated file, not cron output) — migrate to `tla-core/docs/curated/`
+  before touching nft-metadata.
+- 📋 `fuel/` — **disposition DECIDED (2026-07-08): absorb, don't migrate.**
+  Fuel = hourly FUEL-token price/TVL/volume + daily OHLC (since 2026-04-13);
+  the price exists nowhere else (thin market, priced from its pool). Plan:
+  (1) fold the daily OHLC series into `price-history` as FUEL's seed (the
+  June-dailies fold pattern); (2) archive the raw hourlies losslessly under
+  org `archive/`; (3) add FUEL to token-catalog's tracked set + price-history
+  forward capture (pool/denom/source = read `cron-scripts/fuel/` first);
+  (4) THEN suspend the fuel cron — after tracing both readers (site reads
+  `fuel-data_2026`, a separate repo — the cron may write two places). No
+  standalone fuel cron going forward.
+
 ### 🗑 Retire board addition — personal `defipatriot/tla-core` writers
 Four legacy Render crons still write to the June-interim personal tla-core:
 `fuel` (fuel/snapshots), price cron (prices/), address-catalog v1 (catalog/),
