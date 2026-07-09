@@ -49,6 +49,25 @@ FCD section in PROJECT_KNOWLEDGE. Summary + resulting queue:
 6. Docs/wiring: health monitor → tla-voting heartbeat; read the fcd-fill
    Actions log for the FCD↔legacy overlap verdict (UNREAD).
 
+### 🌊 tla-flows walker + capture-layer queue (added 2026-07-08, post-deploy-night)
+Context: the Rev B tx_search engine stalled on its first live runs (backfill
+species on a forward schedule — doctrine now in SPEC-tla-flows-walker §0).
+Rev C block-walker built + mock-verified same night.
+- ✅ DONE: Rev C walker committed; org-tla-flows resumed (verify banner 2.0.0).
+- **[ ] 17-day retained-history catch-up** — one-shot tx_search harvest
+  (fcd-harvest style, slow is fine) of the ~17 days public nodes retain,
+  merged under the same tla-flows month files. Pairs with flows-fill.
+- **[ ] Phase-2: platform capture layer (Camron's design)** — promote the
+  walker to the single chain-reader: a registry file (addresses + message
+  patterns → destination bucket, config/contracts.js-style) routing matched
+  txs into per-domain captures; nft-flows and eventually tla-voting become
+  consumers instead of running their own scanners. Spec before build.
+- **[ ] Live activity feed (site product)** — websocket subscription showing
+  TLA activity live, walker as its reconnect/catch-up spine. After Phase-2.
+- **[ ] Port the hard-deadline httpGet fix to org-tla-voting** — it shares
+  the idle-timeout-only transport that hung tla-flows Rev B (latent tarpit
+  hang). Small, ride the next tla-voting touch.
+
 ### 🧭 Storage-conformance queue (added 2026-07-08 — from the settled-convention audit)
 Canonical convention + full Deviation Register: `TLA-CORE-STORAGE-DESIGN.md`
 (corrected 2026-07-08: events = monthly `{YYYY}/{MM}.json` JSON arrays; the
