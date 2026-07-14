@@ -37,31 +37,35 @@ canonical "Total TLA VP ≈ 24M (max bucket)" is wrong — canonical total is
   — rewrite it citing this spec. `display_voting_power_human` (fixed×10) is
   only coincidentally correct for coeff-9 locks — **retire the field**.
 
-## 3. Changes (one patch per cron, mock-run each against real captured responses)
+## 3. Changes — ORG ONLY (scope amended 2026-07-13, Camron's call)
 
-**A. `cron-scripts/tla-snapshot/tla-snapshot.js`**
-- Per-pool: read `fixed_amount` + `slope` alongside `voting_power` from
-  gauge_infos entries. Publish `vp_boost_human`, `vp_fixed_human`,
-  `vp_total_human` (= boost+fixed), `slope`. `vp_human` becomes an alias of
-  `vp_total_human` (schemaVersion bump; site shielded by
-  `buildLegacyDataShape()` transform — verify tla-stats consumers).
-- Bucket sums and `pct_of_bucket` computed over **vp_total**.
-- Capture `total_vamp` (all three fields) into `totals` as the canonical
-  platform-wide VP.
+Personal repos (`cron-scripts` tla-snapshot / tla-locks / capture-engine) are
+**NOT patched** — they are retiring and "the old one doesn't matter." The org
+is the single home of the fix; any future org component touching VP is born
+on this definition. Consequence accepted: the live site (which still reads
+personal tla-snapshot) shows boost-only VP until the org replacement lands —
+the tla-snapshot REPLACE-CHECK rises in priority accordingly.
 
-**B. `platform-crons/lib/capture-engine.js` + `cron-scripts/lib/capture-engine.js`**
-- Member/treasury `total_voting_power_human` → fixed + voting_power; keep both
-  components as explicit fields (already captured — only the total changes).
-- Fix the false comment; delete `display_voting_power_human`.
+**Patched (platform-crons, shipped as vp-definition-fix 2026-07-14):**
+- `lib/capture-engine.js` — portfolio.voting total = boost+fixed with explicit
+  components; per-lock `fixed_amount_human` + `vp_total_human`; projection
+  moves to total basis (adjusted = underlying_now × (coeff+1)); false comment
+  rewritten; `display_voting_power_human` RETIRED; summary exposes
+  `vp_boost_human`.
+- `member-data/lib/vp.js` — held VP = boost+fixed; doctrine header corrected;
+  `canonical_total_vp` renamed `max_bucket_vp` (reference only).
+- `member-data/index.js` (v1.1.0) — queries escrow `total_vamp`; publishes
+  `system.total_tla_vp {fixed, voting_power, vp, vp_human}` as CANONICAL;
+  `max_bucket_vp_reference` kept as sanity check; per-lock census entries +
+  the held-vs-locks cross-check move to total basis.
+- `member-data/README.md` — schema line updated.
 
-**C. `cron-scripts/tla-locks/tla-locks.js`**
-- Per-lock `vp_total_human` = voting_power + fixed (both already captured);
-  aggregates/tiers use vp_total. System block already stores all three ✓.
-
-**D. Rollups** (`pool-status-history`, `vp-attribution`) — regenerate after A
-lands; historical exactness via SPEC-distributions-capture harvest (pcts) +
-lock/vote-events derive (absolutes). No scalar fudge on history — fields not
-rebuilt exactly get renamed `*_boost_legacy`, never silently reinterpreted.
+**Mock evidence (2026-07-14, 11/11 assertions):** real fixtures (probe P3/P4
+user_info + total_vamp verbatim); Part A ran fetchMemberPortfolio +
+computeMemberSummary (total = 1,310,560.252656 exact; projection =
+underlying×10 exact; display field absent); Part B ran the FULL member-data
+main loop under a stubbed chain lib — 4/4 outputs published, canonical total
+27,963,640.404, cross-check total-basis exact.
 
 ## 4. Acceptance test (run at deploy)
 
