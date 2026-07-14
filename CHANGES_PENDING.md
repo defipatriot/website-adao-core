@@ -7,6 +7,88 @@ Last cleared: **2026-06-07** (post NFT inventory Rev B deploy). Rev 0.16 catalog
 
 ---
 
+## 🔬 Capture-layer accuracy audit (2026-07-13) — VP definition, distributions, tribute gap
+
+Trigger: LUNA-SOLID investigation (bribe → 7× VP rotation → liquidity followed)
+surfaced a UI/data mismatch; full audit against a same-day TLA UI paste + 4
+chain probes followed. Specs: `SPEC-vp-definition-fix.md`,
+`SPEC-distributions-capture.md`. **Every VP surface we publish is affected;
+reward-dollar figures were NOT (they already read distributions).**
+
+### ✅ Established this session (chain-confirmed)
+- **vAMP VP = `fixed_amount + voting_power`** — we publish boost-only, ~11% low
+  everywhere, worse for short-lock pools (stLUNA was 26% off). Verified 9/9
+  pools vs UI incl. 5-sig-fig match on the discriminating case; money follows
+  it (distributions). Canonical total = `total_vamp.vp` ≈ 27.96M (the old
+  "max bucket ≈ 24M" convention retires — PROJECT_KNOWLEDGE edit queued).
+- **Gauge controller retains FULL per-period distribution history** in
+  queryable state — period 120 (deep in the events dead zone) answers from a
+  public LCD. Payout ledger back to gauge genesis = ~100 cheap queries, **no
+  block scanning**. Epoch mechanics locked: gauge_infos(next) = live tally →
+  freezes to distributions(period N) at flip → pays during N+1.
+- **Camron's LUNA-SOLID bribe captured byte-perfect** (203.2 SOLID linear
+  193→200 = 25.4/epoch ✓ UI $25.83). Vote events match UI per-wallet exactly.
+
+### 🐞 Defect register (owning cron → fix vehicle)
+1. **VP definition** — tla-snapshot + capture-engine(×2) + tla-locks →
+   SPEC-vp-definition-fix. The capture-engine comment claiming voting_power
+   alone sets weights is FALSE; `display_voting_power_human` retires.
+2. **Tribute capture ~97% blind** — ~$925/epoch of live incentives on ~19
+   pools vs 1 captured event (Camron's). Cause: recurring tributes are
+   contract-initiated `add_bribe` (asset take-rate callbacks), invisible to
+   top-level-msg parsing in org-tla-voting. Fix = wasm **event**-level parse
+   keyed on the manager address. History: pre-2025 via FCD re-harvest (event
+   filters); retained-window partial recovery; 2025→Jun-2026 joins known_gaps.
+   **Block-scale work GATED on the Phase-2 capture registry** (one pass,
+   everything: tributes + flows pool-identity + whatever else the hunt finds).
+3. **wBTC.creda.a missing entirely** from tla-snapshot (2.69M VP, 10.2% of
+   single) — Creda dex absent from pool discovery (platform-crons dex-data
+   has `credia.js`; wire into snapshot discovery).
+4. **Ghost/stray gauge votes** in bucket denominators (wstETH-SS,
+   wBTC.osmo-*, cross-bucket USDC-USDT strays; ~3M VP earns nothing).
+   Distributions = the whitelist; pct math moves to it; expose "wasted VP".
+5. **Name-resolution failures** — 4 raw-id pools (one proven = ampROAR-ROAR
+   Astroport); display-name parity (bLUNA-LUNA↔LUNA-boneLUNA,
+   LUNA-WBTC↔LUNA-wBTC.atom, PAXG-WBTC↔PAXG-wBTC.atom). Historical LP
+   addresses from period-120 data need catalog resolution too.
+6. **Depth stale/inconsistent** — LUNA-SOLID depth $10.5k < staked $12.5k in
+   one snapshot (impossible); several pools ±20-35% vs UI; singles depth=0
+   (UI shows staked-asset depth). One source, one timestamp, invariant
+   `staked ≤ depth` added to run self-checks.
+7. **vp-attribution ordering hazard** — boundary rollup consumes member votes
+   up to ~23h stale (Camron's 1.18M vote binned as other_vp at e193). Fix:
+   fresh positions read at boundary, or attribution runs post-positions.
+8. **dex-data bucket label** — LUNA-SOLID tagged `stable`, gauge says
+   `project`.
+9. **tla-flows records lack pool identity** (bucket inferable only via
+   raw_actions/zap legs — bit us in this analysis) — classifier enrichment;
+   rides the capture-registry block pass for history.
+10. **Invariant monitors → system-health**: Σ bucket tallies vs total_vamp
+    (like-for-like periods only), staked ≤ depth, distribution fractions sum
+    to 1, active-tribute count vs bribe stream.
+
+### 🔥 Build order (approved 2026-07-13; spec → approval → build → mock, one at a time)
+1. VP definition fix (SPEC-vp-definition-fix) — forward correctness.
+2. Distributions harvest + forward capture (SPEC-distributions-capture) —
+   payout history in an afternoon; unblocks exact history rebuild.
+3. Rollup rebuilds (pool-status-history, vp-attribution) from corrected
+   sources + ordering fix (#7).
+4. Tribute event-level capture rework (#2) — forward first; history waits on
+   the capture-registry gate.
+5. Discovery + naming (#3, #5), depth unification (#6), labels (#8),
+   invariant monitors (#10).
+
+### 📒 Found-by-building ledger additions
+- Bribe-market reflexivity observed live: the LUNA-SOLID bribe's own success
+  diluted its $/VP 87% in one epoch → Votion optimizer dropped it while LP
+  staking APR spiked → liquidity migrating in (first: $4.2k USDC-SOLID →
+  LUNA-SOLID rotation Jul-13, outside TLA farm contracts — by-design
+  coverage note for the flows README). Feature seeds: epoch shift simulator,
+  shift feed, wasted-VP detector, biggest-supporters view (tag Votion lock
+  contracts in address catalog), freshness timestamps à la Votion.
+
+---
+
 ## 🏛 tla-voting migration + FCD archive breakthrough (2026-07-07/08)
 
 Full story: `tla-core/docs/changelogs/cron-tla-voting-log.md` (Rev 1–2) and the

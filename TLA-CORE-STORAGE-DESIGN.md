@@ -171,6 +171,7 @@ done/pending, not this one.**
 | `price-history/`, `nfts/adao/flows/`, `nfts/adao/snapshots/`, `dex-data/*/snapshots/` | missing `index.json` | QUEUED — one conformance sweep; each cron adds its own. Tracked in CHANGES_PENDING. |
 | `nfts/adao/provenance/tokens/` | shipped as `.jsonl` on 2026-07-08 | ✅ FIXED same day — re-derived as `part-NN.json` JSON arrays. |
 | `archive/fcd/` | raw parts, no index | Not a deviation — ARCHIVE class (§2), documented. |
+| `tla-voting/distributions/` (proposed 2026-07-13) | single `history.json` array keyed by period, not monthly `{YYYY}/{MM}.json` | **PENDING Camron's layout sign-off** (SPEC-distributions-capture §3). Rationale: period-keyed contract state, ~4 gauge entries/week, <2 MB over years — not tx events. Harvester carries a flag to flip to monthly conformance if rejected. Tracked in CHANGES_PENDING. |
 
 Any NEW deviation gets a row here the day it's discovered, plus a
 CHANGES_PENDING item. A deviation without a row is the failure mode this
