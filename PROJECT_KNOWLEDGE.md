@@ -69,6 +69,31 @@ When in doubt, add it. Over-documentation is fine; lost context is not.
 
 ---
 
+## 🗺 REPO PLACEMENT MAP — BINDING (added 2026-07-14 after two misplacement incidents)
+
+Every file has exactly one home. Violating this map caused two failed deliveries
+on 2026-07-14 (Claude packaged a workflow beside its script instead of following
+the established split; Camron's understanding was correct both times). Check the
+target repo's existing tree BEFORE packaging any deliverable.
+
+| What | Where | Never |
+|---|---|---|
+| Render job code (crons + their libs) | `thealliancedao/platform-crons/<job>/` | no `.github/` folder ever ships here |
+| GitHub-Action one-off scripts | `thealliancedao/tla-core/.github/scripts/<module>/<script>.js` — SELF-CONTAINED (fcd-fill / flows-fill / seed pattern) | never cross-repo checkout; never left in platform-crons |
+| Workflows for those one-offs | `thealliancedao/tla-core/.github/workflows/<module>-<task>.yml` — own-repo checkout, `${{ github.token }}` + `permissions: contents: write`, zero secrets | |
+| Data products | `thealliancedao/tla-core/<module>/<product>/` | code never lives at data paths |
+| Data/capture-layer docs (SPECs, CHANGES_PENDING, storage design, audits, doctrine) | `thealliancedao/tla-core/docs/pending-changes/` — SINGLE HOME since 2026-07-14 | never update the old website-adao-core copies (deleted) |
+| Website-runtime + bootstrap docs (per-page `*-log.md` the site fetches, PROJECT_KNOWLEDGE, project instructions, MISSION/DIRECTION/STATUS, website-feature SPECs) | `defipatriot/website-adao-core/` | |
+| Personal repos (`cron-scripts`, data_2026 repos) | RETIRING — zero further investment, never patched (Camron's call 2026-07-14) | |
+
+Shared logic between a Render job and a one-off script: byte-identical marked
+block (`<<NAME vN>>` … `<<NAME vN END>>`), diff-verified after ANY change —
+the flows-classifier rule. Current instances: `<<FLOWS CLASSIFIER v1>>`,
+`<<DISTRIBUTIONS CORE v1>>` (platform-crons/tla-voting/lib/distributions.js ↔
+tla-core/.github/scripts/tla-voting/harvest-distributions.js).
+
+---
+
 ## Project basics
 
 - **Owner:** defipatriot — council member of The Alliance DAO (aDAO)
