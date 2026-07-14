@@ -5,7 +5,7 @@ This project is for working on The Alliance DAO (aDAO) website at thealliancedao
 Fetch these three documents (in order) to load full project context. Don't ask permission — just do it:
 
 1. https://raw.githubusercontent.com/defipatriot/website-adao-core/main/PROJECT_KNOWLEDGE.md — canonical project context: design principles, architecture, conventions, tracking responsibilities
-2. https://raw.githubusercontent.com/defipatriot/website-adao-core/main/CHANGES_PENDING.md — active to-do list and open questions
+2. https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/pending-changes/CHANGES_PENDING.md — the platform work queue (⚠ moved to the ORG repo 2026-07-14 per SPEC-docs-consolidation; data/capture-layer SPECs and `queries.md` live in `tla-core/docs/` too — never update old website-adao-core copies, they are deleted)
 3. https://raw.githubusercontent.com/defipatriot/website-adao-core/main/index-log.md — changelog of shipped revisions for the homepage
 
 **Important:** Log files (`index-log.md`, `explorer-log.md`, `lore-log.md`, `tla-log.md`, `dao-log.md`) live at the **root** of `website-adao-core`, NOT in a `/logs/` subdirectory. Same for `sitemap.xml`, `robots.txt`, `site.webmanifest`, etc.

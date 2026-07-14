@@ -26,7 +26,7 @@ The user has explicitly stated they will forget things and lose track. **Claude 
 | User clarifies a workflow constraint (e.g. file naming on download) | "Working conventions" section | Smooth handoffs |
 | Admin-tool bug found or fixed (data-capture, snapshot tools) | "Critical data-capture gotcha" section | Prevent regression; admin tools don't have a changelog footer so this doc is the only record |
 | Catalog cron bug root-caused (`tla-registry` cron, `tla-catalog.html`, or schema/curation files) | "TLA Chain Registry catalog system" section ⟶ "Critical catalog gotchas" subsection, AND prepend a Rev entry in `catalog-log.md` | Catalog bug class lessons are easy to forget; document the **why** not just the fix |
-| New on-chain query method discovered, or new contract address surfaced for future queries | `queries.md` — add a Q-{Contract}-{Method} block with human label, input shape, output shape, and what it powers | This is the build foundation for the future query tool — don't lose method discoveries |
+| New on-chain query method discovered, or new contract address surfaced for future queries | `thealliancedao/tla-core/docs/queries.md` (moved 2026-07-14) — add a Q-{Contract}-{Method} block with human label, input shape, output shape, and what it powers | This is the build foundation for the future query tool — don't lose method discoveries |
 | Catalog-related curated file changes (`token_overrides.json`, `acquisition_guides.json`, `known_contracts.json`, etc.) | `catalog-log.md` Rev entry | Curation changes are not code changes but DO affect the catalog output — track them so future audits can correlate "this token's display changed because we added an override" |
 
 ### When to update CHANGES_PENDING.md
@@ -99,7 +99,7 @@ tla-core/.github/scripts/tla-voting/harvest-distributions.js).
 - **Owner:** defipatriot — council member of The Alliance DAO (aDAO)
 - **Main repo (deployed code only):** `github.com/defipatriot/aDAO-links-site` — HTML, CSS, JS, sitemap, manifest. **Never put docs/notes here** — Vercel only deploys what's in this repo, so keep it focused on what's actually rendered to users.
 - **Image hosting repo:** `github.com/defipatriot/aDAO-Image-Files` (favicons, logos, OG images, collection PFPs — referenced via raw.githubusercontent.com URLs)
-- **Docs repo:** `github.com/defipatriot/website-adao-core` — `PROJECT_KNOWLEDGE.md`, `CHANGES_PENDING.md`, all changelog `*-log.md` files, plus `sitemap.xml`, `robots.txt`, `site.webmanifest`, etc. Everything lives at the **root** of the repo — no subdirectories. **All project documentation lives here, NOT in the main site repo.** Edits don't trigger Vercel redeploys.
+- **Docs repo:** `github.com/defipatriot/website-adao-core` — `PROJECT_KNOWLEDGE.md`, all changelog `*-log.md` files, website-feature SPECs, plus `sitemap.xml`, `robots.txt`, `site.webmanifest`, etc. Everything lives at the **root** of the repo — no subdirectories. **Since 2026-07-14 this repo holds ONLY site-runtime + bootstrap docs** — the platform work queue (`CHANGES_PENDING.md`), `queries.md`, storage design, and all data/capture-layer SPECs live in `thealliancedao/tla-core/docs/` (see the REPO PLACEMENT MAP above). Edits here don't trigger Vercel redeploys.
 - **Live URL (canonical):** `thealliancedao.com`
 - **Live URL (alias, 308 redirects):** `theadao.com`
 - **Vercel fallback URL:** `a-dao-links-site.vercel.app` (still works, useful for testing)
@@ -218,7 +218,8 @@ PWA shortcuts, install prompts, default-page selectors — all are bonus feature
 
 The `*-data_2026` one-repo-per-cron model is being superseded by a single unified
 **`defipatriot/tla-core`** repo, structured **module → product → files**. Full
-convention in `website-adao-core/TLA-CORE-STORAGE-DESIGN.md`. In brief:
+convention in `thealliancedao/tla-core/docs/pending-changes/TLA-CORE-STORAGE-DESIGN.md`
+(moved there 2026-07-14). In brief:
 - **module** = the cron/domain (mirrors `cron-scripts/{module}/`): `fuel`, `flows`, …
 - **product** = the data shape: `snapshots/` (state-at-a-time) or `events/`
   (append-only stream). A module may have more than one.
@@ -343,7 +344,7 @@ Replaces the manual `tla_tool.html` + `tla-tool_ext.html` capture flow. **9 prod
 - **Same filenames on each run** — `current.json`, `tla-snapshot.json`, etc. always overwrite. Epoch archives accumulate alongside.
 - **Render free tier** — cron jobs run as Node.js services, push to GitHub via PAT.
 - **No API server in front** — website fetches data via `raw.githubusercontent.com` direct URLs.
-- **Adao-positions treasury = "aDAO" at TLA-wide level.** Individual member breakdowns live in a separate page (`dao-tla.html`, not yet built). The treasury wallet (`terra1sffd4ef...`) is the single canonical aDAO voting entity. Each user's VP allocates once per bucket (4 buckets), so pool-summed VP inflates 4× per user — use max-bucket VP (~24M) as canonical "Total TLA VP" to match Eris.
+- **Adao-positions treasury = "aDAO" at TLA-wide level.** Individual member breakdowns live in a separate page (`dao-tla.html`, not yet built). The treasury wallet (`terra1sffd4ef...`) is the single canonical aDAO voting entity. Each user's VP allocates once per bucket (4 buckets), so pool-summed VP inflates 4× per user. **⭐ Canonical "Total TLA VP" = the escrow's `total_vamp.vp` (fixed + boost, ~28M — matches the TLA UI header). The old max-bucket convention (~24M) was boost-only and RETIRED 2026-07-14 (SPEC-vp-definition-fix); max-bucket VP is kept only as a sanity reference.** Bucket-tally-vs-total comparisons are valid only like-for-like by period.
 
 ### Pool uniqueness — critical for any code reading TLA data
 - `pool_name` alone collides across DEXes (LUNA-USDC on both Astroport and Skeleton)
@@ -352,7 +353,7 @@ Replaces the manual `tla_tool.html` + `tla-tool_ext.html` capture flow. **9 prod
 - Snapshot exposes it as `gauge_pool_id`; member-vote data exposes it as `pool_gauge_id` — same values, different field names
 - Any code keying on pool name alone will eventually hit collisions. Always key on `gauge_pool_id`.
 
-### Key value reconciliation (verified 2026-05-14)
+### Key value reconciliation (verified 2026-05-14 — ⚠ VP rows are boost-only, pre the 2026-07-14 VP-definition fix; canonical Total TLA VP is now `total_vamp.vp` ≈ 28M)
 | Metric | Value | Cross-check |
 |---|---|---|
 | Total TLA VP | 24.11M | matches Eris UI |
@@ -392,7 +393,7 @@ Each cron has its own `README.md` in its folder. Recent changes are tracked in a
 
 ## TLA Stats — product pillars & capture layer (capture BUILT 2026-06-13; pillars next)
 
-This is the "what makes TLA Stats different from the official Eris UI" work. Four pillars: **Portfolio Tracker** (member position time-series + P&L), **LP Performance & Health Scoring**, **Bribes Tracking**, **Vote Intelligence**. History splits two ways: **events** (votes, locks) are **backfilled to genesis** via tx_search (like the NFT provenance pipeline); **valuations** (USD/ratios) are **forward-only** because public LCDs prune and — confirmed 2026-06-15 — **no free Terra phoenix-1 archive node serves historical state** (surveyed TFL, publicnode, polkachu: all pruned or dead). See SPEC-tla-history-backfill.md.
+This is the "what makes TLA Stats different from the official Eris UI" work. Four pillars: **Portfolio Tracker** (member position time-series + P&L), **LP Performance & Health Scoring**, **Bribes Tracking**, **Vote Intelligence**. History splits two ways: **events** (votes, locks) are **backfilled to genesis** via tx_search (like the NFT provenance pipeline); **valuations** (USD/ratios) are **forward-only** because public LCDs prune and — confirmed 2026-06-15 — **no free Terra phoenix-1 archive node serves historical state** (surveyed TFL, publicnode, polkachu: all pruned or dead). (The old SPEC-tla-history-backfill.md is RETIRED 2026-07-14 — its goal was achieved differently and better: tla-voting seed + FCD fill + the distributions harvest.)
 
 ### ✅ Backfill data layers — ALL THREE COMPLETE (2026-06-15)
 Three one-time backfills now feed the Portfolio P&L + Vote Intelligence UIs. All verified live:
@@ -737,7 +738,11 @@ That's ~30 minutes to fully reload context. The 2026-06-02 audit night taught us
 
 The migration from ~18 crons + `*-data_2026` repos into ONE `tla-core` repo with
 module folders. **Canonical layout + migration philosophy live in
-`TLA-CORE-STORAGE-DESIGN.md`; current state + handoff in `TLA-CORE-STATUS.md`.**
+`tla-core/docs/pending-changes/TLA-CORE-STORAGE-DESIGN.md` (moved 2026-07-14);
+live status + the retire board live in
+`tla-core/docs/pending-changes/CHANGES_PENDING.md`.** (The old
+`TLA-CORE-STATUS.md` June-25 handoff is RETIRED — superseded by the org
+rebuilds; don't look for it.)
 
 ### Storage layout is `module / product / files` (don't forget the product level)
 `tla-core/{module}/{product}/` with `heartbeat.json` + `index.json` ALWAYS, plus
@@ -1366,13 +1371,13 @@ When the user downloads a file with the same name multiple times in a session, t
 Claude exports edited files to `/mnt/user-data/outputs/` for the user to download and upload via the GitHub web UI. The exported file **must have the same name as the file it replaces** — e.g. `nft-inventory.js`, `README.md`, `queries.md` — so the user can match it 1:1 to the file being overwritten without guessing. **Do NOT** rename to path-encoded forms like `cron-scripts__nft-inventory__nft-inventory.js`, and do NOT add `_v2`/`_final` suffixes. If two files in one export would collide on name (e.g. two different `README.md`), export them in separate `present_files` batches or state the destination explicitly for each — do not solve the collision by mangling the filename. State the destination repo/path in the chat text instead.
 
 ### Recap files at start of new chat
-Fetch these raw URLs to load context:
+Fetch these raw URLs to load context. ⚠ **Since 2026-07-14 (SPEC-docs-consolidation) the data/capture-layer docs live in `thealliancedao/tla-core/docs/` — NOT here:**
 - `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/PROJECT_KNOWLEDGE.md`
-- `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/CHANGES_PENDING.md`
+- `https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/pending-changes/CHANGES_PENDING.md` — the platform work queue (moved 2026-07-14)
 - `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/index-log.md`
 - `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/tla-log.md` (if working on TLA stats)
 - `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/catalog-log.md` (if working on the TLA catalog / `tla-registry` cron)
-- `https://raw.githubusercontent.com/defipatriot/website-adao-core/main/queries.md` (any time on-chain queries are involved)
+- `https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/queries.md` (any time on-chain queries are involved — moved 2026-07-14)
 
 If working on cron-side code, also pull:
 - The relevant cron's source from `defipatriot/cron-scripts` (e.g. `tla-snapshot/tla-snapshot.js`, `chain/tla-registry/tla-registry.js`)
