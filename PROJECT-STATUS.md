@@ -88,7 +88,7 @@ issues (heartbeat-path mismatches, since fixed). Error-reporter sanitizes errors
   per-unit price. Token prices in the price layer; positions valued in the positions module.
 - **Cron timing:** foundation (prices, registry) first; bribes before participants;
   most data is continuous (snapshot anytime); only epoch-bound data needs boundary
-  timing. Camron sets schedules in Render.
+  timing. DeFi Patriot sets schedules in Render.
 - **Data correctness:** verified sound — no zeroing needed. adao-positions schema
   evolved (46→156 members ~06-13); charts use stable totals.* fields.
 - **Workflow:** full-file replacements only (never partial edits). Verify each

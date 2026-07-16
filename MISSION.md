@@ -1,6 +1,6 @@
 # MISSION — Why TLA Stats exists (the three-layer strategy)
 
-**Status:** drafted 2026-06-14, consolidating Camron's mission framing + prior
+**Status:** drafted 2026-06-14, consolidating DeFi Patriot's mission framing + prior
 scattered notes (CRON-FIXES-BRIEF, PROJECT_KNOWLEDGE, CHANGES_PENDING). This sits
 ABOVE the individual specs and explains *why* each pillar is being built. When a
 feature decision is unclear, check it against this.
@@ -63,7 +63,7 @@ AND inactive) on real quality**, so the ecosystem can route incentives
 intelligently instead of by inertia or bribe-size alone. TLA Stats becomes the
 **reference oracle for "where should TLA liquidity go."**
 
-### The grading dimensions (Camron's list, expanded with what we can compute)
+### The grading dimensions (DeFi Patriot's list, expanded with what we can compute)
 | Dimension | What it measures | Data status |
 |---|---|---|
 | **Trade efficiency** | how well the pool actually executes trades | 🔶 from depth + volume + curve type |
@@ -104,7 +104,7 @@ then fan out to read pools, VP, rewards, bribes, take-rates from source — no
 hardcoded addresses, auto-tracking any migration. This collapses the
 hardcoded-address fragility and is the highest-leverage trustworthiness change.
 
-Guiding philosophy (Camron): *read from authoritative sources, snapshot the raw
+Guiding philosophy (DeFi Patriot): *read from authoritative sources, snapshot the raw
 each epoch, derive views from the raw, never throw away the raw.* Capture
 comprehensively now — even data we don't display yet — so features can be built
 later without re-deriving, and any discrepancy is diagnosable by going back to
@@ -140,7 +140,7 @@ source.
 
 ---
 
-## Open question for Camron (recorded, not blocking)
-LP grading's primary purpose — Camron leaning "both": route incentives (where
+## Open question for DeFi Patriot (recorded, not blocking)
+LP grading's primary purpose — DeFi Patriot leaning "both": route incentives (where
 SHOULD liquidity go) AND user safety (which LPs are healthy to enter) are the same
 quality signal viewed two ways. The metrics serve both; framing per-audience.

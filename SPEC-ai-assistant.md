@@ -2,7 +2,7 @@
 
 ## Goal
 A chat widget that answers user questions about TLA Stats using public docs + live
-data, helps users without Camron, and can file support/feature requests directly
+data, helps users without DeFi Patriot, and can file support/feature requests directly
 to him.
 
 ## What it does
@@ -10,7 +10,7 @@ to him.
    Votion?") grounded in THIS system's docs + data.
 2. Helps users self-diagnose ("my portfolio looks wrong") and explains.
 3. When something is a genuine feature request or bug: helps the user articulate
-   it clearly, then submits it to Camron.
+   it clearly, then submits it to DeFi Patriot.
 
 ## Architecture
 - **Frontend:** chat widget on the site (or a tab on the Transparency Hub).
@@ -23,7 +23,7 @@ to him.
   the answer. Rate-limit per IP to cap cost.
 - **Support-request submission:** the proxy (or a second function) opens a GitHub
   issue in a dedicated repo (e.g. `tla-support`) with the AI-formatted
-  description, OR sends an email/webhook. GitHub issue is cleanest: free, Camron
+  description, OR sends an email/webhook. GitHub issue is cleanest: free, DeFi Patriot
   gets notified, tracked, threaded.
 
 ## Constraints / decisions needed
@@ -33,6 +33,6 @@ to him.
 - Scope guardrails: keep it answering about TLA Stats, not general chit-chat.
 
 ## Why it's worth it
-Self-serve help scales Camron; surfaces good feature requests; turns confused
+Self-serve help scales DeFi Patriot; surfaces good feature requests; turns confused
 users into clear bug reports. The data + docs are already public, so grounding is
 free. Only real lift is the backend proxy.

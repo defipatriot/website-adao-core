@@ -36,7 +36,7 @@ say absolutely."
 ## How they submit
 - **Option A (recommended):** a form on the site → fills a structured JSON →
   submits as a GitHub issue/PR to a `collection-onboarding` repo. Tracked,
-  diffable, Camron reviews + ingests.
+  diffable, DeFi Patriot reviews + ingests.
 - **Option B:** a downloadable markdown/JSON template they fill and send.
 - **Bonus:** the AI assistant (SPEC-ai-assistant.md) can walk them through filling
   it out.

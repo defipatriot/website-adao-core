@@ -24,14 +24,14 @@ for alerts (unlock soon, unclaimed rewards, inactive LP).
 
 ### 2. AI Assistant on the site  ⭐ (new — 2026-06-15)
 A chat widget that answers user questions using the public docs + live data as
-context, helps without Camron, and can file support/feature requests directly.
+context, helps without DeFi Patriot, and can file support/feature requests directly.
 - **Value:** self-serve help; surfaces good feature requests; identifies bugs and
-  writes them up for Camron.
+  writes them up for DeFi Patriot.
 - **How:** Anthropic API, fed the public JSON/markdown (docs, system-health,
   prices) so it answers about THIS system specifically. Can help users articulate
   an issue, then submit it.
 - **Support-request flow:** AI helps write it → submits as a GitHub issue (free,
-  notified, tracked) OR email/webhook to Camron.
+  notified, tracked) OR email/webhook to DeFi Patriot.
 - **The one real constraint:** API key CANNOT be client-side (theft = bill). Needs
   a tiny serverless backend proxy holding the key. That's the only non-static
   piece. Cost = API usage (manageable with limits).
@@ -44,7 +44,7 @@ The productization: a structured intake so a new collection can join the platfor
   structure, staking contracts (DAODAO/Enterprise/etc), marketplace listings
   source, collection lore/story, desired features (explorer, history, backfill,
   portfolio, grading), collection-specific feature requests, branding/assets.
-- **How they submit:** a form → Camron, OR a GitHub PR/issue with the filled
+- **How they submit:** a form → DeFi Patriot, OR a GitHub PR/issue with the filled
   template (so it's tracked + diffable).
 - **Why it matters:** turns onboarding from archaeology into config. Directly
   serves the mission. No backend needed (pure form + template).

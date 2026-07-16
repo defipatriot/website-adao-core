@@ -73,7 +73,7 @@ When in doubt, add it. Over-documentation is fine; lost context is not.
 
 Every file has exactly one home. Violating this map caused two failed deliveries
 on 2026-07-14 (Claude packaged a workflow beside its script instead of following
-the established split; Camron's understanding was correct both times). Check the
+the established split; DeFi Patriot's understanding was correct both times). Check the
 target repo's existing tree BEFORE packaging any deliverable.
 
 | What | Where | Never |
@@ -84,7 +84,7 @@ target repo's existing tree BEFORE packaging any deliverable.
 | Data products | `thealliancedao/tla-core/<module>/<product>/` | code never lives at data paths |
 | Data/capture-layer docs (SPECs, CHANGES_PENDING, storage design, audits, doctrine) | `thealliancedao/tla-core/docs/pending-changes/` — SINGLE HOME since 2026-07-14 | never update the old website-adao-core copies (deleted) |
 | Website-runtime + bootstrap docs (per-page `*-log.md` the site fetches, PROJECT_KNOWLEDGE, project instructions, MISSION/DIRECTION/STATUS, website-feature SPECs) | `defipatriot/website-adao-core/` | |
-| Personal repos (`cron-scripts`, data_2026 repos) | RETIRING — zero further investment, never patched (Camron's call 2026-07-14) | |
+| Personal repos (`cron-scripts`, data_2026 repos) | RETIRING — zero further investment, never patched (DeFi Patriot's call 2026-07-14) | |
 
 Shared logic between a Render job and a one-off script: byte-identical marked
 block (`<<NAME vN>>` … `<<NAME vN END>>`), diff-verified after ANY change —
@@ -528,7 +528,7 @@ start (UNVERIFIED — check org nft-flows coverage vs the collection harvest).
 
 **Attribution law (reaffirmed 2026-07-08):** strictly factual — treasury
 address = aDAO, protocol multisigs = their protocols, **personal member
-wallets = the individual** (e.g. Camron's 203.198978-SOLID bribe, epochs
+wallets = the individual** (e.g. DeFi Patriot's 203.198978-SOLID bribe, epochs
 193–200, is HIS, never aDAO's). No affiliation-based folding, ever.
 
 ---
@@ -794,7 +794,7 @@ its own amplified denom by address overlap (compounder
 describes the displayed ratio basis, NOT "no amplified vault."
 
 ### Token rollover — SOLVED for tla-core
-Camron made one no-expiration commit token, plugged into ALL tla-core crons. No
+DeFi Patriot made one no-expiration commit token, plugged into ALL tla-core crons. No
 Nov-2026 rollover needed for tla-core crons (the old `*-data_2026` ones still have
 the end-2026 expiry until retired).
 
