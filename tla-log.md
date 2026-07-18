@@ -12,6 +12,10 @@ repo — rebuilt from the Rev 4 spec against the current pages, verified
 against the live schema-6 rollup in a Node DOM harness before delivery).
 
 ### test.html
+- **All leaderboards now expand past top 5 (same commit):** shared
+  `boardExpander` — every board (Voting Leaders, Utilization, Recently
+  Adjusted, OG Board, Newcomers, Bribe Earners; Top Bribers already had it)
+  renders top 5 with a "show all N" toggle revealing the full depth.
 - **OG Board / Newcomers tiebreak (same commit):** first_participation is
   period-granular, so the whole Day One crowd tied at period 96. Same-period
   ordering now tiebreaks by the wallet's smallest held lock token id (lock
