@@ -5,6 +5,38 @@ Newest revisions on top. Times are UTC.
 
 ---
 
+## Rev 4 — 2026-07-17
+
+Top Bribers board — first UI consumer of the tla-voting rollups **schema 6**
+briber leaderboard (SPEC-tla-voting-briber-board, tla-core).
+
+### test.html (primary surface — Community leaderboards)
+- The **Bribe Earners card is now "Top Bribers" by default**: all-time direct
+  bribers from the live schema-6 `rollups.json`, top 5 with a show-all
+  expander, in the same personRow visual language as OG Board / Newcomers.
+- **Naming rule (settled):** registry-first and uniform — every aDAO/ally
+  member resolves via `displayName` + `walletBadges` identically; curated
+  protocol labels (rollup `label`) in purple second; short address last.
+  Nothing hardcoded in the page.
+- **Unpriced honesty:** bribers whose tokens have no historical price record
+  (WHALE-era LSTs, early CAPA) show "unpriced" with an explanatory tooltip —
+  amounts are chain-exact, USD is never guessed. Priced rows show USD at
+  placement; today-value on hover.
+- The previous pending-rewards view is preserved behind an **All-time /
+  Earners toggle** in the card header (it answers a different question).
+
+### tla-stats.html (legacy page — optional commit)
+- The Epoch Bribes modal gained an "All-Time Top Bribers" deep-dive section:
+  sortable (at placement / today value / most active), expandable per-pool
+  rows with per-token USD, same naming + unpriced rules. Redundant once the
+  test-page restructure ships; kept self-contained for easy re-homing.
+
+### Data notes surfaced by this work (recorded in tla-core CHANGES_PENDING)
+- Phoenix Directive bribes via **DAO governance execution** (contract-initiated
+  add_bribe) — invisible to the current direct-event capture; fixture tx
+  recorded for build #3. The board banner states the direct-only universe.
+- Confirmed protocol briber: Lion DAO (`terra1ksk66l…z8ru04`) → wallets.json.
+
 ## Rev 3 — 2026-05-30
 
 Today's session. A long multi-part day on `tla-stats.html`: bribe/member tile work, the Overview leaderboard-tile and ranking-popup rework, the Vote Breakdown waterfall rebuild, a major data-accuracy audit against on-chain Eris/Votion ground truth (the variant-collision class + concentrated-pool discovery), the Pool Health / Liquidity-Growth / Threshold panels, member-position earnings, and the comprehension pass. Each sub-revision below is one test-file iteration that was reviewed and edited, oldest first. All work is in the rendering layer unless noted; cron-side items are collected in `CRON-FIXES-BRIEF.md`.

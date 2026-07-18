@@ -7,6 +7,45 @@ This file also covers cross-cutting site changes that affect multiple pages — 
 
 ---
 
+## Rev 3.55 — 2026-07-17
+
+Community-suggestion fixes + sparkline revival + fetch hygiene. (Note: in-code
+comments in this rev were mislabeled "Rev 3.51" — they refer to THIS rev.)
+
+### index.html
+- **Atrium links fixed (community report):** Marketplace Activity tile header now
+  links to the aDAO collection page on atrium.markets; every Atrium listing card
+  in All Current Listings deep-links to its specific NFT
+  (`/atrium/{contract}/{token_id}`). Previously both pointed at bare atrium.money.
+- **DAO Broken modal typo:** wallet suffix "...417v" corrected to "...4l7v"
+  (bech32 has no digit 1 — the printed suffix was chain-impossible).
+- **Rewards-tile sparklines restored:** the tile restructure had deleted the
+  `deposit-sparkline`/`rebase-sparkline` canvases and the renderer silently
+  no-op'd. Canvases restored on Deposit + Rebase tiles, a third added to Vote
+  Rewards (per-day stored `total_usd` — honest multi-token basis), and the
+  silent guard replaced with a loud `console.warn`.
+- **fetchAllSnapshots hygiene:** in-flight promise memoization (two concurrent
+  callers were doubling a ~225-request daily-archive pass); per-source start-date
+  floors (dao-dashboard ≥ 2026-06-12, v2 daily ≥ 2026-06-07) remove 13
+  guaranteed-404 probes per pass.
+- **tla-ext walkback:** last-good epoch cached in sessionStorage; probes current
+  epoch first (catches cron resumption) then jumps — ~2 fetches instead of 10.
+  Log now says plainly when the ext cron is stalled behind current.
+- **DAO Members chart icon removed:** the daily pipeline has no member-count
+  source, so the modal was permanently empty. Mapping documented for restore
+  once a daily capture exists.
+
+### links.html (cross-cutting)
+- **Atrium Markets card added** to NFT Marketplaces (collection link,
+  `?tab=listings`). No logo asset exists yet — uses the site's pink "A" badge;
+  swap when a logo lands in aDAO-Image-Files.
+
+### Diagnosis note
+- Most of the community-reported "forever loading" symptoms reproduced only when
+  opening the downloaded file from Downloads (`file://`): sibling `/lib/*.js`
+  absent → tiles never mount; CORS proxy rejects `Origin: null` → BBL/Boost
+  live fields blank. Test local builds from a repo clone or on Vercel.
+
 ## Rev 3.54 — 2026-06-12
 
 Deep-dive page migration + chart history revival + cron-first instant paint. Closes the "everything frozen at epoch 185" era and cuts cold-load from ~9s to ~3-5s.

@@ -5,6 +5,19 @@ Newest revisions on top. Times are UTC.
 
 ---
 
+## Rev 6.1 — 2026-07-17
+### What changed (nft-explorer-app.js)
+- **aDAO custody wallets pinned on the Holder Leaderboard** (community request):
+  four DAO wallets render as labeled, unranked informational rows above the
+  human rankings — DAO Unminted 5,828 · DAO Broken 898 · DAO Broken Enterprise
+  100 · DAO Multisig Vetoer 2. Broken sum = 1,000, matching the Props 64–69
+  modal exactly. Human ranks unchanged.
+- **Honest-attribution guard:** the old Enterprise contract also custodies ~81
+  user stakes the inventory cron cannot attribute (`enterprise_unattributed`);
+  those stay excluded from the board entirely rather than being mislabeled as
+  DAO-owned. Known attribution gap, cron-side, recorded here.
+- **Label added:** multisig vetoer wallet now in SYSTEM_WALLET_LABELS.
+
 ## Rev 6.0 — 2026-06-11
 ### What changed
 - **Deep-linkable tabs:** `?view=analytics|wallet` opens that tab directly (collection = clean URL); tab switches pushState so back/forward navigates tabs; filter changes preserve the active tab in the URL. Enables direct links from the dashboard and external posts.
