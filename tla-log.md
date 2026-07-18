@@ -5,6 +5,55 @@ Newest revisions on top. Times are UTC.
 
 ---
 
+## Rev 5 — 2026-07-18
+
+Top Bribers board REBUILT and committed (the Rev 4 files never reached the
+repo — rebuilt from the Rev 4 spec against the current pages, verified
+against the live schema-6 rollup in a Node DOM harness before delivery).
+
+### test.html
+- **OG Board / Newcomers tiebreak (same commit):** first_participation is
+  period-granular, so the whole Day One crowd tied at period 96. Same-period
+  ordering now tiebreaks by the wallet's smallest held lock token id (lock
+  ids mint sequentially → earliest surviving lock = join order), shown in
+  the sub line as "lock #N"; VP remains the final fallback. Newcomers sorts
+  symmetrically (largest min lock id first). Upgrade path noted in-code:
+  rollups voters carry exact `first_lock_ts` when non-null.
+- Bribe Earners card → **"Top Bribers"** by default: all-time bribe providers
+  from `tla-core/tla-voting/events/rollups.json` (schema 6), top 5 +
+  show-all expander, personRow visual language, registry-first naming
+  (roster displayName + walletBadges → rollup `label` in purple → short
+  address). Old pending-rewards view preserved behind the **Earners** toggle.
+- **Banner is now MEASURED, not worded** (supersedes Rev 4's "board banner
+  states the direct-only universe" and the planned "contract-initiated
+  bribes" rewording): it renders live from the rollup — briber count,
+  attributed-event count since first bribe, and the bribe_ledger's
+  attributed share of lifetime LUNA flow (currently 1.0%; jumps
+  automatically when the rollup rebuilds over the v6.1 + FCD-re-derived
+  events). Tooltip states the honest rule: unattributed flow is counted in
+  the ledger but never merged into any briber's row.
+- Unpriced honesty: no historical price record → "unpriced" chip with
+  chain-exact counts; USD at placement primary, at-build value on hover.
+
+### tla-stats.html
+- Epoch Bribes modal gains **"All-Time Top Bribers"**: sortable
+  (at placement / today value / most active), per-briber `<details>` rows
+  expanding to by-token and by-pool breakdowns (pool names resolved via
+  `gauge_pool_id` against store.pools, short-key fallback). Fully
+  self-contained (own fetch/cache/naming) for re-homing into the
+  restructured Rankings tab.
+
+### Timing notes (data-layer, recorded in tla-core CHANGES_PENDING 07-18)
+- The deployed rollup predates today's data work: labels show as addresses
+  and the FCD-recovered bribers are absent until the next rollups rebuild
+  (Sunday self-heal or manual reconcile) — the pages need no change when it
+  lands; the board and banner update themselves.
+- PD's two known governance-bribe txs sit inside capture gaps (prop 247
+  pre-forward-capture; prop 250 in the 21.81M–21.91M prune window), so PD
+  appears on the board after the gap backfill or its next bribe — the
+  amounts are already in the state ledger and therefore in the banner's
+  unattributed share. Honest by construction.
+
 ## Rev 4 — 2026-07-17
 
 Top Bribers board — first UI consumer of the tla-voting rollups **schema 6**
