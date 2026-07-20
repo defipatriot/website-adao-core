@@ -5,6 +5,38 @@ Newest revisions on top. Times are UTC.
 
 ---
 
+## Rev 5.3 — 2026-07-20 (GO-LIVE)
+
+- **Promotion:** test.html → **tla-stats.html** (its nav was already built
+  with data-page="tla-stats"); test2.html → **member-portfolio.html** (new
+  canonical URL). All cross-links repointed (0 test/test2 refs remain).
+  Prior tla-stats.html preserved verbatim as **tla-stats-legacy.html**
+  (holds the Epoch Bribes all-time deep-dive pending its re-home).
+- **Volume root cause CLOSED:** the new stats page has its OWN epoch fetch
+  and lacked the boundary fallback — that's why the tile stayed blank after
+  Rev 5.1 patched only the legacy page. Fallback now applied here too.
+- **Analytics:** Vercel Web Analytics page views were already site-wide on
+  every page; added CUSTOM EVENTS — board_expand (per board),
+  bribe_board_mode (toggle), portfolio_view / portfolio_save. Events
+  surface on Vercel Pro; no-op harmlessly on Hobby.
+- After committing: test.html / test2.html can be deleted or kept as
+  staging copies — nothing links to them anymore.
+
+## Rev 5.2 — 2026-07-20
+
+- test.html: `boardExpander` now reveals in CHUNKS — top 5, then +10 per
+  click with a hidden-count on the button and "collapse to top 5" at the
+  bottom (boards run 200+ deep; all-at-once was a wall). Top Bribers
+  all-time board unified onto the shared expander (custom one removed).
+- test2.html (Member Portfolio): VP rank now carries its scope — "of aDAO +
+  allies" with a tooltip pointing at the TLA-wide Voting Leaders board.
+  Resolves the "#1 here, #4 there" confusion: the participants feed ranks
+  aDAO members + registered allies only; both numbers are correct.
+- tla-stats volume: no page change needed — the epoch-boundary fallback
+  (Rev 5.1) is committed and the page's epoch table resolves 195 → falls
+  back to the live epoch-194 file; "still blank" = stale deploy/browser
+  cache, and the roller writes epoch-195.json nightly at ~23:50 UTC.
+
 ## Rev 5 — 2026-07-18
 
 Top Bribers board REBUILT and committed (the Rev 4 files never reached the
