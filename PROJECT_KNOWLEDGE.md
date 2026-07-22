@@ -94,6 +94,35 @@ tla-core/.github/scripts/tla-voting/harvest-distributions.js).
 
 ---
 
+## 📌 State addendum — 2026-07-21 (July arc)
+
+- **Site LIVE at canonical URLs:** `tla-stats.html` (was test.html) and
+  `member-portfolio.html` (was test2.html); legacy stats preserved as
+  `tla-stats-legacy.html`. Vercel page views site-wide + custom events
+  (board_expand, bribe_board_mode, portfolio_view/save; Pro to surface).
+- **Voting capture:** org-tla-voting **2.3.1** (v6.1): governance-executed
+  bribes captured (collision-aware msg_index; dynamic `dao_attr` attribution
+  — exactly one dao attr → that DAO core is the briber, else msg_target; a
+  new DAO can never be absorbed into another's label). Gate 116/116 on the
+  PD fixtures (prop 250 = 34,763.53 LUNA net; prop 247 = 37,912.49). FCD
+  re-derive recovered 2,640 contract-initiated bribes to genesis. PD's LUNA
+  stays honestly unattributed (capture gaps) until registry backfill.
+- **votion-positions v1.1.0** (cron-scripts): discovery = org address-catalog
+  ∪ deposit-events, one balances sweep, MEASURED completeness
+  (`supply_coverage_pct`), real `total_tvl_usd` + `discovered_holders_usd`,
+  schema 2. Hard-won facts: public LCD tx_search retention ~2–3 weeks;
+  `denom_owners` NOT served by publicnode or phoenix-lcd.
+- **Ops doctrine additions:** crons must not die on a single GitHub 5xx at
+  publish (retry hardening queued — the 07-20 outage killed 10 crons at the
+  PUT while capture succeeded everywhere). Old/new cron pairs co-running;
+  retire per parallel-run doctrine only after duty ports (epoch-aggregation
+  → org stack is the prerequisite for retiring astroport-snapshot).
+- **Portfolio Arc queue:** VP model audit (tile 1.31M vs banner 1.18M→1.20M),
+  APR convention + price-source audit (Eris arbLUNA ~$0.12 vs hub-ratio
+  ~$0.055), SPEC-portfolio-pnl (flows × price-history), design pass.
+
+---
+
 ## Project basics
 
 - **Owner:** defipatriot — council member of The Alliance DAO (aDAO)

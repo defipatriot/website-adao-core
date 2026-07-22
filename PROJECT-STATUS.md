@@ -1,4 +1,4 @@
-# PROJECT STATUS — TLA Stats (as of 2026-06-25)
+# PROJECT STATUS — TLA Stats (as of 2026-07-21)
 
 The single snapshot of where everything stands. Read this first when picking up
 work. Pairs with PROJECT-DIRECTION.md (the roadmap) and CHANGELOG.md (the history).
@@ -6,6 +6,22 @@ work. Pairs with PROJECT-DIRECTION.md (the roadmap) and CHANGELOG.md (the histor
 ---
 
 ## 🟢 LIVE & VERIFIED (committed, running, confirmed in production)
+
+### July arc — briber board → SITE GO-LIVE → votion fix (2026-07-15 → 07-21)
+The public surface is LIVE at canonical URLs: **tla-stats.html** (restructured
+page: chunked-expander leaderboards, Top Bribers with MEASURED banner, lock-#
+OG tiebreak, volume epoch-fallback) and **member-portfolio.html** (rank scope
+label, LIVE Votion positions card with coverage honesty guard); legacy stats
+preserved as tla-stats-legacy.html. Data layer: org-tla-voting **2.3.1**
+(v6.1 — governance-bribe capture + dao_attr attribution, gate 116/116 on PD
+fixture 402AE7B1…), FCD re-derive recovered **2,640 contract-initiated bribes
+to TLA genesis** (rollup schema 6, wallets.json labels live on the board).
+votion-positions **v1.1.0** fixed tx-retention-blind holder discovery
+(catalog-union sweep, measured completeness, real TVL — 18 holders surfaced,
+fixture-verified). Full trail: tla-core CHANGES_PENDING (07-17→07-21) +
+tla-log.md Rev 4–5.5. **Next (Portfolio Arc):** VP model audit (tile 1.31M vs
+banner 1.18M), APR/price-source audit, SPEC-portfolio-pnl, design pass; then
+SPEC-landing-pulse, 5xx publish-retry hardening, old-cron retirement ledger.
 
 ### tla-core unified migration — foundation crons (2026-06-25)
 First who/what/price modules live in the unified `tla-core` repo (+ `fuel/` pilot):

@@ -5,6 +5,38 @@ Newest revisions on top. Times are UTC.
 
 ---
 
+## Rev 5.5 — 2026-07-21
+
+- **Votion card now fully live end-to-end:** the cron-side discovery fix
+  (votion-positions v1.1.0, cron-scripts repo) shipped and its first
+  production run surfaced 18 holders (was 2) with real vault TVL $35,105.
+  DeFi_Patriot's two MAX positions verified in the published feed to the
+  Eris fixture (1,225.5 ampLUNA / 4,363.9 arbLUNA — drift = vault
+  auto-compounding). No page changes were needed: the Rev 5.4 card + honesty
+  guard render the corrected feed as designed (coverage chip shows the
+  measured %, e.g. arbLUNA-MAX 3.5% — the rest is non-community whales).
+
+## Rev 5.4 — 2026-07-20
+
+- **member-portfolio.html: Votion Positions LIVE.** The "not captured yet"
+  explainer was outdated — the votion-positions feed already publishes
+  per-holder rows (schema 1: vtoken balance, underlying LST, USD,
+  share-of-vault %, implied VP). Card now renders the viewed address's
+  positions across all vaults, sorted by USD, with a totals line
+  (Σ USD · Σ implied VP) and capture date. Implied VP stays in the card —
+  NOT merged into the VP tile (that splice waits for the daily archive per
+  SPEC-portfolio-tracker step 1). Empty state is honest and contextual:
+  "No Votion positions for this address · N vaults · $TVL · captured DATE".
+  Portfolio-value tile subtitle ("excludes Votion & NFTs") unchanged — still true.
+- **Discovery honesty guard (same commit):** the card immediately exposed an
+  UPSTREAM defect — the feed's discovered holders cover only ~2.5% of vtoken
+  supply (147K arbLUNA-MAX vtokens, 0.6% seen) while every vault claims
+  holder_discovery_complete:true. The page now computes found-balance vs
+  supply coverage: below 90%, the empty state says "no position FOUND —
+  discovery sees only X% of vault tokens, absence isn't proof of absence,"
+  and populated views carry a "discovery N%" chip. Cron-side discovery fix
+  queued (votion-positions source needed next session).
+
 ## Rev 5.3 — 2026-07-20 (GO-LIVE)
 
 - **Promotion:** test.html → **tla-stats.html** (its nav was already built
